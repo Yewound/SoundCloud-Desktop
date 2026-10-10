@@ -1,6 +1,13 @@
 import { usePlayerStore } from '../../stores/player';
+import { useSettingsStore } from '../../stores/settings';
 import { useTogetherStore } from '../../stores/together';
-import { getCurrentTime, isTrackLoaded, setStartGate, subscribeSeek } from '../audio';
+import {
+  getCurrentTime,
+  isTrackLoaded,
+  setRoomCrossfade,
+  setStartGate,
+  subscribeSeek,
+} from '../audio';
 import { roomsApi, type Timed } from './api';
 import { positionAt } from './clock';
 import {
@@ -47,7 +54,8 @@ export function attachHost(): RoomRole {
       const update = typeof next === 'function' ? next() : next;
       if (!code || disposed || !update) return null;
       try {
-        const timed = await roomsApi.playback(code, update);
+        const crossfadeSec = useSettingsStore.getState().crossfadeSec;
+        const timed = await roomsApi.playback(code, { ...update, crossfadeSec });
         acceptTimed(timed);
         return timed;
       } catch {
@@ -148,9 +156,13 @@ export function attachHost(): RoomRole {
       publish();
     }
   });
+  const stopSettings = useSettingsStore.subscribe((state, prev) => {
+    if (state.crossfadeSec !== prev.crossfadeSec) publish();
+  });
   const stopSeek = subscribeSeek(publish);
   const timer = setInterval(heartbeat, HEARTBEAT_MS);
   setStartGate(gate);
+  setRoomCrossfade(true);
   publish();
 
   return {
@@ -158,9 +170,11 @@ export function attachHost(): RoomRole {
     detach: () => {
       disposed = true;
       stopPlayer();
+      stopSettings();
       stopSeek();
       clearInterval(timer);
       setStartGate(null);
+      setRoomCrossfade(false);
       useTogetherStore.setState({ waitingFor: 0, sync: 'synced' });
     },
   };

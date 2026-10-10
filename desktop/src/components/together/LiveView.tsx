@@ -5,6 +5,7 @@ import { Check, Copy, Power } from '../../lib/icons';
 import { leaveSession, shareText } from '../../lib/together/session';
 import type { RoomView } from '../../lib/together/types';
 import { getArtistDisplay, getDisplayTitle } from '../../lib/track-display';
+import { type RoomCrossfade, useSettingsStore } from '../../stores/settings';
 import { isRoomHost, useTogetherStore } from '../../stores/together';
 import { MemberList } from './MemberList';
 import { SyncBadge } from './SyncBadge';
@@ -92,6 +93,35 @@ function NowShared({ room, host }: { room: RoomView; host: boolean }) {
   );
 }
 
+const CROSSFADE_MODES: RoomCrossfade[] = ['mine', 'room'];
+
+function CrossfadeChoice() {
+  const { t } = useTranslation();
+  const mode = useSettingsStore((s) => s.roomCrossfade);
+  const setMode = useSettingsStore((s) => s.setRoomCrossfade);
+  return (
+    <div className="flex items-center justify-between gap-2 px-1">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/35">
+        {t('together.crossfade')}
+      </p>
+      <div className="flex rounded-lg bg-white/[0.05] p-0.5">
+        {CROSSFADE_MODES.map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setMode(value)}
+            className={`cursor-pointer rounded-md px-2.5 py-1 text-[11.5px] font-semibold transition-all duration-200 ${
+              mode === value ? 'bg-white/[0.14] text-white' : 'text-white/45 hover:text-white/70'
+            }`}
+          >
+            {t(value === 'mine' ? 'together.crossfadeMine' : 'together.crossfadeRoom')}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function LiveView({ room }: { room: RoomView }) {
   const { t } = useTranslation();
   const host = useTogetherStore(isRoomHost);
@@ -114,6 +144,7 @@ export function LiveView({ room }: { room: RoomView }) {
 
       <CodeCard code={room.code} />
       <NowShared room={room} host={host} />
+      {!host && <CrossfadeChoice />}
 
       <div>
         <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/35">

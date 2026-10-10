@@ -2098,6 +2098,9 @@
     "listeners_other": "{{count}} слушателя",
     "end": "Завершить сессию",
     "leave": "Выйти из сессии",
+    "crossfade": "Кроссфейд",
+    "crossfadeMine": "Мой",
+    "crossfadeRoom": "Хоста",
     "member": {
       "host": "Ведущий",
       "you": "Вы",

@@ -20,6 +20,7 @@ export type DiscordRpcMode = 'track' | 'artist' | 'activity';
 export type StreamQuality = 'auto' | 'sq' | 'hq';
 export type SkipStuckAfterSec = 0 | 10 | 20 | 30 | 60;
 export type SearchPlayback = 'similar' | 'results';
+export type RoomCrossfade = 'mine' | 'room';
 export const CROSSFADE_MAX_SEC = 12;
 export type DiscordRpcStatus = 'app' | 'track' | 'artist';
 export type ObsTheme = 'card' | 'minimal' | 'vinyl';
@@ -109,6 +110,7 @@ export interface SettingsState {
   streamQuality: StreamQuality;
   skipStuckAfterSec: SkipStuckAfterSec;
   crossfadeSec: number;
+  roomCrossfade: RoomCrossfade;
   autoplay: boolean;
   searchPlayback: SearchPlayback;
   sidebarCollapsed: boolean;
@@ -186,6 +188,7 @@ export interface SettingsState {
   setStreamQuality: (quality: StreamQuality) => void;
   setSkipStuckAfterSec: (seconds: SkipStuckAfterSec) => void;
   setCrossfadeSec: (seconds: number) => void;
+  setRoomCrossfade: (mode: RoomCrossfade) => void;
   setAutoplay: (enabled: boolean) => void;
   setSearchPlayback: (mode: SearchPlayback) => void;
   toggleSidebar: () => void;
@@ -276,6 +279,7 @@ const DEFAULTS = {
   streamQuality: 'auto' as StreamQuality,
   skipStuckAfterSec: 0 as SkipStuckAfterSec,
   crossfadeSec: 0,
+  roomCrossfade: 'room' as RoomCrossfade,
   autoplay: true,
   searchPlayback: 'similar' as SearchPlayback,
   sidebarCollapsed: false,
@@ -395,6 +399,7 @@ export const useSettingsStore = create<SettingsState>()(
       setSkipStuckAfterSec: (skipStuckAfterSec) => set({ skipStuckAfterSec }),
       setCrossfadeSec: (seconds) =>
         set({ crossfadeSec: Math.min(CROSSFADE_MAX_SEC, Math.max(0, Math.round(seconds))) }),
+      setRoomCrossfade: (roomCrossfade) => set({ roomCrossfade }),
       setAutoplay: (autoplay) => set({ autoplay }),
       setSearchPlayback: (searchPlayback) => set({ searchPlayback }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -573,6 +578,7 @@ export const useSettingsStore = create<SettingsState>()(
         streamQuality: s.streamQuality,
         skipStuckAfterSec: s.skipStuckAfterSec,
         crossfadeSec: s.crossfadeSec,
+        roomCrossfade: s.roomCrossfade,
         autoplay: s.autoplay,
         searchPlayback: s.searchPlayback,
         sidebarCollapsed: s.sidebarCollapsed,

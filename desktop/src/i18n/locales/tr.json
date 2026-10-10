@@ -1854,6 +1854,9 @@
     "listeners_other": "{{count}} dinleyici",
     "end": "Oturumu bitir",
     "leave": "Oturumdan ayrıl",
+    "crossfade": "Gecis efekti",
+    "crossfadeMine": "Benim",
+    "crossfadeRoom": "Sahibin",
     "member": {
       "host": "Sunucu",
       "you": "Sen",

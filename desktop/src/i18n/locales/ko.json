@@ -1997,6 +1997,9 @@
     "listeners_other": "리스너 {{count}}명",
     "end": "세션 종료",
     "leave": "세션 나가기",
+    "crossfade": "크로스페이드",
+    "crossfadeMine": "내 설정",
+    "crossfadeRoom": "호스트",
     "member": {
       "host": "호스트",
       "you": "나",

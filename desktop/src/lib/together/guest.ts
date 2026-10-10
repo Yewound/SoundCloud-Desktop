@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import i18n from '../../i18n';
 import { setPlaybackDirector, usePlayerStore } from '../../stores/player';
+import { useSettingsStore } from '../../stores/settings';
 import { type TogetherSync, useTogetherStore } from '../../stores/together';
 import {
   alignTo,
@@ -9,18 +10,21 @@ import {
   getDuration,
   isTrackLoaded,
   replayCurrent,
+  requestCrossfade,
   setStartGate,
 } from '../audio';
 import { roomsApi } from './api';
 import { positionAt } from './clock';
 import { acceptTimed, type RoomRole, serverTime, sleep, waitForRoom } from './link';
-import type { RoomView } from './types';
+import type { RoomPlayback, RoomView } from './types';
 
 const DRIFT_TOLERANCE_SEC = 0.35;
 const ALIGN_COOLDOWN_MS = 2_500;
 const DRIFT_CHECK_MS = 1_000;
 const GATE_TIMEOUT_MS = 15_000;
 const NOTICE_COOLDOWN_MS = 3_000;
+const TAIL_SLACK_SEC = 4;
+const TAIL_CUT_MS = 50;
 
 function playback() {
   return useTogetherStore.getState().room?.playback ?? null;
@@ -33,6 +37,19 @@ function hostName(): string {
 
 function setSync(sync: TogetherSync): void {
   if (useTogetherStore.getState().sync !== sync) useTogetherStore.setState({ sync });
+}
+
+function crossfadeSec(pb: RoomPlayback): number {
+  const { crossfadeSec: mine, roomCrossfade } = useSettingsStore.getState();
+  return roomCrossfade === 'room' ? (pb.crossfadeSec ?? mine) : mine;
+}
+
+function requestTailFade(pb: RoomPlayback): void {
+  const player = usePlayerStore.getState();
+  if (!player.isPlaying || !isTrackLoaded()) return;
+  const hostSec = pb.crossfadeSec ?? 0;
+  if (getDuration() - getCurrentTime() > hostSec + TAIL_SLACK_SEC) return;
+  requestCrossfade(Math.max(TAIL_CUT_MS, crossfadeSec(pb) * 1000));
 }
 
 export function attachGuest(): RoomRole {
@@ -84,6 +101,7 @@ export function attachGuest(): RoomRole {
     const playing = pb.status !== 'paused';
     if (player.currentTrack?.urn !== pb.trackUrn) {
       setSync('catching-up');
+      requestTailFade(pb);
       usePlayerStore.setState({
         currentTrack: pb.track,
         queue: [pb.track],
@@ -91,6 +109,7 @@ export function attachGuest(): RoomRole {
         originalQueue: null,
         isPlaying: playing,
       });
+      requestCrossfade(0);
       return;
     }
     if (player.isPlaying !== playing) {

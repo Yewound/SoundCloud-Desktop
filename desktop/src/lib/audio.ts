@@ -75,6 +75,7 @@ let lastEndedUrn: string | null = null;
 let pendingCrossfadeMs = 0;
 let crossfadeGen = -1;
 let crossfadeCheckedGen = -1;
+let roomCrossfade = false;
 let startGate: ((urn: string) => Promise<number | null>) | null = null;
 let pendingStart: {urn: string; at: number} | null = null;
 const listeners = new Set<() => void>();
@@ -135,6 +136,14 @@ export function isTrackLoaded(): boolean {
 
 export function setStartGate(gate: ((urn: string) => Promise<number | null>) | null): void {
   startGate = gate;
+}
+
+export function setRoomCrossfade(enabled: boolean): void {
+  roomCrossfade = enabled;
+}
+
+export function requestCrossfade(ms: number): void {
+  pendingCrossfadeMs = ms;
 }
 
 export function subscribeSeek(listener: (seconds: number) => void): () => void {
@@ -753,7 +762,7 @@ function upcomingTrack(): Track | null {
 
 function canCrossfade(): boolean {
   const state = usePlayerStore.getState();
-  return state.isPlaying && state.repeat !== 'one' && !state.abLoop && startGate == null;
+  return state.isPlaying && state.repeat !== 'one' && !state.abLoop && (startGate == null || roomCrossfade);
 }
 
 function maybeStartCrossfade() {

@@ -19,6 +19,7 @@ export interface RoomPlayback {
   positionMs: number;
   at: number;
   rate: number;
+  crossfadeSec?: number;
 }
 
 export interface RoomView {
@@ -39,6 +40,7 @@ export interface PlaybackUpdate {
   positionMs?: number;
   leadMs?: number;
   rate?: number;
+  crossfadeSec?: number;
 }
 
 export interface Profile {

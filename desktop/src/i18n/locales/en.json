@@ -2042,6 +2042,9 @@
     "listeners_other": "{{count}} listeners",
     "end": "End session",
     "leave": "Leave session",
+    "crossfade": "Crossfade",
+    "crossfadeMine": "Mine",
+    "crossfadeRoom": "Host's",
     "member": {
       "host": "Host",
       "you": "You",
