@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {useTranslation} from 'react-i18next';
+import {scrollMainToTop} from '../components/layout/ScrollReset';
 import {SETTINGS_CATEGORIES, type SettingsCategoryId} from '../components/settings/registry';
 import {SettingsFrame} from '../components/settings/SettingsFrame';
 import {SettingsNav} from '../components/settings/SettingsNav';
@@ -12,13 +13,17 @@ export function Settings() {
   const { t } = useTranslation();
     const aura = useViewerAura();
     const [active, setActive] = useState<SettingsCategoryId>('general');
+    const selectCategory = (id: SettingsCategoryId) => {
+        setActive(id);
+        scrollMainToTop();
+    };
     const category = SETTINGS_CATEGORIES.find((c) => c.id === active) ?? SETTINGS_CATEGORIES[0];
     const Body = category.Body;
 
   return (
       <SettingsFrame aura={aura}>
           <div className="max-w-[1080px] mx-auto px-6 md:px-8 pt-8 pb-32 flex gap-8">
-              <SettingsNav categories={SETTINGS_CATEGORIES} active={active} onChange={setActive}/>
+              <SettingsNav categories={SETTINGS_CATEGORIES} active={active} onChange={selectCategory}/>
               <div className="flex-1 min-w-0">
                   <header className="mb-7 flex items-center gap-4">
                       <div

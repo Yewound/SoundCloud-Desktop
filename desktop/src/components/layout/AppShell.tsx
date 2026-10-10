@@ -25,6 +25,7 @@ import {useAppContextMenu} from './AppContextMenu';
 import {CoverTint} from './CoverTint';
 import {GlobalBindingsGroup} from './GlobalBindingsGroup';
 import {NowPlayingBar} from './NowPlayingBar';
+import {ScrollReset} from './ScrollReset';
 import {Sidebar} from './Sidebar';
 import {Titlebar} from './Titlebar';
 
@@ -468,6 +469,7 @@ export const AppShell = React.memo(() => {
         <Sidebar />
           {/* pb clears the floating now-playing dock, which overlays (doesn't push) content */}
           <main ref={mainRef} data-ui="main" className="flex-1 overflow-y-auto overflow-x-hidden pb-[136px]">
+          <ScrollReset target={mainRef} />
           <StableOutlet />
         </main>
       </div>
