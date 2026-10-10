@@ -6,6 +6,7 @@ import './qr-code.css';
 interface QrCodeProps {
   payload: string;
   size?: number;
+  margin?: number;
 }
 
 const QUIET_ZONE_PX = 24;
@@ -25,7 +26,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-export const QrCode = React.memo(({ payload, size = 280 }: QrCodeProps) => {
+export const QrCode = React.memo(({ payload, size = 280, margin = QUIET_ZONE_PX }: QrCodeProps) => {
   const accent = useSettingsStore((s) => s.accentColor);
   const ref = useRef<HTMLDivElement>(null);
   const qrRef = useRef<QRCodeStyling | null>(null);
@@ -40,14 +41,14 @@ export const QrCode = React.memo(({ payload, size = 280 }: QrCodeProps) => {
       height: size,
       type: 'canvas',
       data: payload,
-      margin: QUIET_ZONE_PX,
+      margin,
       qrOptions: { errorCorrectionLevel: 'M' },
       backgroundOptions: { color: '#ffffff' },
       dotsOptions: { type: 'square', color: '#000000' },
       cornersSquareOptions: { type: 'square', color: '#000000' },
       cornersDotOptions: { type: 'square', color: '#000000' },
     }),
-    [payload, size],
+    [payload, size, margin],
   );
 
   useEffect(() => {

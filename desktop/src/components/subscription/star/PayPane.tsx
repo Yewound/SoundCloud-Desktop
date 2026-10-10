@@ -69,7 +69,7 @@ export const PayPane = memo(function PayPane({
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
       {isSbp ? (
         <div className="shrink-0 self-center rounded-[13px] bg-white p-2.5">
-          <QrCode payload={checkout.sbp_qr as string} size={132} />
+          <QrCode payload={checkout.sbp_qr as string} size={160} margin={12} />
         </div>
       ) : null}
 
