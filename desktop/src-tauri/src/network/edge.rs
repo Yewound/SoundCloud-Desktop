@@ -744,14 +744,6 @@ fn transport_failure(tier: Tier, status: u16, content_type: &str) -> bool {
 pub fn expand_upstreams(upstreams: &[String]) -> Vec<Hop> {
     let mut out = Vec::new();
     for u in upstreams {
-        if u == "direct" {
-            out.push(Hop {
-                url: u.clone(),
-                tier: Tier::Direct,
-                origin: String::new(),
-            });
-            continue;
-        }
         let hops = plan(u);
         if hops.is_empty() {
             out.push(Hop {

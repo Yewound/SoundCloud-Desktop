@@ -230,7 +230,7 @@ export function WallpaperSearch({onPick}: { onPick: (url: string) => Promise<voi
                             className="group relative aspect-video overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03] cursor-pointer"
                         >
                             <img
-                                src={toScproxyUrl(hit.thumb, {direct: true})}
+                                src={toScproxyUrl(hit.thumb)}
                                 alt=""
                                 loading="lazy"
                                 decoding="async"

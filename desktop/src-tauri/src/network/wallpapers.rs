@@ -1,19 +1,23 @@
 //! Online wallpaper search across several engines (Wallhaven / Pinterest /
 //! Konachan / Safebooru). Lives in Rust because Wallhaven and Konachan reject
 //! a non-browser `User-Agent` with 403, and the webview's plugin-http cannot
-//! reliably set that forbidden header. Here reqwest has full control. The
-//! frontend gets a compact, already-normalized list — response shapes are never
-//! trusted blindly, every field is guarded.
+//! reliably set that forbidden header. Every request goes out through the
+//! images proxy (direct, then relays, then pro), same as artwork, so the
+//! engines stay reachable where they are blocked. The frontend gets a compact,
+//! already-normalized list — response shapes are never trusted blindly, every
+//! field is guarded.
 //!
 //! Pagination is unified behind an opaque `cursor`: page-based engines encode
 //! the next page number, Pinterest carries its bookmark token; `None` = done.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use wreq::header::{ACCEPT, HeaderMap, HeaderName, HeaderValue, USER_AGENT};
 
-/// Browser User-Agent. Wallhaven and Konachan 403 anything else; the proxy's
-/// `direct` mode reuses this for image fetches too.
-pub const BROWSER_UA: &str =
+use crate::network::image_cache;
+
+/// Browser User-Agent. Wallhaven and Konachan 403 anything else.
+const BROWSER_UA: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const BOORU_LIMIT: usize = 24;
 const PINTEREST_PAGE: u32 = 25;
@@ -62,18 +66,23 @@ pub async fn wallpaper_search(args: WallpaperQuery) -> Result<WallpaperSearchRes
 
 // ── shared helpers ──────────────────────────────────────────
 
-async fn send_json(req: wreq::RequestBuilder) -> Result<Value, String> {
-    let resp = req
-        .header("User-Agent", BROWSER_UA)
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| format!("request: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("http {}", resp.status().as_u16()));
+async fn get_json(
+    base: &str,
+    params: &[(&str, String)],
+    extra: &[(&'static str, &'static str)],
+) -> Result<Value, String> {
+    let url = url::Url::parse_with_params(base, params).map_err(|e| format!("url: {e}"))?;
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static(BROWSER_UA));
+    headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+    for (name, value) in extra {
+        headers.insert(HeaderName::from_static(name), HeaderValue::from_static(value));
     }
-    let body = resp.text().await.map_err(|e| format!("body: {e}"))?;
-    serde_json::from_str(&body).map_err(|e| format!("json: {e}"))
+    let (status, body) = image_cache::relayed(url.as_str(), &headers).await;
+    if !(200..300).contains(&status) {
+        return Err(format!("http {status}"));
+    }
+    serde_json::from_slice(&body).map_err(|e| format!("json: {e}"))
 }
 
 /// String field, or "" when missing / not a string.
@@ -166,12 +175,7 @@ async fn search_wallhaven(a: &WallpaperQuery) -> Result<WallpaperSearchResult, S
         params.push(("colors", c.to_string()));
     }
 
-    let json = send_json(
-        crate::network::dns::client()
-            .get("https://wallhaven.cc/api/v1/search")
-            .query(&params),
-    )
-        .await?;
+    let json = get_json("https://wallhaven.cc/api/v1/search", &params, &[]).await?;
 
     let mut items = Vec::new();
     if let Some(data) = json.get("data").and_then(Value::as_array) {
@@ -218,12 +222,12 @@ async fn search_konachan(a: &WallpaperQuery) -> Result<WallpaperSearchResult, St
         tags.push("order:score".to_string());
     }
 
-    let json = send_json(crate::network::dns::client().get("https://konachan.com/post.json").query(&[
+    let params = [
         ("limit", BOORU_LIMIT.to_string()),
         ("page", page.to_string()),
         ("tags", tags.join(" ")),
-    ]))
-        .await?;
+    ];
+    let json = get_json("https://konachan.com/post.json", &params, &[]).await?;
 
     let mut items = Vec::new();
     if let Some(arr) = json.as_array() {
@@ -254,7 +258,7 @@ async fn search_safebooru(a: &WallpaperQuery) -> Result<WallpaperSearchResult, S
         tags.push("sort:score:desc".to_string());
     }
 
-    let json = send_json(crate::network::dns::client().get("https://safebooru.org/index.php").query(&[
+    let params = [
         ("page", "dapi".to_string()),
         ("s", "post".to_string()),
         ("q", "index".to_string()),
@@ -262,8 +266,8 @@ async fn search_safebooru(a: &WallpaperQuery) -> Result<WallpaperSearchResult, S
         ("limit", BOORU_LIMIT.to_string()),
         ("pid", (page - 1).to_string()),
         ("tags", tags.join(" ")),
-    ]))
-        .await?;
+    ];
+    let json = get_json("https://safebooru.org/index.php", &params, &[]).await?;
 
     // Bare array of posts, or {post:[…]} / {} when empty.
     let empty: Vec<Value> = Vec::new();
@@ -302,11 +306,10 @@ async fn search_pinterest(a: &WallpaperQuery) -> Result<WallpaperSearchResult, S
     let data = serde_json::json!({ "options": options, "context": {} }).to_string();
     let source = format!("/search/pins/?q={query}");
 
-    let json = send_json(
-        crate::network::dns::client()
-            .get("https://www.pinterest.com/resource/BaseSearchResource/get/")
-            .query(&[("source_url", source), ("data", data)])
-            .header("x-pinterest-pws-handler", "www/search/[scope].js"),
+    let json = get_json(
+        "https://www.pinterest.com/resource/BaseSearchResource/get/",
+        &[("source_url", source), ("data", data)],
+        &[("x-pinterest-pws-handler", "www/search/[scope].js")],
     )
         .await?;
 
@@ -365,6 +368,10 @@ mod tests {
     use super::*;
 
     fn query(source: &str, q: &str) -> WallpaperQuery {
+        let _ = image_cache::STATE.set(image_cache::ImageCache {
+            dir: std::env::temp_dir(),
+            http_client: wreq::Client::new(),
+        });
         WallpaperQuery {
             source: source.to_string(),
             query: q.to_string(),

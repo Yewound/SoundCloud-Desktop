@@ -78,17 +78,6 @@ pub fn install(builder: wreq::ClientBuilder) -> wreq::ClientBuilder {
     builder.dns_resolver(Arc::new(shared().clone()))
 }
 
-pub fn client() -> wreq::Client {
-    static CLIENT: OnceLock<wreq::Client> = OnceLock::new();
-    CLIENT
-        .get_or_init(|| {
-            crate::network::system_proxy::follow(wreq::Client::builder())
-                .build()
-                .unwrap_or_default()
-        })
-        .clone()
-}
-
 pub async fn lookup(host: &str) -> Result<Vec<IpAddr>, DnsError> {
     shared().lookup(host).await
 }

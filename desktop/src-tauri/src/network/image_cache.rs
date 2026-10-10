@@ -7,6 +7,7 @@ use futures_util::stream::{FuturesUnordered, StreamExt};
 use sha2::{Digest, Sha256};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
+use wreq::header::HeaderMap;
 
 use crate::app::diagnostics;
 use crate::network::edge::{self, Hop};
@@ -19,6 +20,7 @@ use crate::shared::file_lru::{last_used, mark_used};
 pub mod maintenance;
 
 const SOURCE: &str = "image";
+const UPSTREAM: &str = "https://images.scnative.space";
 const HEDGE_DELAY: Duration = Duration::from_millis(300);
 
 /// Permanent on-disk image cache.
@@ -194,7 +196,13 @@ pub async fn handle(encoded: &str) -> ImageResult {
 
     let encoded_for_header = BASE64.encode(target_url.as_bytes());
     let hops = edge::expand_upstreams(upstreams);
-    let (status, data) = first_delivered(&state.http_client, &hops, &encoded_for_header).await;
+    let (status, data) = first_delivered(
+        &state.http_client,
+        &hops,
+        &encoded_for_header,
+        &HeaderMap::new(),
+    )
+    .await;
 
     let content_type = if status == 200 && !data.is_empty() {
         sniff_content_type(&data).to_string()
@@ -219,13 +227,33 @@ pub async fn handle(encoded: &str) -> ImageResult {
     }
 }
 
-async fn first_delivered(client: &wreq::Client, hops: &[Hop], target: &str) -> (u16, Vec<u8>) {
+pub async fn relayed(target_url: &str, headers: &HeaderMap) -> (u16, Vec<u8>) {
+    let Some(state) = STATE.get() else {
+        return (503, Vec::new());
+    };
+    let hops = edge::expand_upstreams(&[UPSTREAM.to_string()]);
+    let target = BASE64.encode(target_url.as_bytes());
+    first_delivered(&state.http_client, &hops, &target, headers).await
+}
+
+async fn first_delivered(
+    client: &wreq::Client,
+    hops: &[Hop],
+    target: &str,
+    headers: &HeaderMap,
+) -> (u16, Vec<u8>) {
     let mut attempts = FuturesUnordered::new();
     let mut status = 502;
     let mut next = 0;
     while next < hops.len() || !attempts.is_empty() {
         if attempts.is_empty() {
-            attempts.push(fetch(client, &hops[next], Role::of_index(next), target));
+            attempts.push(fetch(
+                client,
+                &hops[next],
+                Role::of_index(next),
+                target,
+                headers,
+            ));
             next += 1;
         }
         tokio::select! {
@@ -234,7 +262,7 @@ async fn first_delivered(client: &wreq::Client, hops: &[Hop], target: &str) -> (
                 Err(failed) => status = failed,
             },
             () = tokio::time::sleep(HEDGE_DELAY), if next < hops.len() => {
-                attempts.push(fetch(client, &hops[next], Role::Hedge, target));
+                attempts.push(fetch(client, &hops[next], Role::Hedge, target, headers));
                 next += 1;
             }
         }
@@ -247,6 +275,7 @@ async fn fetch(
     hop: &Hop,
     role: Role,
     target: &str,
+    headers: &HeaderMap,
 ) -> Result<(u16, Vec<u8>), u16> {
     let started = Instant::now();
     let record = |outcome| paths::record(hop, role, outcome, started.elapsed(), SOURCE);
@@ -255,7 +284,10 @@ async fn fetch(
         hop.note(false);
         502u16
     };
-    let request = client.get(&hop.url).header("X-Target", target);
+    let request = client
+        .get(&hop.url)
+        .headers(headers.clone())
+        .header("X-Target", target);
     let response = request.send().await.map_err(failed)?;
     let status = response.status().as_u16();
     if !edge::hop_ok(hop, &response) {

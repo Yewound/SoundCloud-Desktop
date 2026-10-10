@@ -2,8 +2,9 @@ import {trackedInvoke as invoke} from './diagnostics';
 
 /** Online wallpaper search. The actual HTTP + JSON normalization lives in Rust
  *  (`network::wallpapers`) — Wallhaven and Konachan 403 a non-browser
- *  User-Agent, which the webview's plugin-http can't reliably set, so reqwest
- *  owns it. This module is just types, source metadata, and the invoke. */
+ *  User-Agent, which the webview's plugin-http can't reliably set, and the
+ *  requests have to ride the images proxy to work where the engines are
+ *  blocked. This module is just types, source metadata, and the invoke. */
 
 export type WallpaperSource = 'wallhaven' | 'pinterest' | 'konachan' | 'safebooru';
 export type WallpaperCategory = 'anime' | 'general' | 'people';

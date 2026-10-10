@@ -169,20 +169,10 @@ pub async fn proxy_request(encoded: &str) -> ProxyResult {
         let started = Instant::now();
         let role = Role::of_index(index);
         let record = |outcome| paths::record(&hop, role, outcome, started.elapsed(), SOURCE);
-        // `direct` = fetch the target ourselves with a browser User-Agent
-        // (hosts like wallhaven/konachan 403 a non-browser UA). Otherwise relay
-        // the request to the proxy upstream via the X-Target header.
-        let builder = if hop.url == "direct" {
-            state
-                .http_client
-                .get(target_url.as_str())
-                .header("User-Agent", crate::network::wallpapers::BROWSER_UA)
-        } else {
-            state
-                .http_client
-                .get(&hop.url)
-                .header("X-Target", &encoded_for_header)
-        };
+        let builder = state
+            .http_client
+            .get(&hop.url)
+            .header("X-Target", &encoded_for_header);
         let resp = match builder.send().await {
             Ok(r) => r,
             Err(error) => {

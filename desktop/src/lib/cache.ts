@@ -351,10 +351,10 @@ function extensionFromType(mime: string): string {
 }
 
 /** Скачивает картинку по URL и сохраняет в wallpapers/. Возвращает имя файла.
- *  Идём через локальный прокси в режиме `direct` — он фетчит с браузерным UA
- *  (Wallhaven/Konachan 403-ят не-браузер), webview-fetch так не умеет. */
+ *  Идём через локальный прокси: он тянет картинку через images, релеи и pro,
+ *  так что источник доступен и там, где он заблокирован. */
 export async function downloadWallpaper(url: string): Promise<string> {
-  const res = await fetch(toScproxyUrl(url, { direct: true }));
+  const res = await fetch(toScproxyUrl(url));
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   const ct = res.headers.get('content-type') ?? 'image/jpeg';
   const ext = extensionFromType(ct);
