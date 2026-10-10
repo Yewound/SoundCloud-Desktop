@@ -9,10 +9,13 @@ import {
   getDownloadProgress,
   getDuration,
   isTrackLoaded,
+  preloadTrack,
   replayCurrent,
   requestCrossfade,
   setStartGate,
 } from '../audio';
+import { isTrackBlocked } from '../blocked-artists';
+import { isUrnDisliked } from '../dislikes';
 import { roomsApi } from './api';
 import { positionAt } from './clock';
 import { acceptTimed, type RoomRole, serverTime, sleep, waitForRoom } from './link';
@@ -57,6 +60,7 @@ export function attachGuest(): RoomRole {
   let lastSignature = '';
   let lastAlign = 0;
   let lastNotice = 0;
+  let preloadedUrn = '';
   const savedRate = usePlayerStore.getState().playbackRate;
 
   function noticeHostLeads(): void {
@@ -90,8 +94,17 @@ export function attachGuest(): RoomRole {
     alignTo(expected);
   }
 
+  function preloadNext(pb: RoomPlayback): void {
+    const next = pb.nextTrack;
+    if (!next || next.urn === preloadedUrn) return;
+    preloadedUrn = next.urn;
+    if (isUrnDisliked(next.urn) || isTrackBlocked(next)) return;
+    preloadTrack(next);
+  }
+
   function follow(view: RoomView): void {
     const pb = view.playback;
+    preloadNext(pb);
     const signature = `${pb.trackUrn}|${pb.status}|${pb.positionMs}|${pb.at}|${pb.rate}`;
     if (signature === lastSignature) return;
     lastSignature = signature;

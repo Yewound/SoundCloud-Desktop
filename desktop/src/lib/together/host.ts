@@ -7,6 +7,7 @@ import {
   setRoomCrossfade,
   setStartGate,
   subscribeSeek,
+  upcomingTrack,
 } from '../audio';
 import { roomsApi, type Timed } from './api';
 import { positionAt } from './clock';
@@ -42,6 +43,10 @@ function currentUpdate(): PlaybackUpdate {
   };
 }
 
+function room() {
+  return useTogetherStore.getState().room;
+}
+
 export function attachHost(): RoomRole {
   let pending: string | null = null;
   let disposed = false;
@@ -55,7 +60,9 @@ export function attachHost(): RoomRole {
       if (!code || disposed || !update) return null;
       try {
         const crossfadeSec = useSettingsStore.getState().crossfadeSec;
-        const timed = await roomsApi.playback(code, { ...update, crossfadeSec });
+        const upcoming = upcomingTrack();
+        const nextTrack = upcoming ? roomTrack(upcoming) : undefined;
+        const timed = await roomsApi.playback(code, { ...update, crossfadeSec, nextTrack });
         acceptTimed(timed);
         return timed;
       } catch {
@@ -156,6 +163,13 @@ export function attachHost(): RoomRole {
       publish();
     }
   });
+  const stopQueue = usePlayerStore.subscribe((state, prev) => {
+    const changed =
+      state.queue !== prev.queue ||
+      state.queueIndex !== prev.queueIndex ||
+      state.repeat !== prev.repeat;
+    if (changed && upcomingTrack()?.urn !== room()?.playback.nextTrack?.urn) publish();
+  });
   const stopSettings = useSettingsStore.subscribe((state, prev) => {
     if (state.crossfadeSec !== prev.crossfadeSec) publish();
   });
@@ -170,6 +184,7 @@ export function attachHost(): RoomRole {
     detach: () => {
       disposed = true;
       stopPlayer();
+      stopQueue();
       stopSettings();
       stopSeek();
       clearInterval(timer);

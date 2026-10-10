@@ -754,7 +754,7 @@ function isCrossfadeLoading(): boolean {
   return crossfadeGen === loadGen && !hasTrack;
 }
 
-function upcomingTrack(): Track | null {
+export function upcomingTrack(): Track | null {
   const { queue, queueIndex, repeat } = usePlayerStore.getState();
   if (queueIndex + 1 < queue.length) return queue[queueIndex + 1];
   return repeat === 'all' && queue.length > 1 ? queue[0] : null;

@@ -16,6 +16,7 @@ export interface RoomPlayback {
   status: RoomStatus;
   track: Track | null;
   trackUrn: string | null;
+  nextTrack?: Track | null;
   positionMs: number;
   at: number;
   rate: number;
@@ -37,6 +38,7 @@ export interface PlaybackUpdate {
   status: RoomStatus;
   track?: Track | null;
   trackUrn?: string | null;
+  nextTrack?: Track | null;
   positionMs?: number;
   leadMs?: number;
   rate?: number;
