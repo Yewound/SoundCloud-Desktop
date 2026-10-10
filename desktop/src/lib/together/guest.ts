@@ -9,13 +9,11 @@ import {
   getDownloadProgress,
   getDuration,
   isTrackLoaded,
-  preloadTrack,
+  preloadUpcoming,
   replayCurrent,
   requestCrossfade,
   setStartGate,
 } from '../audio';
-import { isTrackBlocked } from '../blocked-artists';
-import { isUrnDisliked } from '../dislikes';
 import { roomsApi } from './api';
 import { positionAt } from './clock';
 import { acceptTimed, type RoomRole, serverTime, sleep, waitForRoom } from './link';
@@ -98,8 +96,7 @@ export function attachGuest(): RoomRole {
     const next = pb.nextTrack;
     if (!next || next.urn === preloadedUrn) return;
     preloadedUrn = next.urn;
-    if (isUrnDisliked(next.urn) || isTrackBlocked(next)) return;
-    preloadTrack(next);
+    preloadUpcoming(next);
   }
 
   function follow(view: RoomView): void {

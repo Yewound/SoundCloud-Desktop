@@ -2,7 +2,7 @@ import {listen} from '@tauri-apps/api/event';
 import {toast} from 'sonner';
 import i18n from '../i18n';
 import {useBlockedArtistsStore} from '../stores/blocked-artists';
-import type {Track, TrackScdMeta} from '../stores/player';
+import type {Track} from '../stores/player';
 import {playbackAllowed, usePlayerStore} from '../stores/player';
 import {useSettingsStore} from '../stores/settings';
 import {
@@ -1011,28 +1011,29 @@ listen<number>('media:seek-relative', (e) => {
 
 let preloadTimer: ReturnType<typeof setTimeout> | null = null;
 
+function preloadEntry(track: Track) {
+  const hq = isHqStreaming();
+  return {
+    urn: track.urn,
+    urls: streamFallbackUrls(track.urn, hq),
+    downloadUrls: downloadFallbackUrls(track.urn, hq),
+    storageUrls: buildStorageUrls(track.urn),
+    sessionId: getSessionId(),
+    hq,
+    durationMs: expectedDurationMs(track),
+    storageQuality: track._scd_meta?.storage_quality,
+  };
+}
+
+function preloadNow(tracks: Track[]) {
+  if (tracks.length === 0) return;
+  invoke('track_preload', { entries: tracks.map(preloadEntry) }).catch(console.error);
+}
+
 export function preloadTrack(track: Track) {
-  const urn = track.urn;
   cancelPreload();
-  if (!isHoverPreloadEnabled() || isLocalUrn(urn)) return;
-  preloadTimer = setTimeout(() => {
-    const sessionId = getSessionId();
-    const hq = isHqStreaming();
-    invoke('track_preload', {
-      entries: [
-        {
-          urn,
-          urls: streamFallbackUrls(urn, hq),
-          downloadUrls: downloadFallbackUrls(urn, hq),
-          storageUrls: buildStorageUrls(urn),
-          sessionId,
-          hq,
-          durationMs: expectedDurationMs(track),
-          storageQuality: track._scd_meta?.storage_quality,
-        },
-      ],
-    }).catch(console.error);
-  }, 800);
+  if (!isHoverPreloadEnabled() || isLocalUrn(track.urn)) return;
+  preloadTimer = setTimeout(() => preloadNow([track]), 800);
 }
 
 export function cancelPreload() {
@@ -1040,40 +1041,24 @@ export function cancelPreload() {
   preloadTimer = null;
 }
 
+function canPreload(track: Track): boolean {
+  return !isLocalUrn(track.urn) && !isUrnDisliked(track.urn) && !isTrackBlocked(track);
+}
+
+export function preloadUpcoming(track: Track) {
+  if (isAudioCacheDisabled() || !canPreload(track)) return;
+  preloadNow([track]);
+}
+
 export function preloadQueue() {
   if (isAudioCacheDisabled()) return;
   const { queue, queueIndex } = usePlayerStore.getState();
-  const entries: Array<{
-    urn: string;
-    urls: string[];
-    downloadUrls: string[];
-    storageUrls: string[];
-    sessionId: string | null;
-    hq: boolean;
-    durationMs?: number;
-    storageQuality?: TrackScdMeta['storage_quality'];
-  }> = [];
-  const sessionId = getSessionId();
-  const hq = isHqStreaming();
-
-  for (let idx = queueIndex + 1; idx < queue.length && entries.length < 3; idx++) {
-    const next = queue[idx];
-    if (isLocalUrn(next.urn) || isUrnDisliked(next.urn) || isTrackBlocked(next)) continue;
-    entries.push({
-      urn: next.urn,
-      urls: streamFallbackUrls(next.urn, hq),
-      downloadUrls: downloadFallbackUrls(next.urn, hq),
-      storageUrls: buildStorageUrls(next.urn),
-      sessionId,
-      hq,
-      durationMs: expectedDurationMs(next),
-      storageQuality: next._scd_meta?.storage_quality,
-    });
-  }
-
-  if (entries.length > 0) {
-    invoke('track_preload', { entries }).catch(console.error);
-  }
+  preloadNow(
+    queue
+      .slice(queueIndex + 1)
+      .filter(canPreload)
+      .slice(0, 3),
+  );
 }
 
 usePlayerStore.subscribe((state, prev) => {
