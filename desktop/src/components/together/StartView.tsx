@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, ChevronRight, Globe, Loader2, Radio, Users } from '../../lib/icons';
+import { ArrowRight, ChevronRight, Globe, Loader2, Lock, Users } from '../../lib/icons';
 import { CODE_LENGTH, sessionErrorKey } from '../../lib/together/errors';
 import { hostSession, joinSession } from '../../lib/together/session';
+import { useSettingsStore } from '../../stores/settings';
 import { useTogetherStore } from '../../stores/together';
+import { AccessChoice } from './AccessChoice';
 import { CodeInput } from './CodeInput';
 import { OpenRooms } from './OpenRooms';
 import { useOpenRooms } from './useOpenRooms';
@@ -18,6 +20,10 @@ export function StartView() {
   const [error, setError] = useState<string | null>(null);
   const [browsing, setBrowsing] = useState(false);
   const open = useOpenRooms(browsing);
+  const access = useSettingsStore((s) => s.roomAccess);
+  const setAccess = useSettingsStore((s) => s.setRoomAccess);
+  const goPublic = open.available && access === 'public';
+  const StartIcon = goPublic ? Globe : Lock;
 
   const run = (kind: Exclude<Busy, null>, action: () => Promise<void>) => {
     setBusy(kind);
@@ -37,7 +43,7 @@ export function StartView() {
 
   return (
     <div className="relative">
-      <div className="flex flex-col items-center px-2 pt-2 pb-4 text-center">
+      <div className="flex flex-col items-center px-2 pt-2 pb-3.5 text-center">
         <div className="relative mb-3 flex h-16 w-16 items-center justify-center">
           <span className="absolute inset-0 rounded-full border border-accent/30 animate-[sw-pulse-ring_2.8s_var(--ease-apple)_infinite]" />
           <span className="absolute inset-2 rounded-full border border-accent/20 animate-[sw-pulse-ring_2.8s_var(--ease-apple)_1.4s_infinite]" />
@@ -51,14 +57,18 @@ export function StartView() {
         </p>
       </div>
 
+      {open.available && (
+        <AccessChoice value={access} onChange={setAccess} disabled={busy != null || connecting} />
+      )}
+
       <button
         type="button"
         disabled={busy != null || connecting}
-        onClick={() => run('host', hostSession)}
+        onClick={() => run('host', () => hostSession(goPublic))}
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-accent-contrast shadow-[0_0_20px_var(--color-accent-glow)] transition-all duration-200 hover:bg-accent-hover active:scale-[0.98] disabled:cursor-default disabled:opacity-60"
       >
-        {busy === 'host' ? <Loader2 size={15} className="animate-spin" /> : <Radio size={15} />}
-        {t('together.start')}
+        {busy === 'host' ? <Loader2 size={15} className="animate-spin" /> : <StartIcon size={15} />}
+        {t(goPublic ? 'together.startPublic' : 'together.startPrivate')}
       </button>
 
       <div className="my-3.5 flex items-center gap-3">

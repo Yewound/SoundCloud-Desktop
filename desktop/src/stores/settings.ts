@@ -21,6 +21,7 @@ export type StreamQuality = 'auto' | 'sq' | 'hq';
 export type SkipStuckAfterSec = 0 | 10 | 20 | 30 | 60;
 export type SearchPlayback = 'similar' | 'results';
 export type RoomCrossfade = 'mine' | 'room';
+export type RoomAccess = 'private' | 'public';
 export const CROSSFADE_MAX_SEC = 12;
 export type DiscordRpcStatus = 'app' | 'track' | 'artist';
 export type ObsTheme = 'card' | 'minimal' | 'vinyl';
@@ -111,6 +112,7 @@ export interface SettingsState {
   skipStuckAfterSec: SkipStuckAfterSec;
   crossfadeSec: number;
   roomCrossfade: RoomCrossfade;
+  roomAccess: RoomAccess;
   autoplay: boolean;
   searchPlayback: SearchPlayback;
   sidebarCollapsed: boolean;
@@ -189,6 +191,7 @@ export interface SettingsState {
   setSkipStuckAfterSec: (seconds: SkipStuckAfterSec) => void;
   setCrossfadeSec: (seconds: number) => void;
   setRoomCrossfade: (mode: RoomCrossfade) => void;
+  setRoomAccess: (access: RoomAccess) => void;
   setAutoplay: (enabled: boolean) => void;
   setSearchPlayback: (mode: SearchPlayback) => void;
   toggleSidebar: () => void;
@@ -280,6 +283,7 @@ const DEFAULTS = {
   skipStuckAfterSec: 0 as SkipStuckAfterSec,
   crossfadeSec: 0,
   roomCrossfade: 'room' as RoomCrossfade,
+  roomAccess: 'private' as RoomAccess,
   autoplay: true,
   searchPlayback: 'similar' as SearchPlayback,
   sidebarCollapsed: false,
@@ -400,6 +404,7 @@ export const useSettingsStore = create<SettingsState>()(
       setCrossfadeSec: (seconds) =>
         set({ crossfadeSec: Math.min(CROSSFADE_MAX_SEC, Math.max(0, Math.round(seconds))) }),
       setRoomCrossfade: (roomCrossfade) => set({ roomCrossfade }),
+      setRoomAccess: (roomAccess) => set({ roomAccess }),
       setAutoplay: (autoplay) => set({ autoplay }),
       setSearchPlayback: (searchPlayback) => set({ searchPlayback }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -579,6 +584,7 @@ export const useSettingsStore = create<SettingsState>()(
         skipStuckAfterSec: s.skipStuckAfterSec,
         crossfadeSec: s.crossfadeSec,
         roomCrossfade: s.roomCrossfade,
+        roomAccess: s.roomAccess,
         autoplay: s.autoplay,
         searchPlayback: s.searchPlayback,
         sidebarCollapsed: s.sidebarCollapsed,

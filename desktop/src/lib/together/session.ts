@@ -44,7 +44,7 @@ function announceMembers(view: RoomView, previous: RoomView | null): void {
   }
 }
 
-function endSession(reason: 'left' | 'ended'): void {
+function endSession(reason: 'left' | 'ended' | 'evicted'): void {
   generation++;
   role?.detach();
   role = null;
@@ -58,6 +58,7 @@ function endSession(reason: 'left' | 'ended'): void {
     waitingFor: 0,
   });
   if (reason === 'ended' && wasGuest) toast(i18n.t('together.toast.ended'));
+  if (reason === 'evicted') toast(i18n.t('together.toast.evicted'));
 }
 
 async function warmClock(gen: number, code: string): Promise<void> {
@@ -65,7 +66,7 @@ async function warmClock(gen: number, code: string): Promise<void> {
     try {
       const timed = await roomsApi.peek(code);
       if (gen !== generation) return;
-      acceptTimed(timed);
+      acceptTimed(timed, true, true);
     } catch {
       return;
     }
@@ -85,7 +86,7 @@ async function pollLoop(gen: number): Promise<void> {
         : await roomsApi.poll(room.code, room.version);
       if (gen !== generation) return;
       if (refreshClock) lastPeek = Date.now();
-      acceptTimed(timed, refreshClock);
+      acceptTimed(timed, refreshClock, true);
       failures = 0;
       if (useTogetherStore.getState().phase === 'reconnecting') {
         useTogetherStore.setState({ phase: 'live' });
@@ -93,7 +94,7 @@ async function pollLoop(gen: number): Promise<void> {
     } catch (error) {
       if (gen !== generation) return;
       if (error instanceof ApiError && error.status === 404) {
-        endSession('ended');
+        endSession(error.code === 'room_not_member' ? 'evicted' : 'ended');
         return;
       }
       failures++;
@@ -127,8 +128,8 @@ async function enter(open: () => Promise<Timed>): Promise<void> {
   void pollLoop(gen);
 }
 
-export function hostSession(): Promise<void> {
-  return enter(() => roomsApi.create(profile()));
+export function hostSession(open: boolean): Promise<void> {
+  return enter(() => roomsApi.create(profile(), open));
 }
 
 export function joinSession(code: string): Promise<void> {
@@ -142,7 +143,8 @@ export function joinOpenSession(hostId: string): Promise<void> {
 export async function setRoomPublic(open: boolean): Promise<void> {
   const room = useTogetherStore.getState().room;
   if (!room) return;
-  acceptTimed(await roomsApi.visibility(room.code, open), false);
+  const timed = await roomsApi.visibility(room.code, open);
+  if (useTogetherStore.getState().room?.code === room.code) acceptTimed(timed, false, true);
 }
 
 export async function leaveSession(): Promise<void> {

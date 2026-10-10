@@ -2025,7 +2025,15 @@
   "together": {
     "title": "Listen together",
     "pitch": "Start a session and your friends hear exactly what you hear, at the same moment.",
-    "start": "Start a session",
+    "startPrivate": "Start a private room",
+    "startPublic": "Open a public room",
+    "access": {
+      "label": "Who can join",
+      "private": "Private",
+      "privateHint": "By code, for friends",
+      "public": "Public",
+      "publicHint": "Anyone can join"
+    },
     "orJoin": "or join a friend",
     "join": "Join",
     "codeLabel": "Session code",
@@ -2079,7 +2087,8 @@
       "left": "{{name}} left the session",
       "ended": "The host ended the session",
       "hostLeads": "{{name}} is in control",
-      "hostLeadsHint": "Leave the session to play something else."
+      "hostLeadsHint": "Leave the session to play something else.",
+      "evicted": "You were away too long and your seat was taken."
     },
     "errors": {
       "notFound": "No session with this code. Check it and try again.",

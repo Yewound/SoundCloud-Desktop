@@ -29,18 +29,19 @@ export function setViewListener(
   viewListener = listener;
 }
 
-export function acceptView(view: RoomView): void {
+export function acceptView(view: RoomView, follow = false): void {
   const { room, phase } = useTogetherStore.getState();
-  if (phase === 'idle' || !room || room.code !== view.code || view.version < room.version) return;
+  if (phase === 'idle' || !room || view.version < room.version) return;
+  if (room.code !== view.code && !follow) return;
   useTogetherStore.setState({ room: view });
   viewListener?.(view, room);
 }
 
-export function acceptTimed(timed: Timed, sampleClock = true): void {
+export function acceptTimed(timed: Timed, sampleClock = true, follow = false): void {
   if (sampleClock) {
     samples = addSample(samples, clockSample(timed.sentAt, timed.receivedAt, timed.view.serverNow));
   }
-  acceptView(timed.view);
+  acceptView(timed.view, follow);
 }
 
 export function sleep(ms: number): Promise<void> {

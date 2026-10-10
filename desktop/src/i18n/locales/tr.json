@@ -1837,7 +1837,15 @@
   "together": {
     "title": "Birlikte dinle",
     "pitch": "Bir oturum başlat, arkadaşların tam olarak senin duyduğunu aynı anda duysun.",
-    "start": "Oturum başlat",
+    "startPrivate": "Ozel oda baslat",
+    "startPublic": "Herkese acik oda ac",
+    "access": {
+      "label": "Kimler katilabilir",
+      "private": "Ozel",
+      "privateHint": "Kodla, arkadaslar icin",
+      "public": "Herkese acik",
+      "publicHint": "Herkes katilabilir"
+    },
     "orJoin": "ya da bir arkadaşına katıl",
     "join": "Katıl",
     "codeLabel": "Oturum kodu",
@@ -1891,7 +1899,8 @@
       "left": "{{name}} oturumdan ayrıldı",
       "ended": "Sunucu oturumu bitirdi",
       "hostLeads": "Kontrol {{name}} kişisinde",
-      "hostLeadsHint": "Başka bir şey çalmak için oturumdan ayrıl."
+      "hostLeadsHint": "Başka bir şey çalmak için oturumdan ayrıl.",
+      "evicted": "Uzun sure yoktun, yerin doldu."
     },
     "errors": {
       "notFound": "Bu koda sahip bir oturum yok. Kontrol edip tekrar dene.",

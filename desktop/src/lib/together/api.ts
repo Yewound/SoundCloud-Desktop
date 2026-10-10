@@ -3,7 +3,7 @@ import type { OpenRoom, PlaybackUpdate, Profile, RoomView } from './types';
 
 const POLL_TIMEOUT_MS = 35_000;
 const QUICK_TIMEOUT_MS = 12_000;
-const QUIET = { quiet: true, silentStatuses: [403, 404, 409] };
+const QUIET = { quiet: true, silentStatuses: [403, 404, 409, 429, 503] };
 const QUIET_LIST = { quiet: true, silentStatuses: [404, 429, 503] };
 
 export interface Timed {
@@ -23,12 +23,13 @@ function json(method: string, body: unknown): RequestInit {
 }
 
 export const roomsApi = {
-  create: (profile: Profile) => timed('/rooms', json('POST', profile), QUICK_TIMEOUT_MS),
+  create: (profile: Profile, open: boolean) =>
+    timed('/rooms', json('POST', { ...profile, public: open }), QUICK_TIMEOUT_MS),
   join: (code: string, profile: Profile) =>
     timed(`/rooms/${code}/members`, json('POST', profile), QUICK_TIMEOUT_MS),
-  peek: (code: string) => timed(`/rooms/${code}`, {}, QUICK_TIMEOUT_MS),
+  peek: (code: string) => timed(`/rooms/${code}?follow=true`, {}, QUICK_TIMEOUT_MS),
   poll: (code: string, since: number) =>
-    timed(`/rooms/${code}?since=${since}`, {}, POLL_TIMEOUT_MS),
+    timed(`/rooms/${code}?since=${since}&follow=true`, {}, POLL_TIMEOUT_MS),
   playback: (code: string, update: PlaybackUpdate) =>
     timed(`/rooms/${code}/playback`, json('PUT', update), QUICK_TIMEOUT_MS),
   ready: (code: string, trackUrn: string) =>
