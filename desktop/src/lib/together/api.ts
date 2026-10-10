@@ -1,9 +1,10 @@
 import { api } from '../api';
-import type { PlaybackUpdate, Profile, RoomView } from './types';
+import type { OpenRoom, PlaybackUpdate, Profile, RoomView } from './types';
 
 const POLL_TIMEOUT_MS = 35_000;
 const QUICK_TIMEOUT_MS = 12_000;
 const QUIET = { quiet: true, silentStatuses: [403, 404, 409] };
+const QUIET_LIST = { quiet: true, silentStatuses: [404, 429, 503] };
 
 export interface Timed {
   view: RoomView;
@@ -32,6 +33,14 @@ export const roomsApi = {
     timed(`/rooms/${code}/playback`, json('PUT', update), QUICK_TIMEOUT_MS),
   ready: (code: string, trackUrn: string) =>
     timed(`/rooms/${code}/ready`, json('PUT', { trackUrn }), QUICK_TIMEOUT_MS),
+  visibility: (code: string, open: boolean) =>
+    timed(`/rooms/${code}/visibility`, json('PUT', { public: open }), QUICK_TIMEOUT_MS),
+  open: () =>
+    api<{ collection: OpenRoom[] }>('/rooms/public', QUIET_LIST, QUICK_TIMEOUT_MS).then(
+      (page) => page.collection,
+    ),
+  joinOpen: (hostId: string, profile: Profile) =>
+    timed(`/rooms/public/${hostId}/members`, json('POST', profile), QUICK_TIMEOUT_MS),
   leave: (code: string) =>
     api(`/rooms/${code}/members/me`, { method: 'DELETE', ...QUIET }, QUICK_TIMEOUT_MS),
 };

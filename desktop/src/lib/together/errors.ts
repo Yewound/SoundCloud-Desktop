@@ -9,6 +9,11 @@ export function sessionErrorKey(error: unknown): string {
   return 'together.errors.generic';
 }
 
+export function openRoomErrorKey(error: unknown): string {
+  if (error instanceof ApiError && error.status === 404) return 'together.errors.closed';
+  return sessionErrorKey(error);
+}
+
 export const CODE_LENGTH = 6;
 const CODE_ALPHABET = /[^ABCDEFGHJKLMNPQRSTUVWXYZ23456789]/g;
 

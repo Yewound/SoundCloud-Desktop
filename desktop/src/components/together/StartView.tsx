@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Loader2, Radio, Users } from '../../lib/icons';
+import { ArrowRight, ChevronRight, Globe, Loader2, Radio, Users } from '../../lib/icons';
 import { CODE_LENGTH, sessionErrorKey } from '../../lib/together/errors';
 import { hostSession, joinSession } from '../../lib/together/session';
 import { useTogetherStore } from '../../stores/together';
 import { CodeInput } from './CodeInput';
+import { OpenRooms } from './OpenRooms';
+import { useOpenRooms } from './useOpenRooms';
 
 type Busy = 'host' | 'join' | null;
 
@@ -14,6 +16,8 @@ export function StartView() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState(false);
+  const open = useOpenRooms(browsing);
 
   const run = (kind: Exclude<Busy, null>, action: () => Promise<void>) => {
     setBusy(kind);
@@ -26,6 +30,10 @@ export function StartView() {
   const join = () => {
     if (code.length === CODE_LENGTH) run('join', () => joinSession(code));
   };
+
+  if (browsing && open.available) {
+    return <OpenRooms list={open} onBack={() => setBrowsing(false)} />;
+  }
 
   return (
     <div className="relative">
@@ -93,6 +101,23 @@ export function StartView() {
       >
         {error ? t(error) : t('together.footnote')}
       </p>
+
+      {open.available && (
+        <button
+          type="button"
+          onClick={() => setBrowsing(true)}
+          className="mt-3 flex w-full cursor-pointer items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[12.5px] font-semibold text-white/75 transition-all duration-200 hover:bg-white/[0.07] hover:text-white active:scale-[0.98]"
+        >
+          <Globe size={15} className="shrink-0 text-accent" />
+          <span className="flex-1 text-left">{t('together.open.title')}</span>
+          {open.rooms && open.rooms.length > 0 && (
+            <span className="rounded-full bg-accent/15 px-1.5 py-px text-[10.5px] tabular-nums text-accent">
+              {open.rooms.length}
+            </span>
+          )}
+          <ChevronRight size={14} className="shrink-0 text-white/35" />
+        </button>
+      )}
     </div>
   );
 }

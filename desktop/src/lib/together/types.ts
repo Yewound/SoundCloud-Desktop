@@ -32,6 +32,25 @@ export interface RoomView {
   playback: RoomPlayback;
   online: string[];
   serverNow: number;
+  public?: boolean;
+}
+
+export interface OpenRoomTrack {
+  title: string;
+  artist: string | null;
+  artworkUrl: string | null;
+}
+
+export interface OpenRoom {
+  hostId: string;
+  hostName: string;
+  hostAvatarUrl: string | null;
+  status: RoomStatus;
+  track: OpenRoomTrack | null;
+  listeners: number;
+  capacity: number;
+  full: boolean;
+  createdAt: number;
 }
 
 export interface PlaybackUpdate {

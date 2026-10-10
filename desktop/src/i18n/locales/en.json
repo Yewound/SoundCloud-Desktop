@@ -2045,6 +2045,17 @@
     "crossfade": "Crossfade",
     "crossfadeMine": "Mine",
     "crossfadeRoom": "Host's",
+    "publicRoom": "Public room",
+    "publicHint": "Anyone can find and join it",
+    "open": {
+      "title": "Open rooms",
+      "empty": "No open rooms right now",
+      "emptyHint": "Start a session and make it public.",
+      "failed": "Could not load the rooms.",
+      "refresh": "Refresh",
+      "back": "Back",
+      "full": "Full"
+    },
     "member": {
       "host": "Host",
       "you": "You",
@@ -2074,7 +2085,8 @@
       "notFound": "No session with this code. Check it and try again.",
       "full": "This session is full.",
       "signIn": "Sign in to listen together.",
-      "generic": "Could not connect. Try again in a moment."
+      "generic": "Could not connect. Try again in a moment.",
+      "closed": "This room has just closed."
     }
   },
   "hotkeys": {

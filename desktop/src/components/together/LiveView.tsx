@@ -8,6 +8,7 @@ import { getArtistDisplay, getDisplayTitle } from '../../lib/track-display';
 import { type RoomCrossfade, useSettingsStore } from '../../stores/settings';
 import { isRoomHost, useTogetherStore } from '../../stores/together';
 import { MemberList } from './MemberList';
+import { RoomVisibility } from './RoomVisibility';
 import { SyncBadge } from './SyncBadge';
 
 const COPIED_MS = 1600;
@@ -144,6 +145,7 @@ export function LiveView({ room }: { room: RoomView }) {
 
       <CodeCard code={room.code} />
       <NowShared room={room} host={host} />
+      <RoomVisibility room={room} host={host} />
       {!host && <CrossfadeChoice />}
 
       <div>

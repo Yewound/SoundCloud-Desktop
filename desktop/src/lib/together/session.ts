@@ -135,6 +135,16 @@ export function joinSession(code: string): Promise<void> {
   return enter(() => roomsApi.join(code, profile()));
 }
 
+export function joinOpenSession(hostId: string): Promise<void> {
+  return enter(() => roomsApi.joinOpen(hostId, profile()));
+}
+
+export async function setRoomPublic(open: boolean): Promise<void> {
+  const room = useTogetherStore.getState().room;
+  if (!room) return;
+  acceptTimed(await roomsApi.visibility(room.code, open), false);
+}
+
 export async function leaveSession(): Promise<void> {
   const room = useTogetherStore.getState().room;
   if (!room) return;
