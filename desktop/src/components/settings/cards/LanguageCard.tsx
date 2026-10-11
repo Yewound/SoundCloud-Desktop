@@ -1,6 +1,8 @@
+import {openUrl} from '@tauri-apps/plugin-opener';
 import {useTranslation} from 'react-i18next';
 import {changeAppLanguage} from '../../../i18n';
-import {Globe} from '../../../lib/icons';
+import {REQUEST_LANGUAGE_URL} from '../../../lib/constants';
+import {ExternalLink, Globe} from '../../../lib/icons';
 import {Card} from '../primitives';
 
 const LANGUAGES = [
@@ -34,6 +36,14 @@ export function LanguageCard() {
                     );
                 })}
             </div>
+            <button
+                type="button"
+                onClick={() => void openUrl(REQUEST_LANGUAGE_URL)}
+                className="mt-3.5 inline-flex items-center gap-1.5 text-[11.5px] text-white/35 hover:text-white/70 transition-colors cursor-pointer"
+            >
+                <ExternalLink size={12} strokeWidth={1.8}/>
+                {t('settings.languageRequest')}
+            </button>
         </Card>
     );
 }

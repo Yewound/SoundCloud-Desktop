@@ -25,6 +25,16 @@ export const ZAPRET_GUIDE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REP
 export const BOOSTY_URL = 'https://boosty.to/lolinamide';
 export const ANDROID_CLIENT_URL = 'https://github.com/okeydw/SoundCloud-Android';
 export const ANDROID_CLIENT_RELEASES_URL = `${ANDROID_CLIENT_URL}/releases/latest`;
+/** Prefilled GitHub issue for new-language requests. */
+export const REQUEST_LANGUAGE_URL =
+  `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues/new` +
+  `?title=${encodeURIComponent('Language request: ')}` +
+  `&body=${encodeURIComponent(
+    'Language / Язык: \n\n' +
+      '<!-- Which language would you like to see in SoundCloud Desktop? / Какой язык вы хотите видеть в приложении? -->\n\n' +
+      'Why / Почему: \n\n' +
+      '<!-- Optional: are you ready to help with the translation? / По желанию: готовы ли вы помочь с переводом? -->\n',
+  )}`;
 export const APP_VERSION = __APP_VERSION__;
 
 export const SHOW_NEWS = true;
