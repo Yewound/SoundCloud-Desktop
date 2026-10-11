@@ -174,7 +174,6 @@ chmod +x soundcloud-desktop-*.AppImage
   144.31.216.153
   2.27.22.81
   31.77.143.194
-  150.241.82.7
   177.3.213.61
   ```
 - Для стратегий с `fooling=ts` или `tcp_ts` включите TCP timestamps: `netsh interface tcp set global timestamps=enabled` от администратора.
