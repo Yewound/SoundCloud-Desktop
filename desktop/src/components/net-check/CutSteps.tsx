@@ -1,25 +1,27 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EnvInfo } from '../../lib/net/check';
-import { bypassList, dpiAdvice, excludeList, shownName } from '../../lib/net/dpi';
+import { addrsList, bypassList, dpiAdvice, excludeList, shownName } from '../../lib/net/dpi';
 import { currentOs } from '../../lib/net/manual';
 import { CopyLine } from './CopyLine';
+import { ListLines } from './ListLines';
 
 interface CutStepsProps {
   env: EnvInfo | null;
+  addrs: string[];
   running: boolean;
   backups: boolean;
 }
 
 const DOMAIN = 'scnative.space';
-const NO_ADDRS: string[] = [];
 
-export const CutSteps = React.memo(({ env, running, backups }: CutStepsProps) => {
+export const CutSteps = React.memo(({ env, addrs, running, backups }: CutStepsProps) => {
   const { t } = useTranslation();
-  const advice = dpiAdvice(env, NO_ADDRS, currentOs());
+  const advice = dpiAdvice(env, addrs, currentOs());
   const name = shownName(advice);
   const exclude = excludeList(advice) ?? t('netCheck.cut.excludeAny');
   const bypass = bypassList(advice, env) ?? t('netCheck.cut.bypassAny');
+  const addrsFile = running && addrs.length > 0 ? addrsList(advice) : null;
   const steps = running
     ? [
         t('netCheck.cut.off', { name }),
@@ -43,8 +45,9 @@ export const CutSteps = React.memo(({ env, running, backups }: CutStepsProps) =>
           </li>
         ))}
       </ol>
-      <div className="w-full mt-2.5 text-left">
+      <div className="w-full mt-2.5 text-left space-y-2">
         <CopyLine text={DOMAIN} />
+        {addrsFile && <ListLines list={{ file: addrsFile, lines: addrs }} />}
       </div>
     </>
   );

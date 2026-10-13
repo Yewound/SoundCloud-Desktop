@@ -10,6 +10,7 @@ import { type DpiAdvice, type DpiKind, dpiAdvice } from '../../lib/net/dpi';
 import { currentOs, fixCommand } from '../../lib/net/manual';
 import { CopyLine } from './CopyLine';
 import { CutSteps } from './CutSteps';
+import { CAPTION, ListLines } from './ListLines';
 
 interface HintProps {
   verdict: Verdict;
@@ -26,7 +27,6 @@ const ADVICE_TEXT: Record<DpiKind, string> = {
   goodbyedpi: 'netCheck.hint.blacklist',
   other: 'netCheck.hint.domains',
 };
-const CAPTION = 'mb-1 px-1 text-[10.5px] text-white/30';
 
 function adviceText(t: TFunction, advice: DpiAdvice): string {
   return `${t('netCheck.hint.dpi', { name: advice.name })} ${t(ADVICE_TEXT[advice.kind])}`;
@@ -52,14 +52,7 @@ const Exclusions = React.memo(({ advice }: { advice: DpiAdvice }) => {
   return (
     <div className="w-full mt-3 text-left space-y-2">
       {advice.lists.map((list) => (
-        <div key={list.file ?? 'domains'}>
-          {list.file && (
-            <div className={`${CAPTION} font-mono truncate`} title={list.file}>
-              {list.file}
-            </div>
-          )}
-          <CopyLine text={list.lines.join('\n')} />
-        </div>
+        <ListLines key={list.file ?? 'domains'} list={list} />
       ))}
       {advice.apply && (
         <div>
@@ -86,7 +79,12 @@ export const VerdictHint = React.memo((props: HintProps) => {
   if (props.verdict === 'checking') return null;
   if (!props.broken && props.verdict === 'cut') {
     return (
-      <CutSteps env={props.env} running={props.hint === 'zapretCut'} backups={props.backups} />
+      <CutSteps
+        env={props.env}
+        addrs={props.addrs}
+        running={props.hint === 'zapretCut'}
+        backups={props.backups}
+      />
     );
   }
   const os = currentOs();

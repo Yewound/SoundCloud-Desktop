@@ -30,6 +30,7 @@ const ZAPRET_DIR = /^(\/opt\/zapret2?)\/config$/;
 const SERVICE_DISABLED = 4;
 const DRIVER_PREFIX = 'WinDivert';
 const FALLBACK_NAME = 'zapret';
+const FLOWSEAL_IPSET_EXCLUDE = 'lists/ipset-exclude-user.txt';
 
 function kindOf(name: string, os: Os): DpiKind {
   if (name.toLowerCase() === GOODBYEDPI) return 'goodbyedpi';
@@ -58,7 +59,7 @@ export function dpiAdvice(env: EnvInfo | null, addrs: string[], os: Os): DpiAdvi
   const domains = [...EXCLUDED_DOMAINS];
   if (kind === 'flowseal') {
     const lists: ExcludeList[] = [{ file: 'lists/list-exclude-user.txt', lines: domains }];
-    if (addrs.length > 0) lists.push({ file: 'lists/ipset-exclude-user.txt', lines: addrs });
+    if (addrs.length > 0) lists.push({ file: FLOWSEAL_IPSET_EXCLUDE, lines: addrs });
     return { name, kind, lists, apply: null };
   }
   if (kind === 'zapret') {
@@ -78,6 +79,11 @@ export function dpiAdvice(env: EnvInfo | null, addrs: string[], os: Os): DpiAdvi
 
 export function excludeList(advice: DpiAdvice): string | null {
   return advice.lists[0]?.file ?? null;
+}
+
+export function addrsList(advice: DpiAdvice): string | null {
+  if (advice.kind === 'flowseal') return FLOWSEAL_IPSET_EXCLUDE;
+  return advice.kind === 'zapret' ? excludeList(advice) : null;
 }
 
 export function bypassList(advice: DpiAdvice, env: EnvInfo | null): string | null {

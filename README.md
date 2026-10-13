@@ -166,16 +166,7 @@ chmod +x soundcloud-desktop-*.AppImage
 
 Подробности:
 - Linux и macOS (nfqws, tpws): исключения лежат в `/opt/zapret/ipset/zapret-hosts-user-exclude.txt` (после правки `sudo /opt/zapret/ipset/get_exclude.sh`), список обхода в `/opt/zapret/ipset/zapret-hosts-user.txt`. У zapret2 папка `/opt/zapret2`.
-- Шаг 3 при IPSet в режиме `loaded` или `any`: добавьте ещё адреса наших серверов в `lists/ipset-exclude-user.txt` (по одному на строку). Режим `none` наши адреса не трогает.
-  ```
-  188.165.221.195
-  192.95.29.82
-  192.99.8.79
-  144.31.216.153
-  2.27.22.81
-  31.77.143.194
-  177.3.213.61
-  ```
+- Шаг 3 при IPSet в режиме `loaded` или `any`: добавьте ещё адреса наших серверов в `lists/ipset-exclude-user.txt` (по одному на строку). Актуальные адреса показывает проверка сети: приложение берёт их из DNS, поэтому список не устаревает при смене серверов. Режим `none` наши адреса не трогает.
 - Для стратегий с `fooling=ts` или `tcp_ts` включите TCP timestamps: `netsh interface tcp set global timestamps=enabled` от администратора.
 - Если системный DNS выдаёт неверный адрес, приложение само спрашивает DoH (1.1.1.1, 8.8.8.8 и другие).
 - Провайдер блокирует SoundCloud — добавьте `soundcloud.com` и `sndcdn.com` в `list-general`, иначе треки идут через сервер и грузятся дольше.
