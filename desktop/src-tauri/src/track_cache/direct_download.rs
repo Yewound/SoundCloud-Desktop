@@ -1,12 +1,12 @@
 //! GET `/download/:urn` → JSON-список кандидатов SoundCloud. Тянем выбранного
 //! напрямую с SC, наш сервер только резолвит ссылки.
 //!
-//! Порядок: при `hq=true` сначала hq-группа, иначе sq. Внутри группы —
+//! Кандидатов берём один раз, дальше по уровню: для uq/hq только этот уровень
+//! и выше, лучшие первыми; для sq всё, sq первыми. Внутри уровня —
 //! progressive → hls → encrypted-hls.
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use base64::Engine as _;
@@ -99,38 +99,21 @@ pub struct DirectResult {
     pub quality: PlaybackQuality,
 }
 
-pub async fn try_download(
+pub async fn fetch_candidates(
     client: &Client,
     download_urls: &[String],
     session_id: Option<&str>,
-    hq_pref: bool,
-    receiving: &Arc<AtomicBool>,
-    progress: Arc<dyn Fn(f64) + Send + Sync>,
-) -> Option<DirectResult> {
-    if download_urls.is_empty() {
-        return None;
-    }
-
-    let mut futures: Vec<Pin<Box<dyn Future<Output = Option<DirectResult>> + Send>>> =
+) -> Option<Vec<Candidate>> {
+    let mut futures: Vec<Pin<Box<dyn Future<Output = Option<Vec<Candidate>>> + Send>>> =
         download_urls
             .iter()
             .map(|url| {
                 let client = client.clone();
                 let endpoint = url.clone();
                 let session_id = session_id.map(str::to_string);
-                let receiving = receiving.clone();
-                let progress = progress.clone();
-                Box::pin(async move {
-                    try_one_endpoint(
-                        &client,
-                        &endpoint,
-                        session_id.as_deref(),
-                        hq_pref,
-                        &receiving,
-                        &*progress,
-                    )
-                    .await
-                }) as Pin<Box<dyn Future<Output = Option<DirectResult>> + Send>>
+                Box::pin(
+                    async move { fetch_usable(&client, &endpoint, session_id.as_deref()).await },
+                ) as Pin<Box<dyn Future<Output = Option<Vec<Candidate>>> + Send>>
             })
             .collect();
 
@@ -144,14 +127,11 @@ pub async fn try_download(
     None
 }
 
-async fn try_one_endpoint(
+async fn fetch_usable(
     client: &Client,
     endpoint: &str,
     session_id: Option<&str>,
-    hq_pref: bool,
-    receiving: &AtomicBool,
-    progress: &(dyn Fn(f64) + Send + Sync),
-) -> Option<DirectResult> {
+) -> Option<Vec<Candidate>> {
     let resp = match fetch_download(client, endpoint, session_id).await {
         Ok(r) => r,
         Err(e) => {
@@ -159,21 +139,38 @@ async fn try_one_endpoint(
             return None;
         }
     };
-    let sorted = sort_candidates(resp.candidates, hq_pref);
-    if sorted.is_empty() {
+    let usable: Vec<Candidate> = resp
+        .candidates
+        .into_iter()
+        .filter(|c| c.quality() != "lq")
+        .collect();
+    if usable.is_empty() {
         println!("[direct] {endpoint} returned no usable candidates");
-    } else {
-        receiving.store(true, Ordering::Relaxed);
-        let listing = sorted
-            .iter()
-            .map(|c| format!("{}/{}/{}", c.kind_label(), c.quality(), c.preset()))
-            .collect::<Vec<_>>()
-            .join(", ");
-        println!("[direct] {endpoint} candidates: [{listing}]");
+        return None;
     }
-    for cand in sorted {
-        let q = cand.playback_quality();
-        match consume(client, &cand, progress).await {
+    let listing = usable
+        .iter()
+        .map(|c| format!("{}/{}/{}", c.kind_label(), c.quality(), c.preset()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!("[direct] {endpoint} candidates: [{listing}]");
+    Some(usable)
+}
+
+pub async fn consume_at(
+    client: &Client,
+    candidates: &[Candidate],
+    tier: PlaybackQuality,
+    receiving: &AtomicBool,
+    progress: &(dyn Fn(f64) + Send + Sync),
+) -> Option<DirectResult> {
+    let picked = pick_for(candidates, tier);
+    if picked.is_empty() {
+        return None;
+    }
+    receiving.store(true, Ordering::Relaxed);
+    for cand in picked {
+        match consume(client, cand, progress).await {
             Ok(data) => {
                 println!(
                     "[direct] hit {} ({} {})",
@@ -181,7 +178,10 @@ async fn try_one_endpoint(
                     cand.quality(),
                     cand.preset()
                 );
-                return Some(DirectResult { data, quality: q });
+                return Some(DirectResult {
+                    data,
+                    quality: cand.playback_quality(),
+                });
             }
             Err(e) => {
                 diagnostics::warn(format!(
@@ -214,14 +214,21 @@ async fn fetch_download(
         .map_err(|e| format!("decode: {e}"))
 }
 
-fn sort_candidates(cands: Vec<Candidate>, hq_pref: bool) -> Vec<Candidate> {
-    let mut filtered: Vec<Candidate> = cands.into_iter().filter(|c| c.quality() != "lq").collect();
-    filtered.sort_by_key(|c| {
+fn pick_for(candidates: &[Candidate], tier: PlaybackQuality) -> Vec<&Candidate> {
+    let mut picked: Vec<&Candidate> = candidates
+        .iter()
+        .filter(|c| c.playback_quality().rank() >= tier.rank())
+        .collect();
+    picked.sort_by_key(|c| {
         let rank = c.playback_quality().rank();
-        let q_score = if hq_pref { u8::MAX - rank } else { rank };
-        (q_score, c.kind_score())
+        let order = if tier.rank() > PlaybackQuality::Sq.rank() {
+            u8::MAX - rank
+        } else {
+            rank
+        };
+        (order, c.kind_score())
     });
-    filtered
+    picked
 }
 
 async fn consume(
@@ -277,4 +284,39 @@ async fn consume_encrypted(
         progress((fetched + 1) as f64 / segments.len() as f64);
     }
     Ok(Bytes::from(buf))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(quality: &str, preset: &str) -> Candidate {
+        Candidate::Hls {
+            quality: quality.into(),
+            preset: preset.into(),
+            manifest_url: format!("https://cf-hls-media.sndcdn.com/{preset}.m3u8"),
+        }
+    }
+
+    fn presets(picked: Vec<&Candidate>) -> Vec<&str> {
+        picked.into_iter().map(Candidate::preset).collect()
+    }
+
+    #[test]
+    fn a_tier_takes_only_itself_and_better_best_first() {
+        let all = [
+            candidate("sq", "mp3_1_0"),
+            candidate("hq", "aac_160k"),
+            candidate("uq", "aac_256k"),
+        ];
+        assert_eq!(presets(pick_for(&all, PlaybackQuality::Uq)), ["aac_256k"]);
+        assert_eq!(
+            presets(pick_for(&all, PlaybackQuality::Hq)),
+            ["aac_256k", "aac_160k"]
+        );
+        assert_eq!(
+            presets(pick_for(&all, PlaybackQuality::Sq)),
+            ["mp3_1_0", "aac_160k", "aac_256k"]
+        );
+    }
 }

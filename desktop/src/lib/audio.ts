@@ -10,10 +10,10 @@ import {
   buildStorageUrls,
   downloadFallbackUrls,
   getSessionId,
-  isHqStreaming,
+  requestedQuality,
   resolveTrackFromStreaming,
   streamFallbackUrls,
-  wantsHqUpgrade,
+  wantsUpgrade,
 } from './api';
 import {
   enforceAudioCacheLimit,
@@ -29,6 +29,7 @@ import {
 } from './cache';
 import {isTrackBlocked} from './blocked-artists';
 import {trackedInvoke as invoke} from './diagnostics';
+import {isBelow} from './playback-quality';
 import {offerUndislike} from './dislike-actions';
 import {isUrnDisliked} from './dislikes';
 import {recordEvent} from './events';
@@ -469,7 +470,7 @@ async function loadTrack(track: Track, resumeAt = 0) {
       return;
     }
 
-    const highQualityStreaming = isHqStreaming();
+    const quality = requestedQuality();
     const storageQuality = track._scd_meta?.storage_quality;
 
     // The cached file can be swapped (raw А → clean Б) or evicted between resolve
@@ -481,7 +482,7 @@ async function loadTrack(track: Track, resumeAt = 0) {
         return (
           await ensureTrackCached(
             urn,
-            highQualityStreaming,
+            quality,
             expectedDurationMs(track),
             storageQuality,
           )
@@ -498,7 +499,7 @@ async function loadTrack(track: Track, resumeAt = 0) {
       acceptedShortFile = cached.acceptedShort;
       usePlayerStore.getState().setPlaybackTransport(cached.quality, cached.source);
       console.log('[Audio] Playing from cache:', urn);
-      if (cached.quality !== 'uq' && !cached.acceptedShort && wantsHqUpgrade()) {
+      if (isBelow(cached.quality, quality) && !cached.acceptedShort && wantsUpgrade()) {
         void upgradeCachedTrack(urn, expectedDurationMs(track), storageQuality).catch(console.error);
       }
       const loadResult = await loadCachedFile(
@@ -536,17 +537,17 @@ async function loadTrack(track: Track, resumeAt = 0) {
     try {
       cachedInfo = await ensureTrackCached(
         urn,
-        highQualityStreaming,
+        quality,
         expectedDurationMs(track),
         storageQuality,
       );
     } catch (error) {
       const premiumRefused = getLoadErrorText(error)?.includes('HTTP 403 Forbidden: forbidden');
-      if (!highQualityStreaming || !premiumRefused || gen !== loadGen) throw error;
-      console.warn('[Audio] HQ load failed, retrying without hq:', error);
+      if (quality === 'sq' || !premiumRefused || gen !== loadGen) throw error;
+      console.warn(`[Audio] ${quality} load failed, retrying in sq:`, error);
       setDownloadProgress(0);
       bumpLoadWatch();
-      cachedInfo = await ensureTrackCached(urn, false, expectedDurationMs(track), storageQuality);
+      cachedInfo = await ensureTrackCached(urn, 'sq', expectedDurationMs(track), storageQuality);
     }
 
     if (gen !== loadGen) return;
@@ -1012,14 +1013,14 @@ listen<number>('media:seek-relative', (e) => {
 let preloadTimer: ReturnType<typeof setTimeout> | null = null;
 
 function preloadEntry(track: Track) {
-  const hq = isHqStreaming();
+  const quality = requestedQuality();
   return {
     urn: track.urn,
-    urls: streamFallbackUrls(track.urn, hq),
-    downloadUrls: downloadFallbackUrls(track.urn, hq),
+    urls: streamFallbackUrls(track.urn, quality),
+    downloadUrls: downloadFallbackUrls(track.urn),
     storageUrls: buildStorageUrls(track.urn),
     sessionId: getSessionId(),
-    hq,
+    quality,
     durationMs: expectedDurationMs(track),
     storageQuality: track._scd_meta?.storage_quality,
   };

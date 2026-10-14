@@ -10,6 +10,7 @@ const DESC_KEYS: Record<StreamQuality, string> = {
   auto: 'settings.streamQualityAutoDesc',
   sq: 'settings.streamQualitySqDesc',
   hq: 'settings.streamQualityHqDesc',
+  uq: 'settings.streamQualityUqDesc',
 };
 
 function NowPlayingQuality() {
@@ -69,6 +70,14 @@ export function StreamQualityPicker({ isPremium }: { isPremium: boolean }) {
           {
             id: 'hq',
             label: t('settings.streamQualityHq'),
+            disabled: !isPremium,
+            adornment: isPremium ? undefined : (
+              <Star size={11} fill="currentColor" className="text-amber-400/80" />
+            ),
+          },
+          {
+            id: 'uq',
+            label: t('settings.streamQualityUq'),
             disabled: !isPremium,
             adornment: isPremium ? undefined : (
               <Star size={11} fill="currentColor" className="text-amber-400/80" />

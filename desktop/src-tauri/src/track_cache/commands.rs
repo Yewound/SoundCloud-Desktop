@@ -7,7 +7,7 @@ use crate::shared::blocking::run_blocking;
 use crate::shared::urn::canonical_track_urn;
 use crate::track_cache::state::{
     BulkCacheEntry, BulkCacheStatus, CacheInventoryEntry, CacheRequest, ExportOutcome,
-    TrackCacheEntry, TrackCacheState, TranscodeStatus,
+    PlaybackQuality, TrackCacheEntry, TrackCacheState, TranscodeStatus,
 };
 use crate::track_cache::transcode::{ExportFormat, ExportTags};
 
@@ -26,7 +26,7 @@ pub struct EnsureCachedRequest {
     #[serde(default)]
     pub session_id: Option<String>,
     #[serde(default)]
-    pub hq: bool,
+    pub quality: Option<String>,
     /// API-reported track length (ms) for truncated-download detection.
     #[serde(default)]
     pub duration_ms: Option<u64>,
@@ -60,7 +60,7 @@ pub struct PreloadEntry {
     pub storage_urls: Option<Vec<String>>,
     pub session_id: Option<String>,
     #[serde(default)]
-    pub hq: bool,
+    pub quality: Option<String>,
     #[serde(default)]
     pub duration_ms: Option<u64>,
     #[serde(default)]
@@ -85,7 +85,7 @@ pub async fn track_ensure_cached(
             download_urls: &download_urls,
             storage_urls: &storage_urls,
             session_id: request.session_id.as_deref(),
-            hq: request.hq,
+            quality: PlaybackQuality::from_label(request.quality.as_deref()),
             storage_quality: request.storage_quality.as_deref(),
             liked: false,
             expected_duration_ms: request.duration_ms,
@@ -121,7 +121,7 @@ impl ResolvedRequest {
             download_urls: &self.download_urls,
             storage_urls: &self.storage_urls,
             session_id: self.request.session_id.as_deref(),
-            hq: self.request.hq,
+            quality: PlaybackQuality::from_label(self.request.quality.as_deref()),
             storage_quality: self.request.storage_quality.as_deref(),
             liked,
             expected_duration_ms: self.request.duration_ms,
@@ -145,7 +145,7 @@ pub async fn track_upgrade_cached(
             download_urls: &download_urls,
             storage_urls: &storage_urls,
             session_id: request.session_id.as_deref(),
-            hq: true,
+            quality: PlaybackQuality::from_label(request.quality.as_deref()),
             storage_quality: request.storage_quality.as_deref(),
             liked: false,
             expected_duration_ms: request.duration_ms,
@@ -280,7 +280,7 @@ pub async fn track_preload(
         let storage_urls = entry.storage_urls.unwrap_or_default();
         let download_urls = entry.download_urls.unwrap_or_default();
         let session_id = entry.session_id;
-        let hq = entry.hq;
+        let quality = PlaybackQuality::from_label(entry.quality.as_deref());
         let duration_ms = entry.duration_ms;
         let storage_quality = entry.storage_quality;
 
@@ -294,7 +294,7 @@ pub async fn track_preload(
                     download_urls: &download_urls,
                     storage_urls: &storage_urls,
                     session_id: session_id.as_deref(),
-                    hq,
+                    quality,
                     storage_quality: storage_quality.as_deref(),
                     liked: false,
                     expected_duration_ms: duration_ms,

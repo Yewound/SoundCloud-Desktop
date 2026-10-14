@@ -1,4 +1,4 @@
-import type { Track } from '../stores/player';
+import type { PlaybackQuality, Track } from '../stores/player';
 import { useSettingsStore } from '../stores/settings';
 import { ApiError } from './api-client';
 import {
@@ -24,12 +24,15 @@ export type ResolvedStreamingTrack = Partial<Track> & {
   kind?: string;
 };
 
-export function isHqStreaming(): boolean {
-  return useSettingsStore.getState().streamQuality !== 'sq' && getIsPremium();
+export function requestedQuality(): PlaybackQuality {
+  const mode = useSettingsStore.getState().streamQuality;
+  if (mode === 'sq' || !getIsPremium()) return 'sq';
+  return mode === 'hq' ? 'hq' : 'uq';
 }
 
-export function wantsHqUpgrade(): boolean {
-  return useSettingsStore.getState().streamQuality === 'hq' && getIsPremium();
+export function wantsUpgrade(): boolean {
+  const mode = useSettingsStore.getState().streamQuality;
+  return (mode === 'hq' || mode === 'uq') && getIsPremium();
 }
 
 // ─── Host resolution ────────────────────────────────────────
@@ -96,9 +99,9 @@ export function resolveTrackFromStreaming(url: string) {
   return streamingJson<ResolvedStreamingTrack>(`/resolve?url=${encodeURIComponent(url)}`);
 }
 
-function buildStreamUrl(base: string, trackUrn: string, hq: boolean) {
-  const suffix = hq ? '?hq=true' : '';
-  return `${base}/tracks/${encodeURIComponent(trackUrn)}/stream${suffix}`;
+function buildStreamUrl(base: string, trackUrn: string, quality: PlaybackQuality) {
+  const hq = quality === 'sq' ? '' : 'hq=true&';
+  return `${base}/tracks/${encodeURIComponent(trackUrn)}/stream?${hq}quality=${quality}`;
 }
 
 /**
@@ -115,13 +118,16 @@ export function buildStorageUrls(trackUrn: string): string[] {
   return [...new Set(bases)].map((base) => `${base}/${file}`);
 }
 
-export function streamFallbackUrls(trackUrn: string, hq = isHqStreaming()): string[] {
+export function streamFallbackUrls(
+  trackUrn: string,
+  quality: PlaybackQuality = requestedQuality(),
+): string[] {
   const bases = resolveTicketBases();
   const urls: string[] = [];
   const seen = new Set<string>();
 
   for (const base of bases) {
-    const url = buildStreamUrl(base, trackUrn, hq);
+    const url = buildStreamUrl(base, trackUrn, quality);
     if (!seen.has(url)) {
       seen.add(url);
       urls.push(url);
@@ -131,22 +137,21 @@ export function streamFallbackUrls(trackUrn: string, hq = isHqStreaming()): stri
   return urls;
 }
 
-function buildDownloadUrl(base: string, trackUrn: string, hq: boolean) {
-  const suffix = hq ? '?hq=true' : '';
-  return `${base}/download/${encodeURIComponent(trackUrn)}${suffix}`;
+function buildDownloadUrl(base: string, trackUrn: string) {
+  return `${base}/download/${encodeURIComponent(trackUrn)}`;
 }
 
 /// URL'ы `/download/:urn` по всем валидным стриминг-базам.
 /// Клиент дергает их между anon и storage stream: сервер только резолвит
 /// SoundCloud-ссылки + (для encrypted) делает Widevine handshake, скачивание
 /// сегментов идёт прямо с SC.
-export function downloadFallbackUrls(trackUrn: string, hq = isHqStreaming()): string[] {
+export function downloadFallbackUrls(trackUrn: string): string[] {
   const bases = resolveDownloadBases();
   const urls: string[] = [];
   const seen = new Set<string>();
 
   for (const base of bases) {
-    const url = buildDownloadUrl(base, trackUrn, hq);
+    const url = buildDownloadUrl(base, trackUrn);
     if (!seen.has(url)) {
       seen.add(url);
       urls.push(url);

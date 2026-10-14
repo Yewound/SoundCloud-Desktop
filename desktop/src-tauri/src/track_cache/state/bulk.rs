@@ -2,7 +2,7 @@ use std::sync::atomic::Ordering;
 
 use tauri::Emitter;
 
-use super::{CacheRequest, TrackCacheState};
+use super::{CacheRequest, PlaybackQuality, TrackCacheState};
 
 const PROGRESS_EVENT: &str = "track:bulk-cache-progress";
 
@@ -18,7 +18,7 @@ pub struct BulkCacheEntry {
     #[serde(default)]
     pub session_id: Option<String>,
     #[serde(default)]
-    pub hq: bool,
+    pub quality: Option<String>,
     #[serde(default)]
     pub duration_ms: Option<u64>,
     #[serde(default)]
@@ -127,7 +127,7 @@ impl TrackCacheState {
             download_urls: &entry.download_urls,
             storage_urls: &entry.storage_urls,
             session_id: entry.session_id.as_deref(),
-            hq: entry.hq,
+            quality: PlaybackQuality::from_label(entry.quality.as_deref()),
             storage_quality: entry.storage_quality.as_deref(),
             liked: true,
             expected_duration_ms: entry.duration_ms,
@@ -208,7 +208,7 @@ mod tests {
             download_urls: Vec::new(),
             storage_urls: Vec::new(),
             session_id: None,
-            hq: false,
+            quality: None,
             duration_ms: None,
             storage_quality: None,
         };

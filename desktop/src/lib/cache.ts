@@ -15,7 +15,7 @@ import {trackedInvoke as invoke} from './diagnostics';
 import {sanitizeFilename} from './filename';
 import {onIdle} from './idle';
 import {forgetAllPinned, forgetLikedUrn, forgetPinned, getOfflineKeptUrns} from './offline-index';
-import { isHqStreaming } from './streaming';
+import { requestedQuality } from './streaming';
 import {isPreviewOnly} from './track-access';
 
 type StorageQuality = TrackScdMeta['storage_quality'];
@@ -85,7 +85,7 @@ export function getTranscodeStatus(): Promise<TranscodeStatus> {
  *  API-reported length in milliseconds. */
 async function buildCacheRequest(
   urn: string,
-  hq: boolean,
+  quality: PlaybackQuality,
   durationMs?: number,
   storageQuality?: StorageQuality,
 ) {
@@ -94,11 +94,11 @@ async function buildCacheRequest(
   );
   return {
     urn,
-    urls: streamFallbackUrls(urn, hq),
-    downloadUrls: downloadFallbackUrls(urn, hq),
+    urls: streamFallbackUrls(urn, quality),
+    downloadUrls: downloadFallbackUrls(urn),
     storageUrls: buildStorageUrls(urn),
     sessionId: getSessionId(),
-    hq,
+    quality,
     durationMs,
     storageQuality,
   };
@@ -110,7 +110,7 @@ export function expectedDurationMs(track: Pick<Track, 'duration' | 'access' | 'p
 
 export async function ensureTrackCached(
   urn: string,
-  highQualityStreaming = isHqStreaming(),
+  quality: PlaybackQuality = requestedQuality(),
   durationMs?: number,
   storageQuality?: StorageQuality,
 ): Promise<TrackCacheInfo> {
@@ -119,7 +119,7 @@ export async function ensureTrackCached(
     return cached;
   }
 
-  const request = await buildCacheRequest(urn, highQualityStreaming, durationMs, storageQuality);
+  const request = await buildCacheRequest(urn, quality, durationMs, storageQuality);
   return invoke<TrackCacheInfo>('track_ensure_cached', { request });
 }
 
@@ -129,7 +129,7 @@ export async function saveTrackOffline(
   durationMs?: number,
   storageQuality?: StorageQuality,
 ): Promise<TrackCacheInfo> {
-  const request = await buildCacheRequest(urn, isHqStreaming(), durationMs, storageQuality);
+  const request = await buildCacheRequest(urn, requestedQuality(), durationMs, storageQuality);
   return invoke<TrackCacheInfo>('track_save_offline', { request, refetch });
 }
 
@@ -138,7 +138,7 @@ export async function upgradeCachedTrack(
   durationMs?: number,
   storageQuality?: StorageQuality,
 ): Promise<boolean> {
-  const request = await buildCacheRequest(urn, true, durationMs, storageQuality);
+  const request = await buildCacheRequest(urn, requestedQuality(), durationMs, storageQuality);
   return invoke<boolean>('track_upgrade_cached', { request });
 }
 
@@ -206,7 +206,7 @@ export interface BulkCacheEntry {
   downloadUrls: string[];
   storageUrls: string[];
   sessionId: string | null;
-  hq: boolean;
+  quality: PlaybackQuality;
   durationMs?: number;
   storageQuality?: StorageQuality;
 }
@@ -444,8 +444,12 @@ export async function downloadTrack(
   });
   if (!dest) throw new Error('cancelled');
 
-  const hq = isHqStreaming();
-  const request = await buildCacheRequest(urn, hq, options.durationMs, options.storageQuality);
+  const request = await buildCacheRequest(
+    urn,
+    requestedQuality(),
+    options.durationMs,
+    options.storageQuality,
+  );
   return invoke<string>('track_export', {
     request,
     destPath: dest,
@@ -474,7 +478,7 @@ export async function exportTrackToDir(
 ): Promise<ExportToDirOutcome> {
   const request = await buildCacheRequest(
     track.urn,
-    isHqStreaming(),
+    requestedQuality(),
     expectedDurationMs(track),
     track._scd_meta?.storage_quality,
   );

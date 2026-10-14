@@ -66,9 +66,9 @@ async function buildEntries(tracks: Track[]): Promise<BulkCacheEntry[]> {
     downloadFallbackUrls,
     streamFallbackUrls,
     getSessionId,
-    isHqStreaming,
+    requestedQuality,
   } = await import('./api');
-  const hq = isHqStreaming();
+  const quality = requestedQuality();
   const sessionId = getSessionId();
   const seen = new Set<string>();
   const entries: BulkCacheEntry[] = [];
@@ -77,11 +77,11 @@ async function buildEntries(tracks: Track[]): Promise<BulkCacheEntry[]> {
     seen.add(track.urn);
     entries.push({
       urn: track.urn,
-      urls: streamFallbackUrls(track.urn, hq),
-      downloadUrls: downloadFallbackUrls(track.urn, hq),
+      urls: streamFallbackUrls(track.urn, quality),
+      downloadUrls: downloadFallbackUrls(track.urn),
       storageUrls: buildStorageUrls(track.urn),
       sessionId,
-      hq,
+      quality,
       durationMs: expectedDurationMs(track),
       storageQuality: track._scd_meta?.storage_quality,
     });

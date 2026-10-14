@@ -11,8 +11,8 @@ export type { ResolvedStreamingTrack } from './streaming';
 export {
   buildStorageUrls,
   downloadFallbackUrls,
-  isHqStreaming,
+  requestedQuality,
   resolveTrackFromStreaming,
   streamFallbackUrls,
-  wantsHqUpgrade,
+  wantsUpgrade,
 } from './streaming';

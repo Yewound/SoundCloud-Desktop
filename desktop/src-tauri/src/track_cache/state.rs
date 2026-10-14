@@ -12,7 +12,7 @@ use wreq::Client;
 use tauri::Emitter;
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
-use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex, Notify, OnceCell, OwnedSemaphorePermit, Semaphore};
 
 use crate::app::diagnostics::{self, log_native};
 use crate::network::dns;
@@ -20,13 +20,14 @@ use crate::network::edge::{Hop, Tier};
 use crate::network::fail::Fail;
 use crate::network::system_proxy::{self, follow};
 use crate::shared::urn::{canonical_track_urn, track_urn_from_storage_name};
-use crate::track_cache::api_download::{StreamJob, download_api};
-use crate::track_cache::direct_download::try_download;
+use crate::track_cache::api_download::{StreamJob, download_api, tier_url};
+use crate::track_cache::direct_download::{Candidate, consume_at, fetch_candidates};
 use crate::track_cache::sc_anon::AnonClient;
 use crate::track_cache::transcode;
 
 mod bulk;
 mod evict;
+mod ladder;
 mod export;
 mod pinned;
 mod storage;
@@ -34,7 +35,8 @@ mod upgrade;
 
 pub use bulk::{BulkCacheEntry, BulkCacheStatus};
 pub use export::ExportOutcome;
-use storage::{StorageCooldown, StorageJob};
+use ladder::Ladder;
+use storage::StorageCooldown;
 
 const MIN_AUDIO_SIZE: u64 = 8192;
 const AUDIO_SNIFF_LEN: usize = 16;
@@ -192,11 +194,11 @@ impl PlaybackQuality {
         }
     }
 
-    fn stored_as(quality: Option<&str>) -> Self {
+    pub fn from_label(quality: Option<&str>) -> Self {
         quality.and_then(Self::parse).unwrap_or(Self::Sq)
     }
 
-    fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Uq => "uq",
             Self::Hq => "hq",
@@ -333,7 +335,7 @@ pub struct CacheRequest<'a> {
     pub download_urls: &'a [String],
     pub storage_urls: &'a [String],
     pub session_id: Option<&'a str>,
-    pub hq: bool,
+    pub quality: PlaybackQuality,
     pub storage_quality: Option<&'a str>,
     pub liked: bool,
     /// API-reported track length (ms), if known — enables truncated-download
@@ -345,20 +347,10 @@ struct RaceJob<'a> {
     target_dir: &'a Path,
     urn: &'a str,
     session_id: Option<&'a str>,
-    hq: bool,
+    quality: PlaybackQuality,
     start: std::time::Instant,
     receiving: Arc<std::sync::atomic::AtomicBool>,
-}
-
-struct FallbackParams<'a> {
-    target_dir: &'a Path,
-    urn: &'a str,
-    urls: &'a [String],
-    download_urls: &'a [String],
-    storage_urls: &'a [String],
-    session_id: Option<&'a str>,
-    hq: bool,
-    storage_quality: PlaybackQuality,
+    candidates: &'a OnceCell<Option<Vec<Candidate>>>,
 }
 
 fn now_secs() -> u64 {
@@ -1153,7 +1145,7 @@ impl TrackCacheState {
             download_urls,
             storage_urls,
             session_id,
-            hq,
+            quality,
             storage_quality,
             liked,
             expected_duration_ms,
@@ -1215,15 +1207,16 @@ impl TrackCacheState {
         drop(active);
 
         let download_result = self
-            .download_with_fallback(FallbackParams {
+            .climb(Ladder {
                 target_dir,
                 urn,
                 urls,
                 download_urls,
                 storage_urls,
                 session_id,
-                hq,
-                storage_quality: PlaybackQuality::stored_as(storage_quality),
+                wanted: quality,
+                stored: PlaybackQuality::from_label(storage_quality),
+                above: None,
             })
             .await;
 
@@ -1510,139 +1503,6 @@ impl TrackCacheState {
         }
     }
 
-    async fn download_with_fallback(&self, params: FallbackParams<'_>) -> Result<PathBuf, String> {
-        let FallbackParams {
-            target_dir,
-            urn,
-            urls,
-            download_urls,
-            storage_urls,
-            session_id,
-            hq,
-            storage_quality,
-        } = params;
-        let start = std::time::Instant::now();
-        let mut last_err = String::from("no stream URLs provided");
-        let storage = self.storage_job(target_dir, urn, storage_urls, storage_quality, start);
-        let storage_after_race = hq && matches!(storage_quality, PlaybackQuality::Sq);
-
-        if !storage_after_race {
-            if let Some(path) = self.try_storage_redirect(&storage).await {
-                return Ok(path);
-            }
-            if !hq {
-                match self.try_anon(target_dir, urn, start).await {
-                    Ok(Some(path)) => return Ok(path),
-                    Ok(None) => {}
-                    Err(e) => last_err = format!("anon: {e}"),
-                }
-            }
-            if let Some(path) = self.try_storage_stream(&storage).await {
-                return Ok(path);
-            }
-        }
-
-        if !download_urls.is_empty() || !urls.is_empty() {
-            let job = RaceJob {
-                target_dir,
-                urn,
-                session_id,
-                hq,
-                start,
-                receiving: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            };
-            let race = self.race_direct_and_api(&job, download_urls, urls);
-            let result = if hq {
-                self.race_with_anon_backup(&job, race, storage_after_race.then_some(&storage))
-                    .await
-            } else {
-                race.await
-            };
-            match result {
-                Ok(path) => return Ok(path),
-                Err(err) => {
-                    last_err = err;
-                }
-            }
-        } else if hq
-            && let Ok(Some(path)) = self
-                .sq_fallback(target_dir, urn, start, storage_after_race.then_some(&storage))
-                .await
-        {
-            return Ok(path);
-        }
-
-        diagnostics::error(format!("[TrackCache] gave up on {urn}: {last_err}"));
-        Err(last_err)
-    }
-
-    async fn race_with_anon_backup(
-        &self,
-        job: &RaceJob<'_>,
-        hq_race: impl Future<Output = Result<PathBuf, String>>,
-        sq_storage: Option<&StorageJob<'_>>,
-    ) -> Result<PathBuf, String> {
-        let RaceJob {
-            target_dir,
-            urn,
-            start,
-            ..
-        } = *job;
-        tokio::pin!(hq_race);
-        let finished = tokio::select! {
-            res = &mut hq_race => Some(res),
-            () = tokio::time::sleep(Duration::from_secs(HQ_ANON_BACKUP_SECS)) => None,
-        };
-
-        let hq_result = match finished {
-            Some(res) => res,
-            None if job.receiving.load(std::sync::atomic::Ordering::Relaxed) => hq_race.await,
-            None => {
-                let line = format!(
-                    "[TrackCache] hq sources still silent for {urn}, starting sq fallback alongside"
-                );
-                println!("{line}");
-                self.diag("INFO", line);
-
-                let anon = self.sq_fallback(target_dir, urn, start, sq_storage);
-                tokio::pin!(anon);
-                return tokio::select! {
-                    res = &mut hq_race => match res {
-                        Ok(path) => Ok(path),
-                        Err(err) => anon.await.ok().flatten().ok_or(err),
-                    },
-                    res = &mut anon => match res {
-                        Ok(Some(path)) => Ok(path),
-                        _ => hq_race.await,
-                    },
-                };
-            }
-        };
-
-        match hq_result {
-            Ok(path) => Ok(path),
-            Err(err) => match self.sq_fallback(target_dir, urn, start, sq_storage).await {
-                Ok(Some(path)) => Ok(path),
-                _ => Err(err),
-            },
-        }
-    }
-
-    async fn sq_fallback(
-        &self,
-        target_dir: &Path,
-        urn: &str,
-        start: std::time::Instant,
-        storage: Option<&StorageJob<'_>>,
-    ) -> Result<Option<PathBuf>, String> {
-        if let Some(storage) = storage
-            && let Some(path) = self.try_storage(storage).await
-        {
-            return Ok(Some(path));
-        }
-        self.try_anon(target_dir, urn, start).await
-    }
-
     async fn try_anon(
         &self,
         target_dir: &Path,
@@ -1708,31 +1568,34 @@ impl TrackCacheState {
             target_dir,
             urn,
             session_id,
-            hq,
+            quality,
             start,
             ..
         } = *job;
         if download_urls.is_empty() {
             return Err("no download_urls".into());
         }
+        let candidates = job
+            .candidates
+            .get_or_init(|| fetch_candidates(&self.direct_client, download_urls, session_id))
+            .await
+            .as_deref()
+            .ok_or_else(|| "direct: no candidates".to_string())?;
         println!(
-            "[TrackCache] direct: trying {urn} via {} endpoint(s)",
-            download_urls.len()
+            "[TrackCache] direct: {urn} at {} from {} candidate(s)",
+            quality.label(),
+            candidates.len()
         );
-        let result = try_download(
+        let progress = progress_emitter(self.app_handle.clone(), urn, DownloadSource::Direct);
+        let result = consume_at(
             &self.direct_client,
-            download_urls,
-            session_id,
-            hq,
+            candidates,
+            quality,
             &job.receiving,
-            Arc::new(progress_emitter(
-                self.app_handle.clone(),
-                urn,
-                DownloadSource::Direct,
-            )),
+            &progress,
         )
         .await
-        .ok_or_else(|| "direct: no candidate succeeded".to_string())?;
+        .ok_or_else(|| format!("direct: nothing at {}", quality.label()))?;
         let quality = result.quality;
         match write_bytes_to_cache(
             target_dir,
@@ -1786,7 +1649,7 @@ impl TrackCacheState {
                 let state = self.clone();
                 let target_dir = target_dir.to_path_buf();
                 let urn = urn.to_string();
-                let url = url.clone();
+                let url = tier_url(url, job.quality);
                 let session_id = session_id.map(str::to_string);
                 let receiving = job.receiving.clone();
                 println!("[TrackCache] trying URL #{} for {urn} - {url}", i + 1);
@@ -2296,7 +2159,7 @@ mod tests {
             download_urls: &[],
             storage_urls: &[],
             session_id: None,
-            hq: false,
+            quality: PlaybackQuality::Sq,
             storage_quality: None,
             liked: false,
             expected_duration_ms: None,

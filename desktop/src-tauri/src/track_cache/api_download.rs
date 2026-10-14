@@ -132,19 +132,44 @@ async fn http_failure(status: wreq::StatusCode, response: wreq::Response) -> Dow
 }
 
 fn quality_from_url(url: &str) -> PlaybackQuality {
-    if Url::parse(url)
-        .ok()
-        .map(|parsed| {
-            parsed
-                .query_pairs()
-                .any(|(key, value)| key == "hq" && value == "true")
-        })
-        .unwrap_or(false)
-    {
-        PlaybackQuality::Hq
-    } else {
-        PlaybackQuality::Sq
+    let Ok(parsed) = Url::parse(url) else {
+        return PlaybackQuality::Sq;
+    };
+    let asked = parsed
+        .query_pairs()
+        .find(|(key, _)| key == "quality")
+        .and_then(|(_, value)| PlaybackQuality::parse(&value));
+    let hq = parsed
+        .query_pairs()
+        .any(|(key, value)| key == "hq" && value == "true");
+    match asked {
+        Some(tier) => tier,
+        None if hq => PlaybackQuality::Hq,
+        None => PlaybackQuality::Sq,
     }
+}
+
+pub(super) fn tier_url(url: &str, tier: PlaybackQuality) -> String {
+    let Ok(mut parsed) = Url::parse(url) else {
+        return url.to_string();
+    };
+    let kept: Vec<(String, String)> = parsed
+        .query_pairs()
+        .filter(|(key, _)| key != "hq" && key != "quality")
+        .map(|(key, value)| (key.into_owned(), value.into_owned()))
+        .collect();
+    {
+        let mut query = parsed.query_pairs_mut();
+        query.clear();
+        for (key, value) in &kept {
+            query.append_pair(key, value);
+        }
+        if tier.rank() > PlaybackQuality::Sq.rank() {
+            query.append_pair("hq", "true");
+        }
+        query.append_pair("quality", tier.label());
+    }
+    parsed.to_string()
 }
 
 fn truncate_error_text(text: &str, max_chars: usize) -> String {
@@ -339,5 +364,23 @@ mod tests {
             fetch_over(&hops).await,
             Err(DownloadError::Retryable(_))
         ));
+    }
+
+    #[test]
+    fn a_tier_replaces_whatever_quality_the_url_carried() {
+        use super::{quality_from_url, tier_url};
+        let base = "https://api.example/tracks/soundcloud%3Atracks%3A1/stream?hq=true";
+        let uq = tier_url(base, PlaybackQuality::Uq);
+        assert_eq!(
+            uq,
+            "https://api.example/tracks/soundcloud%3Atracks%3A1/stream?hq=true&quality=uq"
+        );
+        assert_eq!(quality_from_url(&uq).label(), "uq");
+        let sq = tier_url(&uq, PlaybackQuality::Sq);
+        assert_eq!(
+            sq,
+            "https://api.example/tracks/soundcloud%3Atracks%3A1/stream?quality=sq"
+        );
+        assert_eq!(quality_from_url(base).label(), "hq");
     }
 }

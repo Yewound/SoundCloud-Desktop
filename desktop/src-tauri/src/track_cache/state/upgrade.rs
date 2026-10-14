@@ -1,24 +1,13 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::time::Instant;
+use std::path::Path;
 
-use super::{
-    CacheRequest, PlaybackQuality, RaceJob, TrackCacheState, is_valid_file, read_cache_metadata,
-};
+use super::ladder::Ladder;
+use super::{CacheRequest, PlaybackQuality, TrackCacheState, is_valid_file, read_cache_metadata};
 
 pub(super) fn upgrades_existing(existing: &Path, incoming: PlaybackQuality) -> bool {
     let current = read_cache_metadata(existing)
         .map(|m| m.quality)
         .unwrap_or(PlaybackQuality::Sq);
     incoming.rank() > current.rank()
-}
-
-fn reachable(storage_quality: Option<&str>) -> PlaybackQuality {
-    match PlaybackQuality::stored_as(storage_quality) {
-        PlaybackQuality::Uq => PlaybackQuality::Uq,
-        _ => PlaybackQuality::Hq,
-    }
 }
 
 impl TrackCacheState {
@@ -28,8 +17,8 @@ impl TrackCacheState {
             return false;
         };
         let entry = self.entry_at(&clean, read_cache_metadata(&clean));
-        let current = PlaybackQuality::stored_as(entry.quality.as_deref());
-        if current.rank() >= reachable(req.storage_quality).rank()
+        let current = PlaybackQuality::from_label(entry.quality.as_deref());
+        if current.rank() >= req.quality.rank()
             || entry.accepted_short
             || self.ffmpeg().is_none()
             || is_valid_file(&self.incoming_file_path(urn))
@@ -38,15 +27,31 @@ impl TrackCacheState {
             return false;
         }
 
-        let Some(path) = self.download_better(&req, current).await else {
-            self.diag(
-                "INFO",
-                format!(
-                    "[TrackCache] no source above {} to upgrade {urn}",
-                    current.label()
-                ),
-            );
-            return false;
+        let climbed = self
+            .climb(Ladder {
+                target_dir: self.incoming_dir.as_path(),
+                urn,
+                urls: req.urls,
+                download_urls: req.download_urls,
+                storage_urls: req.storage_urls,
+                session_id: req.session_id,
+                wanted: req.quality,
+                stored: PlaybackQuality::from_label(req.storage_quality),
+                above: Some(current),
+            })
+            .await;
+        let path = match climbed {
+            Ok(path) => path,
+            Err(err) => {
+                self.diag(
+                    "INFO",
+                    format!(
+                        "[TrackCache] nothing above {} for {urn}: {err}",
+                        current.label()
+                    ),
+                );
+                return false;
+            }
         };
         let served = read_cache_metadata(&path)
             .map(|m| m.quality)
@@ -79,35 +84,5 @@ impl TrackCacheState {
         self.upgrade_attempts
             .lock()
             .is_ok_and(|mut set| set.insert(urn.to_string()))
-    }
-
-    async fn download_better(
-        &self,
-        req: &CacheRequest<'_>,
-        current: PlaybackQuality,
-    ) -> Option<PathBuf> {
-        let start = Instant::now();
-        let target_dir = self.incoming_dir.as_path();
-        let stored = PlaybackQuality::stored_as(req.storage_quality);
-        if stored.rank() > current.rank() {
-            let storage = self.storage_job(target_dir, req.urn, req.storage_urls, stored, start);
-            if let Some(path) = self.try_storage(&storage).await {
-                return Some(path);
-            }
-        }
-        if req.urls.is_empty() && req.download_urls.is_empty() {
-            return None;
-        }
-        let job = RaceJob {
-            target_dir,
-            urn: req.urn,
-            session_id: req.session_id,
-            hq: true,
-            start,
-            receiving: Arc::new(AtomicBool::new(false)),
-        };
-        self.race_direct_and_api(&job, req.download_urls, req.urls)
-            .await
-            .ok()
     }
 }
