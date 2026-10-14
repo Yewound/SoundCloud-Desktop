@@ -8,6 +8,7 @@ import {PlayNextButton} from '../music/PlayNextButton';
 import {SaveOfflineAction} from '../music/SaveOfflineButton';
 import {CopyIconAction, DownloadButton, IconAction, LikeBtn, PlayPill} from './actions';
 import {OwnerTrackActions} from './OwnerTrackActions';
+import {SuperlikeBtn} from './SuperlikeBtn';
 
 /** Hero transport + engagement + utility rail. Lives OUTSIDE the genre-scoped
  *  wave wrapper, so play/like keep the user's own accent. */
@@ -29,6 +30,7 @@ export const TrackActionRail = React.memo(function TrackActionRail({
         <div className="flex items-center gap-3 flex-wrap">
             <PlayPill isPlaying={isPlaying} onClick={onPlay}/>
             <LikeBtn trackUrn={track.urn} count={track.favoritings_count ?? track.likes_count}/>
+            <SuperlikeBtn track={track}/>
             <div
                 className="flex items-center gap-0.5 h-11 px-1.5 rounded-2xl"
                 style={{

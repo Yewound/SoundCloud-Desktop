@@ -1478,6 +1478,10 @@
         "title": "SoundWave ozel",
         "body": "Dalga'ya ve kimsede olmayan seemelere erken erisim."
       },
+      "superlikes": {
+        "title": "Sinirsiz super begeniler",
+        "body": "Star olmadan ayni anda en fazla 10, Star ile sinirsiz."
+      },
       "support": {
         "title": "Projeyi destekle",
         "body": "Paso dogrudan sunuculari ve gelistirmeyi besler. Tesekkurler."
@@ -1992,6 +1996,8 @@
     "removeFromQueue": "Kuyruktan kaldır",
     "like": "Beğen",
     "unlike": "Beğeniyi kaldır",
+    "superlike": "Süper beğeni",
+    "removeSuperlike": "Süper beğeniyi kaldır",
     "addToPlaylist": "Çalma listesine ekle…",
     "download": "İndir",
     "goToTrack": "Parçaya git",

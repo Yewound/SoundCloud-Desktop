@@ -23,6 +23,7 @@ import {
 import {ChevronLeft} from '../lib/icons';
 import {setLikedUrn} from '../lib/likes';
 import {usePerfMode} from '../lib/perf';
+import {seedSuperliked} from '../lib/superlikes';
 import {useAuthStore} from '../stores/auth';
 import {type Track, usePlayerStore} from '../stores/player';
 
@@ -93,6 +94,10 @@ export const TrackPage = React.memo(function TrackPage() {
   useEffect(() => {
     if (track?.user_favorite && track.urn) setLikedUrn(track.urn, true);
   }, [track?.urn, track?.user_favorite]);
+
+  useEffect(() => {
+    if (track?.urn) seedSuperliked(track.urn, track.user_superlike);
+  }, [track?.urn, track?.user_superlike]);
 
     const handlePlay = useCallback(() => {
         if (!track) return;

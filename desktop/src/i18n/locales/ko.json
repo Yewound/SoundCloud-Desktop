@@ -1540,6 +1540,10 @@
         "title": "SoundWave",
         "tag": "얼리 액세스"
       },
+      "superlikes": {
+        "title": "무제한 슈퍼 좋아요",
+        "tag": "10개 제한 없음"
+      },
       "support": {
         "title": "프로젝트 후원",
         "tag": "서버 및 개발"
@@ -2134,6 +2138,8 @@
     "removeFromQueue": "대기열에서 제거",
     "like": "좋아요",
     "unlike": "좋아요 취소",
+    "superlike": "슈퍼 좋아요",
+    "removeSuperlike": "슈퍼 좋아요 취소",
     "addToPlaylist": "재생 목록에 추가…",
     "download": "다운로드",
     "goToTrack": "트랙으로 이동",

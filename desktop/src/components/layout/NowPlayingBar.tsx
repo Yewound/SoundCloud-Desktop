@@ -23,7 +23,6 @@ import {invalidateAllLikesCache} from '../../lib/hooks';
 import {
     audioLines16,
     HardDrive,
-    Heart,
     ListPlus,
     Loader2,
     listMusic16,
@@ -40,11 +39,12 @@ import {
     ThumbsDown,
     X,
 } from '../../lib/icons';
-import {optimisticToggleLike} from '../../lib/likes';
+import {optimisticToggleLike, useLiked} from '../../lib/likes';
 import {isLocalUrn} from '../../lib/local-library';
 import {rememberLikedUrn} from '../../lib/offline-index';
 import {usePerfMode} from '../../lib/perf';
 import {QUALITY_LABEL_KEYS} from '../../lib/playback-quality';
+import {useSuperliked} from '../../lib/superlikes';
 import {useArtistDisplay, useArtistLinkItems, useDisplayTitle} from '../../lib/track-display';
 import {useTrackContextMenu} from '../../lib/useTrackContextMenu';
 import {useAddToPlaylistRequest} from '../../stores/add-to-playlist';
@@ -66,6 +66,8 @@ import {AlbumLinkButton} from '../music/AlbumLinkButton';
 import {ArtistNameLinks} from '../music/ArtistNameLinks';
 import {PlayerBlockButton} from '../music/blocklist/PlayerBlockButton';
 import {EqualizerPanel} from '../music/EqualizerPanel';
+import {HoldHeart} from '../music/superlike/HoldHeart';
+import {useSuperlikeGesture} from '../music/superlike/useSuperlikeGesture';
 import {TrackSoundToggle} from '../music/TrackSoundToggle';
 import {UploadKindDot} from '../music/UploadKindDot';
 import {TogetherButton} from '../together/TogetherButton';
@@ -421,7 +423,13 @@ function LikeButton({
     setLiked(null);
   }, [trackUrn]);
 
-  const isLiked = liked ?? trackData?.user_favorite ?? false;
+  const storeLiked = useLiked(trackUrn);
+  const superlikedStore = useSuperliked(trackUrn, trackData?.user_superlike);
+  useEffect(() => {
+    if (superlikedStore) setLiked(null);
+  }, [superlikedStore]);
+  const isLiked = liked ?? (storeLiked || !!trackData?.user_favorite);
+  const superliked = superlikedStore && isLiked;
 
   const toggle = async () => {
     const next = !isLiked;
@@ -443,16 +451,18 @@ function LikeButton({
     }
   };
 
+  const gesture = useSuperlikeGesture(trackData ?? { urn: trackUrn }, () => void toggle());
+
   return (
     <button
       type="button"
-      onClick={toggle}
-      title={t('track.likes')}
+      {...gesture.handlers}
+      title={`${t('track.likes')} · ${t('superlike.holdHint')}`}
       className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer hover:bg-white/[0.04] ${
         isLiked ? 'text-accent' : 'text-white/30 hover:text-white/60'
       }`}
     >
-      <Heart size={16} fill={isLiked ? 'currentColor' : 'none'} />
+      <HoldHeart liked={isLiked} superliked={superliked} size={16} gesture={gesture} />
     </button>
   );
 }

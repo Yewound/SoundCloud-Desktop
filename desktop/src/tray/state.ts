@@ -17,6 +17,7 @@ export interface TrayNp {
     isPlaying: boolean;
     volume: number;
     liked: boolean;
+    superliked: boolean;
     disliked: boolean;
     shuffle: boolean;
     repeat: RepeatMode;
@@ -31,6 +32,7 @@ export type TrayCmd =
     | 'shuffle'
     | 'repeat'
     | 'like'
+    | 'superlike'
     | 'dislike'
     | 'add_to_playlist'
     | 'show'
@@ -47,6 +49,7 @@ const EMPTY: TrayNp = {
     isPlaying: false,
     volume: 50,
     liked: false,
+    superliked: false,
     disliked: false,
     shuffle: false,
     repeat: 'off',

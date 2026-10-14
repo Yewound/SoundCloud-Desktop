@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { useAuthStore } from '../stores/auth';
 import type { Track } from '../stores/player';
 import { recordEvent } from './events';
+import { forgetSuperlike } from './superlikes';
 
 interface PagedTracks {
   collection: Track[];
@@ -38,6 +39,7 @@ export function setLikedUrn(urn: string, liked: boolean) {
     _likedUrns.set(urn, true);
   } else {
     _likedUrns.delete(urn);
+    forgetSuperlike(urn);
   }
   notify();
 }
@@ -72,11 +74,14 @@ export function likedTracksCount(user: UserLikeCounters | null | undefined): num
 /* ── Optimistic toggle (TanStack Query cache) ───────────── */
 
 export function optimisticToggleLike(qc: QueryClient, track: Track, nowLiked: boolean) {
-  // Update global liked URNs
-  setLikedUrn(track.urn, nowLiked);
-
   // Record like event for SoundWave taste model (only on positive transition)
   if (nowLiked) recordEvent('like', track.urn);
+  applyLikeLocally(qc, track, nowLiked);
+}
+
+export function applyLikeLocally(qc: QueryClient, track: Track, nowLiked: boolean) {
+  // Update global liked URNs
+  setLikedUrn(track.urn, nowLiked);
 
   // Update favorites count in auth store
   const { user } = useAuthStore.getState();

@@ -77,6 +77,7 @@ export interface Track {
   favoritings_count?: number;
   reposts_count?: number;
   user_favorite?: boolean;
+  user_superlike?: boolean;
   access?: 'playable' | 'preview' | 'blocked';
   policy?: string;
   publisher_metadata?: {

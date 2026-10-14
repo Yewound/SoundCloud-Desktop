@@ -479,6 +479,35 @@
     "empty": "Nothing here",
     "loadFailed": "Couldn't load your disliked tracks"
   },
+  "superlike": {
+    "holdHint": "Hold for a superlike",
+    "superliked": "Superliked",
+    "action": "Superlike",
+    "remove": "Remove superlike",
+    "markHint": "Mark this track as special: it shapes your Wave three times as much as a like",
+    "limitTitle": "Get unlimited superlikes with <star/>",
+    "limitBody_one": "Without Star up to {{count}} superlike can be active at a time. Get Star or move a superlike from another track.",
+    "limitBody_other": "Without Star up to {{count}} superlikes can be active at a time. Get Star or move a superlike from another track.",
+    "getStar": "Get Star",
+    "freeSlot": "Or free a slot: tap a cover to move its superlike to the new track",
+    "moveFrom": "Move the superlike from {{title}}",
+    "moved": "Superlike moved"
+  },
+  "superlikes": {
+    "title": "Superlikes",
+    "kicker": "Your very best",
+    "tagline": "Tracks you marked as more than a like. Your Wave listens to them three times as closely.",
+    "usedOf": "{{used}} of {{limit}}",
+    "unlimitedWith": "Unlimited with",
+    "count_one": "{{count}} superlike",
+    "count_other": "{{count}} superlikes",
+    "playAll": "Play all",
+    "shuffle": "Shuffle",
+    "emptyTitle": "Press and hold a heart",
+    "emptyBody": "Hold ♥ on any track for half a second: the ring fills up and the track becomes a superlike. You can also pick Superlike in the track menu.",
+    "emptyWave": "A superlike includes a like and shapes your Wave three times as much.",
+    "loadFailed": "Could not load superlikes"
+  },
   "errors": {
     "title": "Something went wrong",
     "subtitle": "The interface hit a snag. Try again or reload the app.",
@@ -1570,6 +1599,10 @@
         "title": "SoundWave",
         "tag": "Early access"
       },
+      "superlikes": {
+        "title": "Unlimited superlikes",
+        "tag": "No cap of 10"
+      },
       "support": {
         "title": "Support the project",
         "tag": "Servers & dev"
@@ -2181,6 +2214,8 @@
     "removeFromQueue": "Remove from queue",
     "like": "Like",
     "unlike": "Remove like",
+    "superlike": "Superlike",
+    "removeSuperlike": "Remove superlike",
     "addToPlaylist": "Add to playlist…",
     "download": "Download",
     "goToTrack": "Go to track",

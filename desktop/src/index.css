@@ -15,6 +15,10 @@
   --color-accent-glow: rgba(255, 85, 0, 0.2);
   --color-accent-selection: rgba(255, 85, 0, 0.3);
   --color-accent-contrast: #ffffff;
+  --color-superlike-from: #ffd166;
+  --color-superlike-via: #ff7a59;
+  --color-superlike-to: #ff3d81;
+  --color-superlike-glow: rgba(255, 106, 92, 0.45);
 
   --font-sans: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-serif: "Fraunces", Georgia, "Times New Roman", serif;

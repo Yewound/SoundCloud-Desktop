@@ -13,6 +13,8 @@ import {isUrnLiked, optimisticToggleLike} from './likes';
 import {isLocalUrn} from './local-library';
 import {rememberLikedUrn} from './offline-index';
 import {queryClient} from './query-client';
+import {toggleSuperlike} from './superlike-actions';
+import {isUrnSuperliked, subscribeSuperliked} from './superlikes';
 import {getArtistDisplay, getDisplayTitle} from './track-display';
 
 /* ── Tray-popover bridge ─────────────────────────────────────────
@@ -30,6 +32,7 @@ interface TrayNp {
     isPlaying: boolean;
     volume: number;
     liked: boolean;
+    superliked: boolean;
     disliked: boolean;
     shuffle: boolean;
     repeat: 'off' | 'one' | 'all';
@@ -50,6 +53,7 @@ function buildNp(): TrayNp {
             isPlaying: false,
             volume: s.volume,
             liked: false,
+            superliked: false,
             disliked: false,
             shuffle: s.shuffle,
             repeat: s.repeat,
@@ -57,6 +61,7 @@ function buildNp(): TrayNp {
             abLoop: null,
         };
     }
+    const liked = isUrnLiked(tr.urn) || !!tr.user_favorite;
     return {
         hasTrack: true,
         title: getDisplayTitle(tr),
@@ -65,7 +70,8 @@ function buildNp(): TrayNp {
         artworkLarge: art(tr.artwork_url, 't500x500'),
         isPlaying: s.isPlaying,
         volume: s.volume,
-        liked: isUrnLiked(tr.urn) || !!tr.user_favorite,
+        liked,
+        superliked: liked && isUrnSuperliked(tr.urn),
         disliked: isUrnDisliked(tr.urn),
         shuffle: s.shuffle,
         repeat: s.repeat,
@@ -115,6 +121,12 @@ export async function toggleLikeCurrent() {
         optimisticToggleLike(queryClient, tr, !next);
         pushNp();
     }
+}
+
+function toggleSuperlikeCurrent() {
+    const tr = usePlayerStore.getState().currentTrack;
+    if (!tr || isLocalUrn(tr.urn)) return;
+    toggleSuperlike(tr);
 }
 
 async function toggleDislikeCurrent() {
@@ -182,6 +194,9 @@ listen<{ action: string; value?: number }>('tray:cmd', (event) => {
         case 'like':
             void toggleLikeCurrent();
             break;
+        case 'superlike':
+            toggleSuperlikeCurrent();
+            break;
         case 'dislike':
             void toggleDislikeCurrent();
             break;
@@ -201,6 +216,7 @@ listen('tray:hello', () => emitNp());
 /* ── Snapshot fan-out ────────────────────────────────────────── */
 
 usePlayerStore.subscribe(pushNp);
+subscribeSuperliked(pushNp);
 
 // Like/dislike state lives in TanStack Query — re-push when the current track's
 // reaction caches change (toggles from the main UI).

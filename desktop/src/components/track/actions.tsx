@@ -7,12 +7,16 @@ import {forgetOfflineLike} from '../../lib/cache';
 import {clearDislike} from '../../lib/dislike-actions';
 import {fc} from '../../lib/formatters';
 import {invalidateAllLikesCache} from '../../lib/hooks';
-import {Check, Download, Heart, LinkIcon, Loader2, pauseCurrent16, playCurrent16,} from '../../lib/icons';
+import {Check, Download, LinkIcon, Loader2, pauseCurrent16, playCurrent16,} from '../../lib/icons';
 import {optimisticToggleLike, setLikedUrn, useLiked} from '../../lib/likes';
 import {rememberLikedUrn} from '../../lib/offline-index';
 import {cleanPermalink} from '../../lib/permalink';
+import {useSuperliked} from '../../lib/superlikes';
 import {saveTrackFile} from '../../lib/track-actions';
 import type {Track} from '../../stores/player';
+import {HoldHeart} from '../music/superlike/HoldHeart';
+import type {HeartGesture} from '../music/superlike/useHeartGesture';
+import {useSuperlikeGesture} from '../music/superlike/useSuperlikeGesture';
 
 /** Accent like-chip: icon + count, glows accent when active. */
 const EngagementChip = React.memo(function EngagementChip({
@@ -20,19 +24,21 @@ const EngagementChip = React.memo(function EngagementChip({
   icon,
   count,
   label,
-  onClick,
+  title,
+  handlers,
 }: {
   active: boolean;
   icon: React.ReactNode;
   count: number;
   label: string;
-  onClick: () => void;
+  title: string;
+  handlers: HeartGesture['handlers'];
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      title={label}
+      {...handlers}
+      title={title}
       aria-label={label}
       className={`inline-flex items-center gap-1.5 px-3.5 h-11 rounded-2xl text-[12.5px] font-semibold tabular-nums border transition-all duration-300 ease-[var(--ease-apple)] cursor-pointer active:scale-[0.96] ${
         active
@@ -49,6 +55,7 @@ const EngagementChip = React.memo(function EngagementChip({
 export const LikeBtn = React.memo(({ trackUrn, count }: { trackUrn: string; count?: number }) => {
   const { t } = useTranslation();
   const liked = useLiked(trackUrn);
+  const superliked = useSuperliked(trackUrn) && liked;
   const [localCount, setLocalCount] = useState(count ?? 0);
   const qc = useQueryClient();
 
@@ -75,13 +82,19 @@ export const LikeBtn = React.memo(({ trackUrn, count }: { trackUrn: string; coun
     }
   };
 
+  const gesture = useSuperlikeGesture(
+    qc.getQueryData<Track>(['track', trackUrn]) ?? { urn: trackUrn },
+    () => void toggle(),
+  );
+
   return (
     <EngagementChip
       active={liked}
-      icon={<Heart size={15} fill={liked ? 'currentColor' : 'none'} />}
+      icon={<HoldHeart liked={liked} superliked={superliked} size={15} gesture={gesture} />}
       count={localCount}
       label={t('track.likes')}
-      onClick={toggle}
+      title={`${t('track.likes')} · ${t('superlike.holdHint')}`}
+      handlers={gesture.handlers}
     />
   );
 });

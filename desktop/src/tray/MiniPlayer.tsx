@@ -1,5 +1,4 @@
 import {
-    Heart,
     ListPlus,
     Maximize2,
     Pause,
@@ -21,6 +20,7 @@ import {trackedInvoke as invoke} from '../lib/diagnostics';
 import {formatTime} from '../lib/formatters';
 import {snapVolume} from '../lib/volume';
 import {getNp, getPosition, patchNp, sendCmd, subscribeNp, subscribePosition} from './state';
+import {TrayLikeButton} from './TrayLikeButton';
 
 const t = (key: string) => i18n.t(key);
 
@@ -294,14 +294,7 @@ export function MiniPlayer() {
 
                     {/* footer: reactions + volume */}
                     <div className="tp-foot">
-                        <button
-                            type="button"
-                            className={`tp-icon-btn ${np.liked ? 'is-like' : ''}`}
-                            title={t('track.likes')}
-                            onClick={() => sendCmd('like')}
-                        >
-                            <Heart size={16} fill={np.liked ? 'currentColor' : 'none'}/>
-                        </button>
+                        <TrayLikeButton liked={np.liked} superliked={np.superliked}/>
                         <button
                             type="button"
                             className={`tp-icon-btn ${np.disliked ? 'is-dislike' : ''}`}

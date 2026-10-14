@@ -21,6 +21,8 @@ import { setTrackLiked } from '../../../lib/like-toggle';
 import { useLiked } from '../../../lib/likes';
 import { LIKED_ORDER_SCOPE, moveLikedTrack } from '../../../lib/likes-order';
 import { isLocalUrn } from '../../../lib/local-library';
+import { toggleSuperlike } from '../../../lib/superlike-actions';
+import { useSuperliked } from '../../../lib/superlikes';
 import {
   copyTrackLabel,
   copyTrackLink,
@@ -32,6 +34,7 @@ import { getArtistDisplay, getArtistTarget } from '../../../lib/track-display';
 import { useAppMode } from '../../../stores/app-status';
 import { usePlayerStore } from '../../../stores/player';
 import { type TrackMenuTarget, useTrackMenuStore } from '../../../stores/trackMenu';
+import { SuperHeart } from '../superlike/SuperHeart';
 import { MenuItem, MenuSeparator } from './MenuItem';
 
 export function TrackMenuItems({ target }: { target: TrackMenuTarget }) {
@@ -40,6 +43,7 @@ export function TrackMenuItems({ target }: { target: TrackMenuTarget }) {
   const qc = useQueryClient();
   const { track, queueIndex } = target;
   const liked = useLiked(track.urn);
+  const superliked = useSuperliked(track.urn, track.user_superlike) && liked;
   const online = useAppMode() === 'online';
   const playable = getArtistDisplay(track).availability === 'indexed';
   const remote = !isLocalUrn(track.urn);
@@ -109,6 +113,15 @@ export function TrackMenuItems({ target }: { target: TrackMenuTarget }) {
             icon={<Heart size={15} fill={liked ? 'currentColor' : 'none'} />}
             label={liked ? t('trackMenu.unlike') : t('trackMenu.like')}
             onSelect={run(() => void setTrackLiked(qc, track, !liked))}
+          />
+        ),
+        online && remote && playable && (
+          <MenuItem
+            key="superlike"
+            active={superliked}
+            icon={<SuperHeart size={15} />}
+            label={superliked ? t('trackMenu.removeSuperlike') : t('trackMenu.superlike')}
+            onSelect={run(() => toggleSuperlike(track))}
           />
         ),
         online && remote && playable && (

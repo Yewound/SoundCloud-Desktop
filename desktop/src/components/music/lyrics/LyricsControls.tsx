@@ -11,7 +11,6 @@ import {useDislikeStatus} from '../../../lib/dislikes';
 import {invalidateAllLikesCache} from '../../../lib/hooks';
 import {
     ExternalLink,
-    Heart,
     ListPlus,
     pauseBlack18,
     playBlack18,
@@ -25,12 +24,17 @@ import {
 import {optimisticToggleLike, useLiked} from '../../../lib/likes';
 import {isLocalUrn} from '../../../lib/local-library';
 import {rememberLikedUrn} from '../../../lib/offline-index';
+import {useSuperliked} from '../../../lib/superlikes';
 import {useLyricsStore} from '../../../stores/lyrics';
 import {type Track, usePlayerStore} from '../../../stores/player';
 import {AddToPlaylistDialog} from '../AddToPlaylistDialog';
+import {HoldHeart} from '../superlike/HoldHeart';
+import {useSuperlikeGesture} from '../superlike/useSuperlikeGesture';
 
 const FullscreenLikeButton = React.memo(({track}: { track: Track }) => {
+    const {t} = useTranslation();
     const liked = useLiked(track.urn);
+    const superliked = useSuperliked(track.urn, track.user_superlike) && liked;
     const qc = useQueryClient();
 
     const toggle = async () => {
@@ -48,15 +52,18 @@ const FullscreenLikeButton = React.memo(({track}: { track: Track }) => {
         }
     };
 
+    const gesture = useSuperlikeGesture(track, () => void toggle());
+
     return (
         <button
             type="button"
-            onClick={toggle}
+            {...gesture.handlers}
+            title={`${t('track.likes')} · ${t('superlike.holdHint')}`}
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer hover:bg-white/[0.06] outline-none ${
                 liked ? 'text-accent' : 'text-white/30 hover:text-white/60'
             }`}
         >
-            <Heart size={20} fill={liked ? 'currentColor' : 'none'}/>
+            <HoldHeart liked={liked} superliked={superliked} size={20} gesture={gesture}/>
         </button>
     );
 });

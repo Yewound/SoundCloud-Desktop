@@ -15,6 +15,7 @@ import {useLyricsStore} from '../../stores/lyrics';
 import {usePlayerStore} from '../../stores/player';
 import {useSettingsStore} from '../../stores/settings';
 import {AddToPlaylistHost} from '../music/AddToPlaylistHost';
+import {SuperlikeLimitHost} from '../music/superlike/SuperlikeLimitHost';
 import {TrackContextMenu} from '../music/track-menu/TrackContextMenu';
 import {DropImportOverlay} from '../offline/local/DropImportOverlay';
 import {ContextMenuHost} from '../ui/ContextMenu';
@@ -475,6 +476,7 @@ export const AppShell = React.memo(() => {
       </div>
       <NowPlayingBar onQueueToggle={onQueueToggle} queueOpen={queueOpen} />
       <AddToPlaylistHost />
+      <SuperlikeLimitHost />
       <UploadTrackDialog />
       {queueOpen && (
         <Suspense fallback={null}>
