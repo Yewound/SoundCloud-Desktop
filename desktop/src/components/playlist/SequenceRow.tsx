@@ -1,10 +1,8 @@
-import {useSortable} from '@dnd-kit/sortable';
-import {CSS} from '@dnd-kit/utilities';
 import React from 'react';
 import {useTranslation} from 'react-i18next';
 import {cancelPreload, preloadTrack} from '../../lib/audio';
 import {art, dur, fc} from '../../lib/formatters';
-import {GripVertical, headphones9, heart9, musicIcon12, pauseWhite12, playWhite12, Trash2,} from '../../lib/icons';
+import {headphones9, heart9, musicIcon12, pauseWhite12, playWhite12, Trash2,} from '../../lib/icons';
 import {useTrackContextMenu} from '../../lib/useTrackContextMenu';
 import {useTrackPlay} from '../../lib/useTrackPlay';
 import type {Track} from '../../stores/player';
@@ -14,6 +12,7 @@ import {SaveOfflineRowButton} from '../music/SaveOfflineButton';
 import {sameScdMeta, TrackStatusBadges} from '../music/TrackStatusBadges';
 import {TrackTitleArtist} from '../music/TrackTitleArtist';
 import {genreColor} from '../search/utils';
+import {DragGrip, LIFTED_ROW_STYLE, useSortableRow} from '../ui/SortableVirtualList';
 
 /** Shared row body. The left hue-tick is colored by THIS track's genre, so the
  *  sequence visibly shifts color as you flip the crate. */
@@ -162,33 +161,16 @@ export const SortableSequenceRow = React.memo(
   }) {
     const { isThis, isThisPlaying, togglePlay } = useTrackPlay(track, queue, onPlay);
     const onContextMenu = useTrackContextMenu(track);
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-      id: track.urn,
-    });
-    const base = CSS.Transform.toString(transform);
+    const sortable = useSortableRow(track.urn);
 
     return (
       <div
-        ref={setNodeRef}
+        ref={sortable.ref}
         onContextMenu={onContextMenu}
-        style={{
-          transform: base,
-          transition,
-          // Source row is hidden while dragging — the DragOverlay renders the
-          // floating copy, so the drag survives this row windowing out of the
-          // virtual list. (No content-visibility: the VirtualList already windows;
-          // stacking it caused the scroll jank.)
-          opacity: isDragging ? 0 : 1,
-        }}
+        style={sortable.style}
         className={`${ROW_BASE} ${activeCls(isThis)}`}
       >
-        <div
-          className="w-5 flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing text-white/15 hover:text-white/40 transition-colors -ml-1"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical size={14} />
-        </div>
+        <DragGrip handle={sortable.handle} />
 
         <RowBody
           track={track}
@@ -226,14 +208,9 @@ export function SequenceRowOverlay({
   return (
     <div
       className={`${ROW_BASE} ${activeCls(isThis)} bg-white/[0.06] cursor-grabbing`}
-      style={{
-        transform: 'rotate(1.5deg)',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.55), inset 0 0 0 0.5px rgba(255,255,255,0.12)',
-      }}
+      style={LIFTED_ROW_STYLE}
     >
-      <div className="w-5 flex items-center justify-center shrink-0 text-white/40 -ml-1">
-        <GripVertical size={14} />
-      </div>
+      <DragGrip />
       <RowBody
         track={track}
         index={index}

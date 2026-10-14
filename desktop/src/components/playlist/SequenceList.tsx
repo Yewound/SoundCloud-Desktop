@@ -1,20 +1,10 @@
-import {
-    closestCenter,
-    DndContext,
-    type DragEndEvent,
-    DragOverlay,
-    type DragStartEvent,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
-import {SortableContext, verticalListSortingStrategy} from '@dnd-kit/sortable';
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import type {DragEndEvent} from '@dnd-kit/core';
+import React, {useCallback, useMemo, useRef} from 'react';
 import {useTranslation} from 'react-i18next';
 import {Clock, ListMusic, Loader2, Search} from '../../lib/icons';
 import {filterTracks} from '../../lib/text-match';
 import type {Track} from '../../stores/player';
+import {SortableVirtualList} from '../ui/SortableVirtualList';
 import {VirtualList} from '../ui/VirtualList';
 import {SequenceFilter} from './SequenceFilter';
 import {SequenceRow, SequenceRowOverlay, SortableSequenceRow} from './SequenceRow';
@@ -24,6 +14,10 @@ const PANEL = {
   border: '0.5px solid rgba(255,255,255,0.06)',
   boxShadow: '0 24px 60px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04)',
 } as const;
+
+function urnOf(track: Track) {
+  return track.urn;
+}
 
 function Header({
   count,
@@ -84,16 +78,8 @@ export const SequenceList = React.memo(function SequenceList({
   isFetchingNextPage: boolean;
 }) {
   const { t } = useTranslation();
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor),
-  );
   const visible = useMemo(() => filterTracks(tracks, query), [tracks, query]);
   const filtering = visible !== tracks;
-  const ids = useMemo(() => tracks.map((tr) => tr.urn), [tracks]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const activeIndex = activeId ? tracks.findIndex((tr) => tr.urn === activeId) : -1;
-  const activeTrack = activeIndex >= 0 ? tracks[activeIndex] : null;
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const getQueue = useCallback(() => visibleRef.current, []);
@@ -153,40 +139,26 @@ export const SequenceList = React.memo(function SequenceList({
           </p>
         </div>
       ) : reorderable && onRemove && !filtering ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
-          onDragEnd={(e) => {
-            setActiveId(null);
-            onDragEnd(e);
-          }}
-          onDragCancel={() => setActiveId(null)}
-        >
-          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-            <VirtualList
-              items={tracks}
-              rowHeight={68}
-              overscan={12}
-              className="space-y-0.5"
-              getItemKey={(tr) => tr.urn}
-              renderItem={(track, i) => (
-                <SortableSequenceRow
-                  track={track}
-                  index={i}
-                  queue={getQueue}
-                  onRemove={onRemove}
-                  onPlay={onPlay}
-                />
-              )}
+        <SortableVirtualList
+          items={tracks}
+          getId={urnOf}
+          rowHeight={68}
+          overscan={12}
+          className="space-y-0.5"
+          onDragEnd={onDragEnd}
+          renderItem={(track, i) => (
+            <SortableSequenceRow
+              track={track}
+              index={i}
+              queue={getQueue}
+              onRemove={onRemove}
+              onPlay={onPlay}
             />
-          </SortableContext>
-          <DragOverlay>
-            {activeTrack ? (
-              <SequenceRowOverlay track={activeTrack} index={activeIndex} queue={getQueue} />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+          )}
+          renderOverlay={(track, i) => (
+            <SequenceRowOverlay track={track} index={i} queue={getQueue} />
+          )}
+        />
       ) : (
         <VirtualList
           items={visible}

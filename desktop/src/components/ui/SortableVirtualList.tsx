@@ -1,0 +1,102 @@
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type React from 'react';
+import { useMemo, useState } from 'react';
+import { GripVertical } from '../../lib/icons';
+import { VirtualList } from './VirtualList';
+
+export const LIFTED_ROW_STYLE: React.CSSProperties = {
+  transform: 'rotate(1.5deg)',
+  boxShadow: '0 24px 60px rgba(0,0,0,0.55), inset 0 0 0 0.5px rgba(255,255,255,0.12)',
+};
+
+export function SortableVirtualList<T>({
+  items,
+  getId,
+  rowHeight,
+  overscan,
+  className,
+  onDragEnd,
+  renderItem,
+  renderOverlay,
+}: {
+  items: T[];
+  getId: (item: T) => string;
+  rowHeight: number;
+  overscan: number;
+  className?: string;
+  onDragEnd: (event: DragEndEvent) => void;
+  renderItem: (item: T, index: number) => React.ReactNode;
+  renderOverlay: (item: T, index: number) => React.ReactNode;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
+  const ids = useMemo(() => items.map(getId), [items, getId]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeIndex = activeId ? ids.indexOf(activeId) : -1;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={(event) => setActiveId(String(event.active.id))}
+      onDragEnd={(event) => {
+        setActiveId(null);
+        onDragEnd(event);
+      }}
+      onDragCancel={() => setActiveId(null)}
+    >
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        <VirtualList
+          items={items}
+          rowHeight={rowHeight}
+          overscan={overscan}
+          className={className}
+          getItemKey={getId}
+          renderItem={renderItem}
+        />
+      </SortableContext>
+      <DragOverlay>
+        {activeIndex >= 0 ? renderOverlay(items[activeIndex], activeIndex) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+export function useSortableRow(id: string) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+  return {
+    ref: setNodeRef,
+    style: {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0 : 1,
+    },
+    handle: { ...attributes, ...listeners },
+  };
+}
+
+export function DragGrip({ handle }: { handle?: ReturnType<typeof useSortableRow>['handle'] }) {
+  const tone = handle
+    ? 'cursor-grab active:cursor-grabbing text-white/15 hover:text-white/40 transition-colors'
+    : 'text-white/40';
+  return (
+    <div className={`w-5 flex items-center justify-center shrink-0 -ml-1 ${tone}`} {...handle}>
+      <GripVertical size={14} />
+    </div>
+  );
+}
