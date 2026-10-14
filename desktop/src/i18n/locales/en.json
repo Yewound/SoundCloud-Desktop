@@ -50,6 +50,7 @@
     "queueEmptyHint": "Tracks you play next will show up here",
     "shuffle": "Shuffle",
     "repeat": "Repeat",
+    "qualityUQ": "UQ",
     "qualityHQ": "HQ",
     "qualitySQ": "SQ",
     "qualityCDN": "CDN",
@@ -232,8 +233,10 @@
     "status": {
       "analyzed": "Cached & analyzed",
       "analyzedHq": "Cached (HQ) & analyzed",
+      "analyzedUq": "Cached (UQ) & analyzed",
       "cached": "Cached",
       "cachedHq": "Cached (HQ)",
+      "cachedUq": "Cached (UQ)",
       "pending": "Processing",
       "tooLong": "Too long — not cached",
       "failed": "Processing failed"

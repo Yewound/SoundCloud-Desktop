@@ -71,11 +71,12 @@ function TrackStatusBadgesInner({ meta, variant = 'inline', showIndex = true }: 
 
     const {letter, inline, overlay} = TIERS[tier];
     const tone = variant === 'overlay' ? overlay : inline;
-    const hq = tier === 'analyzed' || tier === 'cached' ? meta.storage_quality === 'hq' : false;
+    const stored = tier === 'analyzed' || tier === 'cached' ? meta.storage_quality : undefined;
+    const hq = stored === 'hq' || stored === 'uq';
 
   return (
       <span
-          title={t(`track.status.${tier}${hq ? 'Hq' : ''}`)}
+          title={t(`track.status.${tier}${stored === 'uq' ? 'Uq' : hq ? 'Hq' : ''}`)}
           className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded-[6px] text-[10px] font-bold leading-none ring-1 ring-inset select-none ${tone}`}
       >
       {letter}

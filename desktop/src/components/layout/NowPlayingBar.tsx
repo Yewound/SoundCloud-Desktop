@@ -44,6 +44,7 @@ import {optimisticToggleLike} from '../../lib/likes';
 import {isLocalUrn} from '../../lib/local-library';
 import {rememberLikedUrn} from '../../lib/offline-index';
 import {usePerfMode} from '../../lib/perf';
+import {QUALITY_LABEL_KEYS} from '../../lib/playback-quality';
 import {useArtistDisplay, useArtistLinkItems, useDisplayTitle} from '../../lib/track-display';
 import {useTrackContextMenu} from '../../lib/useTrackContextMenu';
 import {useAddToPlaylistRequest} from '../../stores/add-to-playlist';
@@ -363,7 +364,7 @@ const PlaybackQualityBadge = React.memo(() => {
 
   if (!playbackQuality) return null;
 
-  const isHq = playbackQuality === 'hq';
+  const isHq = playbackQuality !== 'sq';
 
   return (
     <div className="flex shrink-0 items-center gap-1.5">
@@ -374,7 +375,7 @@ const PlaybackQualityBadge = React.memo(() => {
             : 'border-white/[0.08] bg-white/[0.04] text-white/68'
         }`}
       >
-        {isHq ? t('player.qualityHQ') : t('player.qualitySQ')}
+        {t(QUALITY_LABEL_KEYS[playbackQuality])}
       </span>
       {playbackSource === 'storage' && (
         <span

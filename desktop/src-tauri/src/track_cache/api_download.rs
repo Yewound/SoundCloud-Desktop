@@ -60,11 +60,7 @@ async fn download_over(
             .headers()
             .get("x-audio-quality")
             .and_then(|value| value.to_str().ok());
-        let quality = match served {
-            Some("hq") => PlaybackQuality::Hq,
-            Some("sq") => PlaybackQuality::Sq,
-            _ => requested,
-        };
+        let quality = served.and_then(PlaybackQuality::parse).unwrap_or(requested);
         let result = write_response_to_cache(
             job.target_dir,
             job.urn,

@@ -57,12 +57,12 @@ export function ReactCluster({ track }: { track: Track | null }) {
 }
 
 /** Бейдж качества/источника (донор `PlaybackQualityBadge`) из `_scd_meta`:
- *  HQ/SQ по storage_quality + «CDN» когда трек лежит в нашем хранилище. */
+ *  UQ/HQ/SQ по storage_quality + «CDN» когда трек лежит в нашем хранилище. */
 function QualityBadge({ track }: { track: Track }) {
   const quality = track.badge?.storage_quality;
   const cdn = track.badge?.storage_state === 'ok';
   if (!quality) return null;
-  const isHq = quality === 'hq';
+  const isHq = quality === 'hq' || quality === 'uq';
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 4 }}>
@@ -75,7 +75,7 @@ function QualityBadge({ track }: { track: Track }) {
         }}
       >
         <ScText style={{ fontSize: 9, fontWeight: '700', letterSpacing: 1.4, color: isHq ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.68)' }}>
-          {isHq ? 'HQ' : 'SQ'}
+          {quality === 'uq' ? 'UQ' : isHq ? 'HQ' : 'SQ'}
         </ScText>
       </View>
       {cdn && (

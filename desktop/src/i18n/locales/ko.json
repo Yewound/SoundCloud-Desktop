@@ -50,6 +50,7 @@
     "queueEmptyHint": "다음에 재생할 트랙이 여기에 표시돼요",
     "shuffle": "셔플",
     "repeat": "반복",
+    "qualityUQ": "UQ",
     "qualityHQ": "HQ",
     "qualitySQ": "SQ",
     "qualityCDN": "CDN",
@@ -232,8 +233,10 @@
     "status": {
       "analyzed": "캐시됨 · 분석 완료",
       "analyzedHq": "캐시됨(HQ) · 분석 완료",
+      "analyzedUq": "캐시됨(UQ) · 분석 완료",
       "cached": "캐시됨",
       "cachedHq": "캐시됨(HQ)",
+      "cachedUq": "캐시됨(UQ)",
       "pending": "처리 중",
       "tooLong": "너무 길어서 캐시 안 됨",
       "failed": "처리 실패"

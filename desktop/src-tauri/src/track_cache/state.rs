@@ -177,23 +177,38 @@ fn remove_cache_metadata(path: &Path) {
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PlaybackQuality {
+    Uq,
     Hq,
     Sq,
 }
 
 impl PlaybackQuality {
-    fn stored_as(quality: Option<&str>) -> Self {
-        if quality == Some("hq") {
-            Self::Hq
-        } else {
-            Self::Sq
+    pub(super) fn parse(label: &str) -> Option<Self> {
+        match label {
+            "uq" => Some(Self::Uq),
+            "hq" => Some(Self::Hq),
+            "sq" => Some(Self::Sq),
+            _ => None,
         }
+    }
+
+    fn stored_as(quality: Option<&str>) -> Self {
+        quality.and_then(Self::parse).unwrap_or(Self::Sq)
     }
 
     fn label(self) -> &'static str {
         match self {
+            Self::Uq => "uq",
             Self::Hq => "hq",
             Self::Sq => "sq",
+        }
+    }
+
+    pub(super) fn rank(self) -> u8 {
+        match self {
+            Self::Uq => 2,
+            Self::Hq => 1,
+            Self::Sq => 0,
         }
     }
 }
@@ -2178,17 +2193,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn only_hq_bytes_replace_an_sq_clean_file() {
+    async fn only_better_bytes_replace_a_clean_file() {
         let (root, state) = test_state("upgrade");
         let sq = cached_clean_file(&state, "soundcloud:tracks:3", 180_000).await;
 
         assert!(upgrade::upgrades_existing(&sq, PlaybackQuality::Hq));
+        assert!(upgrade::upgrades_existing(&sq, PlaybackQuality::Uq));
         assert!(!upgrade::upgrades_existing(&sq, PlaybackQuality::Sq));
 
         let mut meta = read_cache_metadata(&sq).unwrap();
         meta.quality = PlaybackQuality::Hq;
         write_cache_metadata(&sq, &meta).await;
         assert!(!upgrade::upgrades_existing(&sq, PlaybackQuality::Hq));
+        assert!(upgrade::upgrades_existing(&sq, PlaybackQuality::Uq));
+
+        meta.quality = PlaybackQuality::Uq;
+        write_cache_metadata(&sq, &meta).await;
+        assert!(!upgrade::upgrades_existing(&sq, PlaybackQuality::Uq));
         std::fs::remove_dir_all(&root).ok();
     }
 

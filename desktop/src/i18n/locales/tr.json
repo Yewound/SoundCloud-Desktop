@@ -206,8 +206,10 @@
     "status": {
       "analyzed": "Onbellekte ve analiz edildi",
       "analyzedHq": "Onbellekte (HQ) ve analiz edildi",
+      "analyzedUq": "Onbellekte (UQ) ve analiz edildi",
       "cached": "Onbellekte",
       "cachedHq": "Onbellekte (HQ)",
+      "cachedUq": "Onbellekte (UQ)",
       "pending": "Isleniyor",
       "tooLong": "Cok uzun — onbellege alinmaz",
       "failed": "Isleme basarisiz"

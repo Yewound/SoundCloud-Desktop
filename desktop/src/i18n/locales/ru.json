@@ -50,6 +50,7 @@
     "queueEmptyHint": "Здесь появятся треки, которые заиграют следующими",
     "shuffle": "Перемешать",
     "repeat": "Повтор",
+    "qualityUQ": "UQ",
     "qualityHQ": "HQ",
     "qualitySQ": "SQ",
     "qualityCDN": "CDN",
@@ -232,8 +233,10 @@
     "status": {
       "analyzed": "В кэше и проанализирован",
       "analyzedHq": "В кэше (HQ) и проанализирован",
+      "analyzedUq": "В кэше (UQ) и проанализирован",
       "cached": "В кэше",
       "cachedHq": "В кэше (HQ)",
+      "cachedUq": "В кэше (UQ)",
       "pending": "Обрабатывается",
       "tooLong": "Слишком длинный — не кэшируется",
       "failed": "Ошибка обработки"

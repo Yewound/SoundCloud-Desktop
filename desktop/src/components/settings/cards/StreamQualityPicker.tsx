@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/shallow';
 import { Star } from '../../../lib/icons';
+import { QUALITY_LABEL_KEYS } from '../../../lib/playback-quality';
 import { usePlayerStore } from '../../../stores/player';
 import { type StreamQuality, useSettingsStore } from '../../../stores/settings';
 import { Segmented } from '../primitives';
@@ -17,7 +18,7 @@ function NowPlayingQuality() {
     useShallow((s) => ({ quality: s.playbackQuality, source: s.playbackSource })),
   );
   if (!quality) return null;
-  const isHq = quality === 'hq';
+  const isHq = quality !== 'sq';
 
   return (
     <div className="flex shrink-0 items-center gap-2">
@@ -30,7 +31,7 @@ function NowPlayingQuality() {
         }`}
         style={isHq ? { boxShadow: '0 0 14px var(--color-accent-glow)' } : undefined}
       >
-        {isHq ? t('player.qualityHQ') : t('player.qualitySQ')}
+        {t(QUALITY_LABEL_KEYS[quality])}
       </span>
       {source === 'storage' && (
         <span className="inline-flex h-6 items-center rounded-md border border-[#b7ffd8]/[0.16] bg-[#b7ffd8]/[0.07] px-2 text-[8px] font-medium tracking-[0.12em] text-[#dff7e9]/82">

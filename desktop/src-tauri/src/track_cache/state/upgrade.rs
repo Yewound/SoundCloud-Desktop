@@ -8,11 +8,17 @@ use super::{
 };
 
 pub(super) fn upgrades_existing(existing: &Path, incoming: PlaybackQuality) -> bool {
-    matches!(incoming, PlaybackQuality::Hq)
-        && !matches!(
-            read_cache_metadata(existing).map(|m| m.quality),
-            Some(PlaybackQuality::Hq)
-        )
+    let current = read_cache_metadata(existing)
+        .map(|m| m.quality)
+        .unwrap_or(PlaybackQuality::Sq);
+    incoming.rank() > current.rank()
+}
+
+fn reachable(storage_quality: Option<&str>) -> PlaybackQuality {
+    match PlaybackQuality::stored_as(storage_quality) {
+        PlaybackQuality::Uq => PlaybackQuality::Uq,
+        _ => PlaybackQuality::Hq,
+    }
 }
 
 impl TrackCacheState {
@@ -22,7 +28,8 @@ impl TrackCacheState {
             return false;
         };
         let entry = self.entry_at(&clean, read_cache_metadata(&clean));
-        if entry.quality.as_deref() == Some("hq")
+        let current = PlaybackQuality::stored_as(entry.quality.as_deref());
+        if current.rank() >= reachable(req.storage_quality).rank()
             || entry.accepted_short
             || self.ffmpeg().is_none()
             || is_valid_file(&self.incoming_file_path(urn))
@@ -31,19 +38,28 @@ impl TrackCacheState {
             return false;
         }
 
-        let Some(path) = self.download_hq(&req).await else {
+        let Some(path) = self.download_better(&req, current).await else {
             self.diag(
                 "INFO",
-                format!("[TrackCache] no hq source to upgrade {urn}"),
+                format!(
+                    "[TrackCache] no source above {} to upgrade {urn}",
+                    current.label()
+                ),
             );
             return false;
         };
-        let served = read_cache_metadata(&path).map(|m| m.quality);
-        if !matches!(served, Some(PlaybackQuality::Hq)) {
+        let served = read_cache_metadata(&path)
+            .map(|m| m.quality)
+            .unwrap_or(PlaybackQuality::Sq);
+        if served.rank() <= current.rank() {
             self.remove_incoming(urn).await;
             self.diag(
                 "INFO",
-                format!("[TrackCache] hq upgrade for {urn} served sq"),
+                format!(
+                    "[TrackCache] upgrade for {urn} served {}, already had {}",
+                    served.label(),
+                    current.label()
+                ),
             );
             return false;
         }
@@ -52,7 +68,10 @@ impl TrackCacheState {
         self.finalize_incoming(&path, liked, req.expected_duration_ms.filter(|&ms| ms > 0))
             .await;
         self.spawn_transcode(urn.to_string());
-        self.diag("INFO", format!("[TrackCache] upgrading {urn} to hq"));
+        self.diag(
+            "INFO",
+            format!("[TrackCache] upgrading {urn} to {}", served.label()),
+        );
         true
     }
 
@@ -62,20 +81,16 @@ impl TrackCacheState {
             .is_ok_and(|mut set| set.insert(urn.to_string()))
     }
 
-    async fn download_hq(&self, req: &CacheRequest<'_>) -> Option<PathBuf> {
+    async fn download_better(
+        &self,
+        req: &CacheRequest<'_>,
+        current: PlaybackQuality,
+    ) -> Option<PathBuf> {
         let start = Instant::now();
         let target_dir = self.incoming_dir.as_path();
-        if matches!(
-            PlaybackQuality::stored_as(req.storage_quality),
-            PlaybackQuality::Hq
-        ) {
-            let storage = self.storage_job(
-                target_dir,
-                req.urn,
-                req.storage_urls,
-                PlaybackQuality::Hq,
-                start,
-            );
+        let stored = PlaybackQuality::stored_as(req.storage_quality);
+        if stored.rank() > current.rank() {
+            let storage = self.storage_job(target_dir, req.urn, req.storage_urls, stored, start);
             if let Some(path) = self.try_storage(&storage).await {
                 return Some(path);
             }

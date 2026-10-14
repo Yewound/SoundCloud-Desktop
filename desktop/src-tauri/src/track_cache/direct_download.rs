@@ -90,11 +90,7 @@ impl Candidate {
     }
 
     fn playback_quality(&self) -> PlaybackQuality {
-        if self.quality() == "hq" {
-            PlaybackQuality::Hq
-        } else {
-            PlaybackQuality::Sq
-        }
+        PlaybackQuality::parse(self.quality()).unwrap_or(PlaybackQuality::Sq)
     }
 }
 
@@ -221,8 +217,8 @@ async fn fetch_download(
 fn sort_candidates(cands: Vec<Candidate>, hq_pref: bool) -> Vec<Candidate> {
     let mut filtered: Vec<Candidate> = cands.into_iter().filter(|c| c.quality() != "lq").collect();
     filtered.sort_by_key(|c| {
-        let is_hq = c.quality() == "hq";
-        let q_score = if hq_pref == is_hq { 0u32 } else { 1u32 };
+        let rank = c.playback_quality().rank();
+        let q_score = if hq_pref { u8::MAX - rank } else { rank };
         (q_score, c.kind_score())
     });
     filtered

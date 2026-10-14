@@ -48,7 +48,7 @@ export interface TrackEnrichment {
 
 export interface TrackScdMeta {
     storage_state: 'pending' | 'ok' | 'failed' | 'missing' | 'too_long';
-  storage_quality?: 'sq' | 'hq';
+  storage_quality?: 'sq' | 'hq' | 'uq';
     index_state: 'pending' | 'indexed' | 'failed' | 'too_long';
   enrich_state: 'pending' | 'done' | 'failed';
 }
@@ -101,7 +101,7 @@ export interface Track {
 }
 
 type RepeatMode = 'off' | 'one' | 'all';
-export type PlaybackQuality = 'hq' | 'sq';
+export type PlaybackQuality = 'uq' | 'hq' | 'sq';
 
 /**
  * A-B loop ("best part" repeat). Bounds are in **source seconds**.
