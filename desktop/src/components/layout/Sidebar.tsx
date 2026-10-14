@@ -6,10 +6,12 @@ import { changeAppLanguage } from '../../i18n';
 import { Clock, Globe, PanelLeftClose, PanelLeftOpen, Settings } from '../../lib/icons';
 import { moveEntry } from '../../lib/layout';
 import { usePerfMode } from '../../lib/perf';
+import { useSuperlikeCount } from '../../lib/superlikes';
 import { useLayout } from '../../lib/use-layout';
 import { useAppMode } from '../../stores/app-status';
 import { useAuthStore } from '../../stores/auth';
 import { useSettingsStore } from '../../stores/settings';
+import { SuperHeart } from '../music/superlike/SuperHeart';
 import { Avatar } from '../ui/Avatar';
 import { type IconCmp, NAV_ITEMS } from './nav-items';
 import { ACTIVE, IconBox, Label, ROW, sidebarWidth } from './SidebarChrome';
@@ -84,6 +86,7 @@ export const Sidebar = React.memo(() => {
   const navigate = useNavigate();
   const openStar = useCallback(() => navigate('/star'), [navigate]);
   const perf = usePerfMode();
+  const superlikeCount = useSuperlikeCount();
 
   const toggleLanguage = () => {
     void changeAppLanguage(i18n.language === 'ru' ? 'en' : 'ru');
@@ -146,6 +149,16 @@ export const Sidebar = React.memo(() => {
           collapsed={collapsed}
           title={collapsed ? t('library.history') : undefined}
         />
+
+        {superlikeCount > 0 && (
+          <NavItem
+            to="/library/superlikes"
+            icon={SuperHeart}
+            label={t('superlikes.title')}
+            collapsed={collapsed}
+            title={collapsed ? t('superlikes.title') : undefined}
+          />
+        )}
 
         <SidebarPins collapsed={collapsed} />
       </div>

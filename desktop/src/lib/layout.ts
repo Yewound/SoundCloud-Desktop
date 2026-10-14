@@ -18,6 +18,7 @@ export const LAYOUT_IDS = {
     'likedAlbums',
     'local',
     'artists',
+    'superlikes',
     'likes',
     'dislikes',
   ],

@@ -10,15 +10,17 @@ import {LikesSortMenu} from '../components/library/LikesSortMenu';
 import {LikesTab} from '../components/library/LikesTab';
 import {PlaylistsTab} from '../components/library/PlaylistsTab';
 import {StatsView} from '../components/library/stats/StatsView';
+import {SuperlikesTab} from '../components/library/superlikes/SuperlikesTab';
 import {useSoundprint} from '../components/library/useSoundprint';
 import {useDislikedCount} from '../lib/dislikes';
 import {useLikedTracks} from '../lib/hooks';
 import {likedTracksCount} from '../lib/likes';
+import {useSuperlikeCount} from '../lib/superlikes';
 import {useAuthStore} from '../stores/auth';
 import {useSettingsStore} from '../stores/settings';
 
-type Section = 'likes' | 'playlists' | 'following' | 'history' | 'stats' | 'dislikes';
-const SECTIONS: Section[] = ['likes', 'playlists', 'following', 'history', 'stats', 'dislikes'];
+type Section = 'likes' | 'playlists' | 'following' | 'history' | 'stats' | 'dislikes' | 'superlikes';
+const SECTIONS: Section[] = ['likes', 'playlists', 'following', 'history', 'stats', 'dislikes', 'superlikes'];
 
 const TITLE_KEY: Record<Section, string> = {
     likes: 'library.likedTracks',
@@ -27,6 +29,7 @@ const TITLE_KEY: Record<Section, string> = {
     history: 'library.history',
     stats: 'stats.title',
     dislikes: 'dislikes.title',
+    superlikes: 'superlikes.title',
 };
 
 /** A deep collection page (/library/:section) — the full, filterable, virtualized
@@ -39,6 +42,7 @@ export const LibraryCollection = React.memo(() => {
     const likesSort = useSettingsStore((s) => s.likesSort);
     const sound = useSoundprint(likedTracks);
     const dislikedCount = useDislikedCount();
+    const superlikeCount = useSuperlikeCount();
     const [filter, setFilter] = useState('');
     const deferredFilter = useDeferredValue(filter);
 
@@ -58,7 +62,9 @@ export const LibraryCollection = React.memo(() => {
                     ? user.followings_count
                     : sec === 'dislikes'
                         ? dislikedCount
-                        : undefined;
+                        : sec === 'superlikes'
+                            ? superlikeCount
+                            : undefined;
 
     return (
         <LibraryFrame sound={sound}>
@@ -81,6 +87,7 @@ export const LibraryCollection = React.memo(() => {
             {sec === 'history' && <HistoryTab/>}
             {sec === 'stats' && <StatsView aura={sound.aura} accentGlow={sound.accentGlow}/>}
             {sec === 'dislikes' && <DislikesTab filter={deferredFilter}/>}
+            {sec === 'superlikes' && <SuperlikesTab filter={deferredFilter}/>}
         </LibraryFrame>
     );
 });

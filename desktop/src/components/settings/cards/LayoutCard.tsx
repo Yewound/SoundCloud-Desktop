@@ -29,6 +29,7 @@ import {
 import { useLayout } from '../../../lib/use-layout';
 import { useSettingsStore } from '../../../stores/settings';
 import { NAV_ITEMS } from '../../layout/nav-items';
+import { SuperHeart } from '../../music/superlike/SuperHeart';
 import { Card, Segmented } from '../primitives';
 import { PinnedEditor, RiverSections } from './LayoutExtras';
 import { LayoutList, RowIconButton } from './LayoutList';
@@ -44,6 +45,7 @@ const LIBRARY_ITEMS: Record<LayoutId<'library'>, ItemMeta> = {
   likedAlbums: { icon: <Disc3 size={16} />, label: 'library.likedAlbums' },
   local: { icon: <HardDrive size={16} />, label: 'local.libraryTitle' },
   artists: { icon: <Users size={16} />, label: 'library.artists' },
+  superlikes: { icon: <SuperHeart size={16} />, label: 'superlikes.title' },
   likes: { icon: <Heart size={16} />, label: 'library.likedTracks' },
   dislikes: { icon: <ThumbsDown size={16} />, label: 'dislikes.title' },
 };

@@ -1,0 +1,93 @@
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useInfiniteScroll } from '../../../lib/hooks';
+import { Loader2 } from '../../../lib/icons';
+import { useSuperlikeQuota, useSuperlikedTracks } from '../../../lib/superlikes';
+import { filterTracks } from '../../../lib/text-match';
+import { SyncNotice } from '../../ui/SyncNotice';
+import { VirtualList } from '../../ui/VirtualList';
+import { LibraryTrackRow } from '../LibraryTrackRow';
+import { SuperlikesEmpty } from './SuperlikesEmpty';
+import { SuperlikesHero } from './SuperlikesHero';
+import { usePlaySuperlikes } from './usePlaySuperlikes';
+
+export const SuperlikesTab = React.memo(function SuperlikesTab({ filter }: { filter: string }) {
+  const { t } = useTranslation();
+  const query = useSuperlikedTracks();
+  const { data: quota } = useSuperlikeQuota();
+  const { tracks, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = query;
+  const sentinelRef = useInfiniteScroll(!!hasNextPage, isFetchingNextPage, fetchNextPage);
+  const player = usePlaySuperlikes(query);
+
+  useEffect(() => {
+    if (filter && hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [filter, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const filtered = useMemo(() => filterTracks(tracks, filter), [tracks, filter]);
+  const filteredRef = useRef(filtered);
+  filteredRef.current = filtered;
+  const getQueue = useCallback(() => filteredRef.current, []);
+
+  const hero = (
+    <SuperlikesHero
+      quota={quota}
+      canPlay={tracks.length > 0}
+      loading={player.loading}
+      onPlay={player.playAll}
+      onShuffle={player.shuffle}
+    />
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 size={32} className="animate-spin text-white/20" />
+      </div>
+    );
+  }
+
+  if (query.isError && tracks.length === 0) {
+    return (
+      <div className="py-20">
+        <SyncNotice
+          kind="failed"
+          text={t('superlikes.loadFailed')}
+          onRetry={() => void query.refetch()}
+        />
+      </div>
+    );
+  }
+
+  if (tracks.length === 0) {
+    return (
+      <>
+        {hero}
+        <SuperlikesEmpty />
+      </>
+    );
+  }
+
+  return (
+    <div className="min-h-[400px]">
+      {hero}
+      {filtered.length > 0 ? (
+        <VirtualList
+          items={filtered}
+          rowHeight={68}
+          overscan={8}
+          className="flex flex-col gap-1"
+          disabled={filtered.length < 40}
+          getItemKey={(track) => track.urn}
+          renderItem={(track, i) => <LibraryTrackRow track={track} index={i} queue={getQueue} />}
+        />
+      ) : (
+        <div className="py-20 text-center text-white/20">
+          {hasNextPage ? t('common.loading') : t('library.noMatches')}
+        </div>
+      )}
+      <div ref={sentinelRef} className="mt-4 flex h-12 items-center justify-center">
+        {isFetchingNextPage && <Loader2 size={20} className="animate-spin text-white/15" />}
+      </div>
+    </div>
+  );
+});

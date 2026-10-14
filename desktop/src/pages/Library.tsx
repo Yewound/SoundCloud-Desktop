@@ -9,6 +9,7 @@ import {LibraryFrame} from '../components/library/LibraryFrame';
 import {LocalFilesRail} from '../components/library/LocalFilesRail';
 import {SoundPrintMasthead} from '../components/library/SoundPrintMasthead';
 import {StatsTeaser} from '../components/library/stats/StatsTeaser';
+import {SuperlikesRail} from '../components/library/superlikes/SuperlikesRail';
 import {useSoundprint} from '../components/library/useSoundprint';
 import {PlaylistCard} from '../components/music/PlaylistCard';
 import {TrackCard} from '../components/music/TrackCard';
@@ -149,6 +150,7 @@ export const Library = React.memo(() => {
         ))}
       </CollectionRail>
     ),
+    superlikes: <SuperlikesRail genre={genre} />,
     dislikes: !genre && <DislikesLink />,
   };
 

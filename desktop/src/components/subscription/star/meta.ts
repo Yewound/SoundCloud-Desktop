@@ -1,5 +1,6 @@
 import { AudioLines, Database, Globe, Heart, Music, Sparkles } from '../../../lib/icons';
 import type { Entitlement } from '../../../lib/pay-client';
+import { SuperHeart } from '../../music/superlike/SuperHeart';
 
 /** Flow steps for the STAR membership page. */
 export type Step = 'overview' | 'method' | 'pay' | 'success' | 'redeem' | 'manage';
@@ -11,6 +12,7 @@ export const PERKS = [
   { key: 'hq', Icon: AudioLines },
   { key: 'whitelist', Icon: Globe },
   { key: 'soundwave', Icon: Sparkles },
+  { key: 'superlikes', Icon: SuperHeart },
   { key: 'support', Icon: Heart },
 ] as const;
 
