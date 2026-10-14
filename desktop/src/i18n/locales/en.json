@@ -480,7 +480,8 @@
     "loadFailed": "Couldn't load your disliked tracks"
   },
   "superlike": {
-    "holdHint": "Hold for a superlike",
+    "holdHint": "Hold to superlike",
+    "holdToRemove": "Hold to remove the superlike",
     "superliked": "Superliked",
     "action": "Superlike",
     "remove": "Remove superlike",
@@ -490,7 +491,10 @@
     "limitBody_other": "Without Star up to {{count}} superlikes can be active at a time. Get Star or move a superlike from another track.",
     "getStar": "Get Star",
     "freeSlot": "Or free a slot: tap a cover to move its superlike to the new track",
+    "freeSlots_one": "Free {{count}} slot: tap covers to remove their superlikes, the last one you tap moves to the new track",
+    "freeSlots_other": "Free {{count}} slots: tap covers to remove their superlikes, the last one you tap moves to the new track",
     "moveFrom": "Move the superlike from {{title}}",
+    "removeFrom": "Remove the superlike from {{title}}",
     "moved": "Superlike moved"
   },
   "superlikes": {

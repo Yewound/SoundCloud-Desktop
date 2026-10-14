@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { useAuthStore } from '../stores/auth';
 import type { Track } from '../stores/player';
 import { recordEvent } from './events';
-import { forgetSuperlike } from './superlikes';
+import { forgetSuperlike, recheckSuperlike, seedSuperliked } from './superlikes';
 
 interface PagedTracks {
   collection: Track[];
@@ -25,6 +25,7 @@ function notify() {
 export function initLikedUrns(tracks: Track[]) {
   let changed = false;
   for (const t of tracks) {
+    seedSuperliked(t.urn, t.user_superlike);
     if (!_likedUrns.has(t.urn)) {
       _likedUrns.set(t.urn, true);
       changed = true;
@@ -37,6 +38,7 @@ export function initLikedUrns(tracks: Track[]) {
 export function setLikedUrn(urn: string, liked: boolean) {
   if (liked) {
     _likedUrns.set(urn, true);
+    recheckSuperlike(urn);
   } else {
     _likedUrns.delete(urn);
     forgetSuperlike(urn);

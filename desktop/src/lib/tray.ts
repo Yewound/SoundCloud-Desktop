@@ -1,6 +1,7 @@
 import {emit, listen} from '@tauri-apps/api/event';
 import {useAddToPlaylistRequest} from '../stores/add-to-playlist';
 import { usePlayerStore } from '../stores/player';
+import {useSuperlikeLimit} from '../stores/superlike-limit';
 import {api} from './api';
 import {getDuration, handlePrev, seek} from './audio';
 import {forgetOfflineLike} from './cache';
@@ -14,7 +15,7 @@ import {isLocalUrn} from './local-library';
 import {rememberLikedUrn} from './offline-index';
 import {queryClient} from './query-client';
 import {toggleSuperlike} from './superlike-actions';
-import {isUrnSuperliked, subscribeSuperliked} from './superlikes';
+import {cachedQuota, isQuotaFull, isUrnSuperliked, subscribeSuperliked} from './superlikes';
 import {getArtistDisplay, getDisplayTitle} from './track-display';
 
 /* ── Tray-popover bridge ─────────────────────────────────────────
@@ -33,6 +34,7 @@ interface TrayNp {
     volume: number;
     liked: boolean;
     superliked: boolean;
+    superlikeBlocked: boolean;
     disliked: boolean;
     shuffle: boolean;
     repeat: 'off' | 'one' | 'all';
@@ -54,6 +56,7 @@ function buildNp(): TrayNp {
             volume: s.volume,
             liked: false,
             superliked: false,
+            superlikeBlocked: false,
             disliked: false,
             shuffle: s.shuffle,
             repeat: s.repeat,
@@ -62,6 +65,7 @@ function buildNp(): TrayNp {
         };
     }
     const liked = isUrnLiked(tr.urn) || !!tr.user_favorite;
+    const superliked = liked && isUrnSuperliked(tr.urn);
     return {
         hasTrack: true,
         title: getDisplayTitle(tr),
@@ -71,7 +75,8 @@ function buildNp(): TrayNp {
         isPlaying: s.isPlaying,
         volume: s.volume,
         liked,
-        superliked: liked && isUrnSuperliked(tr.urn),
+        superliked,
+        superlikeBlocked: !superliked && isQuotaFull(cachedQuota()),
         disliked: isUrnDisliked(tr.urn),
         shuffle: s.shuffle,
         repeat: s.repeat,
@@ -127,6 +132,7 @@ function toggleSuperlikeCurrent() {
     const tr = usePlayerStore.getState().currentTrack;
     if (!tr || isLocalUrn(tr.urn)) return;
     toggleSuperlike(tr);
+    if (useSuperlikeLimit.getState().wanted) void invoke('show_main_window');
 }
 
 async function toggleDislikeCurrent() {
@@ -222,5 +228,5 @@ subscribeSuperliked(pushNp);
 // reaction caches change (toggles from the main UI).
 queryClient.getQueryCache().subscribe((ev) => {
     const k = ev?.query?.queryKey;
-    if (Array.isArray(k) && (k[0] === 'track' || k[0] === 'dislikes')) pushNp();
+    if (Array.isArray(k) && (k[0] === 'track' || k[0] === 'dislikes' || k[0] === 'superlikes')) pushNp();
 });

@@ -67,6 +67,7 @@ import {ArtistNameLinks} from '../music/ArtistNameLinks';
 import {PlayerBlockButton} from '../music/blocklist/PlayerBlockButton';
 import {EqualizerPanel} from '../music/EqualizerPanel';
 import {HoldHeart} from '../music/superlike/HoldHeart';
+import {heartTitle} from '../music/superlike/heart-title';
 import {useSuperlikeGesture} from '../music/superlike/useSuperlikeGesture';
 import {TrackSoundToggle} from '../music/TrackSoundToggle';
 import {UploadKindDot} from '../music/UploadKindDot';
@@ -457,7 +458,7 @@ function LikeButton({
     <button
       type="button"
       {...gesture.handlers}
-      title={`${t('track.likes')} · ${t('superlike.holdHint')}`}
+      title={heartTitle(t, isLiked, superliked)}
       className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer hover:bg-white/[0.04] ${
         isLiked ? 'text-accent' : 'text-white/30 hover:text-white/60'
       }`}

@@ -15,6 +15,7 @@ import {useSuperliked} from '../../lib/superlikes';
 import {saveTrackFile} from '../../lib/track-actions';
 import type {Track} from '../../stores/player';
 import {HoldHeart} from '../music/superlike/HoldHeart';
+import {heartTitle} from '../music/superlike/heart-title';
 import type {HeartGesture} from '../music/superlike/useHeartGesture';
 import {useSuperlikeGesture} from '../music/superlike/useSuperlikeGesture';
 
@@ -93,7 +94,7 @@ export const LikeBtn = React.memo(({ trackUrn, count }: { trackUrn: string; coun
       icon={<HoldHeart liked={liked} superliked={superliked} size={15} gesture={gesture} />}
       count={localCount}
       label={t('track.likes')}
-      title={`${t('track.likes')} · ${t('superlike.holdHint')}`}
+      title={heartTitle(t, liked, superliked)}
       handlers={gesture.handlers}
     />
   );

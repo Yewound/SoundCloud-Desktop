@@ -2,6 +2,8 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 export const HOLD_MS = 500;
+const RING_DELAY_MS = 140;
+export const RING_FILL_MS = HOLD_MS - RING_DELAY_MS;
 const BURST_MS = 700;
 
 export interface HeartGesture {
@@ -28,12 +30,14 @@ export function useHeartGesture({
   const [burst, setBurst] = useState(0);
   const [bursting, setBursting] = useState(false);
   const holdTimer = useRef<number | undefined>(undefined);
+  const ringTimer = useRef<number | undefined>(undefined);
   const burstTimer = useRef<number | undefined>(undefined);
   const held = useRef(false);
 
   useEffect(
     () => () => {
       window.clearTimeout(holdTimer.current);
+      window.clearTimeout(ringTimer.current);
       window.clearTimeout(burstTimer.current);
     },
     [],
@@ -41,6 +45,7 @@ export function useHeartGesture({
 
   const release = () => {
     window.clearTimeout(holdTimer.current);
+    window.clearTimeout(ringTimer.current);
     setHolding(false);
   };
 
@@ -56,8 +61,9 @@ export function useHeartGesture({
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     held.current = false;
-    setHolding(true);
     window.clearTimeout(holdTimer.current);
+    window.clearTimeout(ringTimer.current);
+    ringTimer.current = window.setTimeout(() => setHolding(true), RING_DELAY_MS);
     holdTimer.current = window.setTimeout(() => {
       held.current = true;
       land();

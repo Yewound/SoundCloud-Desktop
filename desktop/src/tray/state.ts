@@ -18,6 +18,7 @@ export interface TrayNp {
     volume: number;
     liked: boolean;
     superliked: boolean;
+    superlikeBlocked: boolean;
     disliked: boolean;
     shuffle: boolean;
     repeat: RepeatMode;
@@ -50,6 +51,7 @@ const EMPTY: TrayNp = {
     volume: 50,
     liked: false,
     superliked: false,
+    superlikeBlocked: false,
     disliked: false,
     shuffle: false,
     repeat: 'off',

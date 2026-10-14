@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Star } from '../../../lib/icons';
 import { usePerfMode } from '../../../lib/perf';
-import { moveSuperlike } from '../../../lib/superlike-actions';
-import { FREE_SUPERLIKES } from '../../../lib/superlikes';
+import { moveSuperlike, removeSuperlike } from '../../../lib/superlike-actions';
+import { FREE_SUPERLIKES, useSuperlikeQuota, useSuperlikesWarm } from '../../../lib/superlikes';
 import type { Track } from '../../../stores/player';
 import { useSuperlikeLimit } from '../../../stores/superlike-limit';
 import { Modal, ModalContent, ModalDescription, ModalTitle } from '../../ui/Modal';
@@ -18,14 +18,21 @@ export function SuperlikeLimitHost() {
   const perf = usePerfMode();
   const wanted = useSuperlikeLimit((s) => s.wanted);
   const close = useSuperlikeLimit((s) => s.close);
+  const quota = useSuperlikeQuota().data;
+  const toFree = quota?.limit == null ? 1 : Math.max(1, quota.used - quota.limit + 1);
+  useSuperlikesWarm();
 
   const openStar = () => {
     close();
     navigate('/star');
   };
 
-  const move = async (from: Track) => {
+  const pick = async (from: Track) => {
     if (!wanted) return;
+    if (toFree > 1) {
+      await removeSuperlike(from);
+      return;
+    }
     close();
     if (await moveSuperlike(from, wanted)) toast.success(t('superlike.moved'));
   };
@@ -67,7 +74,7 @@ export function SuperlikeLimitHost() {
             </button>
           </div>
           <div className="relative text-left">
-            <SlotPicker onPick={(track) => void move(track)} />
+            <SlotPicker toFree={toFree} onPick={(track) => void pick(track)} />
           </div>
         </div>
       </ModalContent>

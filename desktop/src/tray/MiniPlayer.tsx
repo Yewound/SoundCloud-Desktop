@@ -294,7 +294,7 @@ export function MiniPlayer() {
 
                     {/* footer: reactions + volume */}
                     <div className="tp-foot">
-                        <TrayLikeButton liked={np.liked} superliked={np.superliked}/>
+                        <TrayLikeButton liked={np.liked} superliked={np.superliked} blocked={np.superlikeBlocked}/>
                         <button
                             type="button"
                             className={`tp-icon-btn ${np.disliked ? 'is-dislike' : ''}`}

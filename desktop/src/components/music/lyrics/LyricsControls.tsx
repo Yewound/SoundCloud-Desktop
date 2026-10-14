@@ -29,6 +29,7 @@ import {useLyricsStore} from '../../../stores/lyrics';
 import {type Track, usePlayerStore} from '../../../stores/player';
 import {AddToPlaylistDialog} from '../AddToPlaylistDialog';
 import {HoldHeart} from '../superlike/HoldHeart';
+import {heartTitle} from '../superlike/heart-title';
 import {useSuperlikeGesture} from '../superlike/useSuperlikeGesture';
 
 const FullscreenLikeButton = React.memo(({track}: { track: Track }) => {
@@ -58,7 +59,7 @@ const FullscreenLikeButton = React.memo(({track}: { track: Track }) => {
         <button
             type="button"
             {...gesture.handlers}
-            title={`${t('track.likes')} · ${t('superlike.holdHint')}`}
+            title={heartTitle(t, liked, superliked)}
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer hover:bg-white/[0.06] outline-none ${
                 liked ? 'text-accent' : 'text-white/30 hover:text-white/60'
             }`}

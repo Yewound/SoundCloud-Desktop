@@ -8,6 +8,8 @@ import { invalidateAllLikesCache } from './hooks';
 import { isUrnLiked, optimisticToggleLike } from './likes';
 import { rememberLikedUrn } from './offline-index';
 import { queryClient } from './query-client';
+import { requestSuperlike } from './superlike-actions';
+import { isUrnSuperliked } from './superlikes';
 import { getDisplayTitle } from './track-display';
 
 function setLike(track: Track, liked: boolean) {
@@ -26,6 +28,7 @@ export function clearDislike(urn: string) {
 
 export async function dislikeTrack(track: Track, { undo = true }: { undo?: boolean } = {}) {
   const wasLiked = isUrnLiked(track.urn) || !!track.user_favorite;
+  const wasSuperliked = wasLiked && isUrnSuperliked(track.urn);
   if (wasLiked) setLike(track, false);
 
   const player = usePlayerStore.getState();
@@ -42,7 +45,8 @@ export async function dislikeTrack(track: Track, { undo = true }: { undo?: boole
       label: i18n.t('dislikes.undo'),
       onClick: () => {
         clearDislike(track.urn);
-        if (wasLiked) setLike(track, true);
+        if (wasSuperliked) requestSuperlike(track);
+        else if (wasLiked) setLike(track, true);
         const { queue, playFromQueue } = usePlayerStore.getState();
         if (queue[wasPlayingAt]?.urn === track.urn) playFromQueue(wasPlayingAt);
       },

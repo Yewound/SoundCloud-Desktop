@@ -473,6 +473,36 @@
     "empty": "비어 있어요",
     "loadFailed": "싫어요한 트랙을 불러오지 못했어요"
   },
+  "superlike": {
+    "holdHint": "길게 누르면 슈퍼 좋아요",
+    "holdToRemove": "길게 누르면 슈퍼 좋아요 취소",
+    "superliked": "슈퍼 좋아요함",
+    "action": "슈퍼 좋아요",
+    "remove": "슈퍼 좋아요 취소",
+    "markHint": "이 트랙을 특별하게 표시해요. 웨이브에 좋아요보다 세 배 더 크게 반영돼요",
+    "limitTitle": "<star/>로 슈퍼 좋아요를 무제한으로",
+    "limitBody_other": "Star 없이는 슈퍼 좋아요를 동시에 {{count}}개까지 쓸 수 있어요. Star를 받거나 다른 트랙의 슈퍼 좋아요를 옮겨 보세요.",
+    "getStar": "Star 받기",
+    "freeSlot": "또는 자리를 비워 보세요. 커버를 누르면 그 슈퍼 좋아요가 새 트랙으로 옮겨져요",
+    "freeSlots_other": "{{count}}자리를 비워야 해요. 커버를 눌러 슈퍼 좋아요를 취소하면 마지막으로 누른 것은 새 트랙으로 옮겨져요",
+    "moveFrom": "{{title}}의 슈퍼 좋아요 옮기기",
+    "removeFrom": "{{title}}의 슈퍼 좋아요 취소",
+    "moved": "슈퍼 좋아요를 옮겼어요"
+  },
+  "superlikes": {
+    "title": "슈퍼 좋아요",
+    "kicker": "가장 특별한 곡들",
+    "tagline": "좋아요 그 이상인 트랙들이에요. 웨이브는 이 트랙들에 세 배 더 귀 기울여요.",
+    "usedOf": "{{used}} / {{limit}}",
+    "unlimitedWith": "무제한으로 쓰려면",
+    "count_other": "슈퍼 좋아요 {{count}}곡",
+    "playAll": "모두 재생",
+    "shuffle": "셔플",
+    "emptyTitle": "하트를 길게 눌러 보세요",
+    "emptyBody": "아무 트랙에서나 ♥를 0.5초 동안 누르고 있으면 링이 채워지고 슈퍼 좋아요가 돼요. 트랙 메뉴에서 슈퍼 좋아요를 고를 수도 있어요.",
+    "emptyWave": "슈퍼 좋아요에는 좋아요가 포함되고, 웨이브에 세 배 더 크게 반영돼요.",
+    "loadFailed": "슈퍼 좋아요를 불러오지 못했어요"
+  },
   "errors": {
     "title": "문제가 발생했어요",
     "subtitle": "화면에 문제가 생겼어요. 다시 시도하거나 앱을 새로고침해 주세요.",

@@ -1,5 +1,5 @@
-import { type SuperlikeTarget, useSuperlikeLimit } from '../stores/superlike-limit';
 import type { Track } from '../stores/player';
+import { type SuperlikeTarget, useSuperlikeLimit } from '../stores/superlike-limit';
 import { ApiError, api } from './api';
 import { clearDislike } from './dislike-actions';
 import { invalidateAllLikesCache } from './hooks';
@@ -7,7 +7,9 @@ import { applyLikeLocally, isUrnLiked, setLikedUrn } from './likes';
 import { rememberLikedUrn } from './offline-index';
 import { queryClient } from './query-client';
 import {
+  beginSuperlikeWrite,
   cachedQuota,
+  endSuperlikeWrite,
   isQuotaFull,
   isUrnSuperliked,
   rememberQuota,
@@ -40,6 +42,7 @@ function superlikePath(urn: string) {
 
 async function superlike(target: SuperlikeTarget): Promise<boolean> {
   const wasLiked = isUrnLiked(target.urn) || !!target.user_favorite;
+  beginSuperlikeWrite(target.urn);
   setSuperlikedUrn(target.urn, true);
   if (!wasLiked) {
     markLiked(target, true);
@@ -62,16 +65,23 @@ async function superlike(target: SuperlikeTarget): Promise<boolean> {
       useSuperlikeLimit.getState().open(target);
     }
     return false;
+  } finally {
+    endSuperlikeWrite(target.urn);
   }
 }
 
-export async function removeSuperlike(target: SuperlikeTarget): Promise<void> {
+export async function removeSuperlike(target: SuperlikeTarget): Promise<boolean> {
+  beginSuperlikeWrite(target.urn);
   setSuperlikedUrn(target.urn, false);
   try {
     rememberQuota(await api<SuperlikeAnswer>(superlikePath(target.urn), { method: 'DELETE' }));
     void queryClient.invalidateQueries({ queryKey: SUPERLIKES_LIST_KEY });
+    return true;
   } catch {
     setSuperlikedUrn(target.urn, true);
+    return false;
+  } finally {
+    endSuperlikeWrite(target.urn);
   }
 }
 
@@ -93,6 +103,6 @@ export function toggleSuperlike(target: SuperlikeTarget): boolean {
 }
 
 export async function moveSuperlike(from: SuperlikeTarget, to: SuperlikeTarget): Promise<boolean> {
-  await removeSuperlike(from);
+  if (!(await removeSuperlike(from))) return false;
   return superlike(to);
 }

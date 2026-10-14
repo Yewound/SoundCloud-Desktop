@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { infiniteQueryOptions, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useAuthStore } from '../stores/auth';
 import type { Track } from '../stores/player';
@@ -20,8 +20,11 @@ interface SuperlikesPage {
 
 const QUOTA_KEY = ['superlikes', 'quota'] as const;
 export const SUPERLIKES_LIST_KEY = ['superlikes', 'list'] as const;
+const FIRST_PAGE = '?limit=50';
 
 const _superliked = new Map<string, boolean>();
+const _writing = new Set<string>();
+const _droppedWithLike = new Set<string>();
 const _listeners = new Set<() => void>();
 
 function notify() {
@@ -36,6 +39,7 @@ export function subscribeSuperliked(cb: () => void) {
 }
 
 export function setSuperlikedUrn(urn: string, superliked: boolean) {
+  _droppedWithLike.delete(urn);
   if (_superliked.get(urn) === superliked) return;
   _superliked.set(urn, superliked);
   notify();
@@ -56,10 +60,48 @@ export function useSuperliked(urn: string, seed?: boolean): boolean {
   return useSyncExternalStore(subscribeSuperliked, () => _superliked.get(urn) === true);
 }
 
+export function beginSuperlikeWrite(urn: string) {
+  _writing.add(urn);
+}
+
+export function endSuperlikeWrite(urn: string) {
+  _writing.delete(urn);
+}
+
+function syncFromServer(collection: Track[], complete: boolean) {
+  const listed = new Set(collection.map((track) => track.urn));
+  let changed = false;
+  const settle = (urn: string, superliked: boolean) => {
+    if (_writing.has(urn) || _droppedWithLike.has(urn)) return;
+    if (_superliked.get(urn) === superliked) return;
+    _superliked.set(urn, superliked);
+    changed = true;
+  };
+  for (const urn of listed) settle(urn, true);
+  if (complete) {
+    for (const [urn, superliked] of _superliked)
+      if (superliked && !listed.has(urn)) settle(urn, false);
+  }
+  if (changed) notify();
+}
+
 export function forgetSuperlike(urn: string) {
   if (!isUrnSuperliked(urn)) return;
-  setSuperlikedUrn(urn, false);
+  _superliked.set(urn, false);
+  _droppedWithLike.add(urn);
+  notify();
+  shiftQuota(-1);
+}
+
+export function recheckSuperlike(urn: string) {
+  if (!_droppedWithLike.delete(urn)) return;
   void queryClient.invalidateQueries({ queryKey: ['superlikes'] });
+}
+
+function shiftQuota(delta: number) {
+  queryClient.setQueriesData<SuperlikeQuota>({ queryKey: QUOTA_KEY }, (quota) =>
+    quota ? { ...quota, used: Math.max(0, quota.used + delta) } : quota,
+  );
 }
 
 export function rememberQuota(quota: SuperlikeQuota) {
@@ -92,16 +134,25 @@ export function useSuperlikeCount(): number {
   return useSuperlikeQuota().data?.used ?? 0;
 }
 
+const superlikesList = infiniteQueryOptions({
+  queryKey: SUPERLIKES_LIST_KEY,
+  queryFn: async ({ pageParam }) => {
+    const page = await api<SuperlikesPage>(`/superlikes${pageParam}`);
+    syncFromServer(page.collection, pageParam === FIRST_PAGE && !page.next_href);
+    return page;
+  },
+  initialPageParam: FIRST_PAGE,
+  getNextPageParam: (last) => last.next_href ?? undefined,
+});
+
+export function useSuperlikesWarm() {
+  const used = useSuperlikeCount();
+  useInfiniteQuery({ ...superlikesList, enabled: used > 0, staleTime: 60_000 });
+}
+
 export function useSuperlikedTracks() {
   const query = useInfiniteQuery({
-    queryKey: SUPERLIKES_LIST_KEY,
-    queryFn: async ({ pageParam }) => {
-      const page = await api<SuperlikesPage>(`/superlikes${pageParam}`);
-      for (const track of page.collection) seedSuperliked(track.urn, true);
-      return page;
-    },
-    initialPageParam: '?limit=50',
-    getNextPageParam: (last) => last.next_href ?? undefined,
+    ...superlikesList,
     staleTime: 0,
     refetchOnMount: 'always',
   });

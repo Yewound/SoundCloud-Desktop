@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { Heart } from '../../../lib/icons';
 import { usePerfMode } from '../../../lib/perf';
 import { SuperHeart } from './SuperHeart';
-import { HOLD_MS, type HeartGesture } from './useHeartGesture';
+import { type HeartGesture, RING_FILL_MS } from './useHeartGesture';
 import './superlike.css';
 
 const SPARKS = [0, 45, 90, 135, 180, 225, 270, 315];
@@ -57,7 +57,7 @@ function HoldRing() {
       className="superlike-ring"
       viewBox="0 0 36 36"
       aria-hidden="true"
-      style={{ '--superlike-hold': `${HOLD_MS}ms` } as React.CSSProperties}
+      style={{ '--superlike-hold': `${RING_FILL_MS}ms` } as React.CSSProperties}
     >
       <circle className="superlike-ring-track" cx="18" cy="18" r="16" />
       <circle className="superlike-ring-fill" cx="18" cy="18" r="16" pathLength={100} />

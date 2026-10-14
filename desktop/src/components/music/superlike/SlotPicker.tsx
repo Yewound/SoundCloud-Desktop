@@ -1,32 +1,48 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { art } from '../../../lib/formatters';
-import { Music, Repeat2 } from '../../../lib/icons';
-import { FREE_SUPERLIKES, useSuperlikedTracks } from '../../../lib/superlikes';
+import { Music, Repeat2, X } from '../../../lib/icons';
+import { useSuperlikedTracks } from '../../../lib/superlikes';
 import type { Track } from '../../../stores/player';
 
-export const SlotPicker = memo(function SlotPicker({ onPick }: { onPick: (track: Track) => void }) {
+export const SlotPicker = memo(function SlotPicker({
+  toFree,
+  onPick,
+}: {
+  toFree: number;
+  onPick: (track: Track) => void;
+}) {
   const { t } = useTranslation();
   const { tracks } = useSuperlikedTracks();
-  const slots = tracks.slice(0, FREE_SUPERLIKES);
-  if (slots.length === 0) return null;
+  if (tracks.length === 0) return null;
+  const moves = toFree === 1;
 
   return (
     <div className="mt-5">
-      <p className="mb-2.5 text-[12px] font-medium text-white/45">{t('superlike.freeSlot')}</p>
-      <div className="grid grid-cols-5 gap-2">
-        {slots.map((track) => (
-          <SlotCover key={track.urn} track={track} onPick={onPick} />
+      <p className="mb-2.5 text-[12px] font-medium text-white/45">
+        {moves ? t('superlike.freeSlot') : t('superlike.freeSlots', { count: toFree })}
+      </p>
+      <div className="grid max-h-[13.5rem] grid-cols-5 gap-2 overflow-y-auto p-0.5">
+        {tracks.map((track) => (
+          <SlotCover key={track.urn} track={track} moves={moves} onPick={onPick} />
         ))}
       </div>
     </div>
   );
 });
 
-function SlotCover({ track, onPick }: { track: Track; onPick: (track: Track) => void }) {
+function SlotCover({
+  track,
+  moves,
+  onPick,
+}: {
+  track: Track;
+  moves: boolean;
+  onPick: (track: Track) => void;
+}) {
   const { t } = useTranslation();
   const cover = art(track.artwork_url, 't200x200');
-  const label = t('superlike.moveFrom', { title: track.title });
+  const label = t(moves ? 'superlike.moveFrom' : 'superlike.removeFrom', { title: track.title });
   return (
     <button
       type="button"
@@ -43,7 +59,7 @@ function SlotCover({ track, onPick }: { track: Track; onPick: (track: Track) => 
         </span>
       )}
       <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-        <Repeat2 size={18} />
+        {moves ? <Repeat2 size={18} /> : <X size={18} />}
       </span>
     </button>
   );

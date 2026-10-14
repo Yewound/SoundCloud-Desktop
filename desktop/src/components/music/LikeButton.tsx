@@ -6,6 +6,7 @@ import { setLikedUrn, useLiked } from '../../lib/likes';
 import { useSuperliked } from '../../lib/superlikes';
 import type { Track } from '../../stores/player';
 import { HoldHeart } from './superlike/HoldHeart';
+import { heartLabel, heartTitle } from './superlike/heart-title';
 import { useSuperlikeGesture } from './superlike/useSuperlikeGesture';
 
 export const LikeButton = React.memo(function LikeButton({
@@ -20,12 +21,8 @@ export const LikeButton = React.memo(function LikeButton({
   const { t } = useTranslation();
   const liked = useLiked(track.urn);
   const superliked = useSuperliked(track.urn, track.user_superlike) && liked;
-  const label = superliked
-    ? t('superlike.superliked')
-    : liked
-      ? t('track.unlike')
-      : t('track.like');
-  const title = `${label} · ${t('superlike.holdHint')}`;
+  const label = heartLabel(t, liked, superliked);
+  const title = heartTitle(t, liked, superliked);
 
   // Seed from API data when available
   useEffect(() => {
