@@ -38,7 +38,7 @@
 
 ---
 
-![wave-net](https://github.com/user-attachments/assets/616f80f0-c6d3-42ae-8093-0d2d3067cc17)
+![soundcloud-desktop-8.5](https://github.com/user-attachments/assets/139a431c-b624-49c3-b650-5a64cf5ada3e)
 
 ---
 
