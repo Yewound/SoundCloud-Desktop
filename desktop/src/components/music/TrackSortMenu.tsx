@@ -13,6 +13,7 @@ import {
   ListMusic,
   Loader2,
   Repeat2,
+  RotateCcw,
   User,
 } from '../../lib/icons';
 import { usePerfMode } from '../../lib/perf';
@@ -44,11 +45,13 @@ export const TrackSortMenu = React.memo(function TrackSortMenu({
   context,
   loading,
   onSort,
+  onReset,
 }: {
   sort: TrackSort;
   context: TrackSortContext;
   loading?: boolean;
   onSort: (sort: TrackSort) => void;
+  onReset?: () => void;
 }) {
   const { t } = useTranslation();
   const perf = usePerfMode();
@@ -120,6 +123,24 @@ export const TrackSortMenu = React.memo(function TrackSortMenu({
               </button>
             </React.Fragment>
           ))}
+          {onReset && (
+            <>
+              <div className="mx-2 my-1 h-px bg-white/[0.06]" aria-hidden />
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onReset();
+                }}
+                className="group flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[12.5px] font-medium text-white/60 transition-colors hover:bg-white/[0.05] hover:text-white/90"
+              >
+                <span className="text-white/35 transition-colors group-hover:text-accent">
+                  <RotateCcw size={13} />
+                </span>
+                <span className="flex-1">{t('trackSort.resetOrder')}</span>
+              </button>
+            </>
+          )}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

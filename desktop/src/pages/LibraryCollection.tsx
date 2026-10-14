@@ -6,11 +6,11 @@ import {FollowingTab} from '../components/library/FollowingTab';
 import {HistoryTab} from '../components/library/HistoryTab';
 import {LibraryFrame} from '../components/library/LibraryFrame';
 import {LibrarySubHeader} from '../components/library/LibrarySubHeader';
+import {LikesSortMenu} from '../components/library/LikesSortMenu';
 import {LikesTab} from '../components/library/LikesTab';
 import {PlaylistsTab} from '../components/library/PlaylistsTab';
 import {StatsView} from '../components/library/stats/StatsView';
 import {useSoundprint} from '../components/library/useSoundprint';
-import {TrackSortMenu} from '../components/music/TrackSortMenu';
 import {useDislikedCount} from '../lib/dislikes';
 import {useLikedTracks} from '../lib/hooks';
 import {likedTracksCount} from '../lib/likes';
@@ -37,7 +37,6 @@ export const LibraryCollection = React.memo(() => {
     const user = useAuthStore((s) => s.user);
     const {tracks: likedTracks, hasNextPage: likesHaveMore} = useLikedTracks();
     const likesSort = useSettingsStore((s) => s.likesSort);
-    const setLikesSort = useSettingsStore((s) => s.setLikesSort);
     const sound = useSoundprint(likedTracks);
     const dislikedCount = useDislikedCount();
     const [filter, setFilter] = useState('');
@@ -71,12 +70,7 @@ export const LibraryCollection = React.memo(() => {
                 onFilter={filterable ? setFilter : undefined}
                 actions={
                     sec === 'likes' ? (
-                        <TrackSortMenu
-                            sort={likesSort}
-                            context="likes"
-                            loading={likesSort !== 'default' && !!likesHaveMore}
-                            onSort={setLikesSort}
-                        />
+                        <LikesSortMenu loading={likesSort !== 'default' && !!likesHaveMore}/>
                     ) : undefined
                 }
             />

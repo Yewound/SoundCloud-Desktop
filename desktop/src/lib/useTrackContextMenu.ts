@@ -11,6 +11,7 @@ export function openTrackMenu(e: React.MouseEvent<HTMLElement>, track: Track, qu
   useTrackMenuStore.getState().open({
     track,
     queueIndex,
+    scope: e.currentTarget.closest<HTMLElement>('[data-menu-scope]')?.dataset.menuScope,
     x: fromKeyboard ? rect.left + 16 : e.clientX,
     y: fromKeyboard ? rect.top + rect.height / 2 : e.clientY,
   });

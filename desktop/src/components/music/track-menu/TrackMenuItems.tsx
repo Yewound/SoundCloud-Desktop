@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
+  ArrowDownToLine,
+  ArrowUpToLine,
   ClipboardCopy,
   Disc3,
   Download,
@@ -17,6 +19,7 @@ import {
 } from '../../../lib/icons';
 import { setTrackLiked } from '../../../lib/like-toggle';
 import { useLiked } from '../../../lib/likes';
+import { LIKED_ORDER_SCOPE, moveLikedTrack } from '../../../lib/likes-order';
 import { isLocalUrn } from '../../../lib/local-library';
 import {
   copyTrackLabel,
@@ -41,6 +44,7 @@ export function TrackMenuItems({ target }: { target: TrackMenuTarget }) {
   const playable = getArtistDisplay(track).availability === 'indexed';
   const remote = !isLocalUrn(track.urn);
   const artistPath = getArtistTarget(track);
+  const reorderable = target.scope === LIKED_ORDER_SCOPE && online && liked;
 
   const run = (action: () => void) => () => {
     useTrackMenuStore.getState().close();
@@ -121,6 +125,27 @@ export function TrackMenuItems({ target }: { target: TrackMenuTarget }) {
             icon={<Download size={15} />}
             label={t('trackMenu.download')}
             onSelect={run(() => void download())}
+          />
+        ),
+      ],
+    ],
+    [
+      'order',
+      [
+        reorderable && (
+          <MenuItem
+            key="top"
+            icon={<ArrowUpToLine size={15} />}
+            label={t('likesOrder.moveToTop')}
+            onSelect={run(() => moveLikedTrack(qc, track, 'top'))}
+          />
+        ),
+        reorderable && (
+          <MenuItem
+            key="bottom"
+            icon={<ArrowDownToLine size={15} />}
+            label={t('likesOrder.moveToBottom')}
+            onSelect={run(() => moveLikedTrack(qc, track, 'bottom'))}
           />
         ),
       ],

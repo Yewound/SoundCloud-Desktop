@@ -2,13 +2,16 @@ import React, {useCallback, useEffect, useMemo, useRef} from 'react';
 import {useTranslation} from 'react-i18next';
 import {useInfiniteScroll, useLikedTracks} from '../../lib/hooks';
 import {Loader2} from '../../lib/icons';
+import {LIKED_ORDER_SCOPE} from '../../lib/likes-order';
 import {armLikesContinuation} from '../../lib/queue-continuation';
 import {filterTracks} from '../../lib/text-match';
 import {sortTracks} from '../../lib/track-sort';
+import {useAppMode} from '../../stores/app-status';
 import {useSettingsStore} from '../../stores/settings';
 import {SyncNotice, syncNoticeOf} from '../ui/SyncNotice';
 import {VirtualList} from '../ui/VirtualList';
 import {LibraryTrackRow} from './LibraryTrackRow';
+import {OrderableLikes} from './OrderableLikes';
 
 const LIKES_NOTICE_TEXT = {
     failed: 'library.likesLoadFailed',
@@ -20,6 +23,7 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
     const {t, i18n} = useTranslation();
     const sort = useSettingsStore((s) => s.likesSort);
     const sorted = sort !== 'default';
+    const online = useAppMode() === 'online';
     const likesQuery = useLikedTracks();
     const {tracks: likedTracks, isLoading, syncState} = likesQuery;
     const sentinelRef = useInfiniteScroll(
@@ -29,6 +33,7 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
     );
 
     const loadAll = !!filter || sorted;
+    const orderable = !loadAll && online;
 
     useEffect(() => {
         if (loadAll && likesQuery.hasNextPage && !likesQuery.isFetchingNextPage) {
@@ -59,12 +64,14 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
     };
 
     return (
-        <div className="min-h-[400px]">
+        <div className="min-h-[400px]" data-menu-scope={sorted ? undefined : LIKED_ORDER_SCOPE}>
             <div className="flex flex-col gap-1">
                 {isLoading ? (
                     <div className="flex justify-center py-20">
                         <Loader2 size={32} className="animate-spin text-white/20"/>
                     </div>
+                ) : filtered.length > 0 && orderable ? (
+                    <OrderableLikes tracks={filtered} queue={getQueue} onPlay={onLikePlay}/>
                 ) : filtered.length > 0 ? (
                     <VirtualList
                         items={filtered}

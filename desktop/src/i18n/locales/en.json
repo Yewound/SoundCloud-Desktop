@@ -1891,12 +1891,23 @@
     "mentionNotFound": "Couldn't find {{name}} on SoundCloud",
     "mentionNotFoundBody": "The profile may have been renamed or deleted."
   },
+  "likesOrder": {
+    "moveToTop": "Move to top",
+    "moveToBottom": "Move to bottom",
+    "resetTitle": "Reset your order?",
+    "resetText": "Liked tracks go back to the order you liked them in. Your manual order is lost.",
+    "resetAction": "Reset",
+    "resetDone": "Order reset",
+    "resetFailed": "Could not reset the order",
+    "failed": "Could not save the new order",
+    "gone": "This track is no longer in your likes"
+  },
   "trackSort": {
     "label": "Sort",
     "playlist_default": "Playlist order",
     "playlist_reverse": "Recently added",
-    "likes_default": "Recently liked",
-    "likes_reverse": "First liked",
+    "likes_default": "My order",
+    "likes_reverse": "Reversed order",
     "released": "Release date",
     "plays": "Most played",
     "likes": "Most liked",
@@ -1905,7 +1916,8 @@
     "artist": "Artist",
     "duration": "Duration",
     "saveOrder": "Save this order",
-    "saveOrderHint": "Make this the playlist's own order for everyone"
+    "saveOrderHint": "Make this the playlist's own order for everyone",
+    "resetOrder": "Reset order"
   },
   "sync": {
     "title": "SoundCloud sync",

@@ -12,6 +12,7 @@ import {
   ArrowDownToLine as _ArrowDownToLine,
   ArrowRight as _ArrowRight,
   ArrowUpDown as _ArrowUpDown,
+  ArrowUpToLine as _ArrowUpToLine,
   AudioLines as _AudioLines,
   Ban as _Ban,
   Bell as _Bell,
@@ -178,6 +179,7 @@ export const ChevronDown = memo(_ChevronDown);
 export const ChevronLeft = memo(_ChevronLeft);
 export const ArrowRight = memo(_ArrowRight);
 export const ArrowUpDown = memo(_ArrowUpDown);
+export const ArrowUpToLine = memo(_ArrowUpToLine);
 export const ChevronRight = memo(_ChevronRight);
 export const ChevronUp = memo(_ChevronUp);
 export const CircleCheck = memo(_CircleCheck);
