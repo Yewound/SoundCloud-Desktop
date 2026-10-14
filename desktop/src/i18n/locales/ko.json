@@ -1857,12 +1857,31 @@
     "mentionNotFound": "SoundCloud에서 {{name}}을(를) 찾을 수 없어요",
     "mentionNotFoundBody": "프로필 이름이 바뀌었거나 삭제됐을 수 있어요."
   },
+  "likesOrder": {
+    "moveToTop": "맨 위로 이동",
+    "moveToBottom": "맨 아래로 이동",
+    "resetTitle": "순서를 초기화할까요?",
+    "resetText": "좋아요한 트랙이 좋아요를 누른 순서로 돌아가요. 직접 정한 순서는 사라져요.",
+    "resetAction": "초기화",
+    "resetDone": "순서를 초기화했어요",
+    "resetFailed": "순서를 초기화하지 못했어요",
+    "failed": "새 순서를 저장하지 못했어요",
+    "changed": "그사이 좋아요 목록이 바뀌어서 목록을 새로 고쳤어요"
+  },
+  "reorder": {
+    "grip": "드래그해서 순서 바꾸기",
+    "instructions": "스페이스나 Enter로 트랙을 집고 화살표 키로 옮긴 뒤, 스페이스나 Enter로 놓아요. Esc를 누르면 취소돼요.",
+    "pickedUp": "{{position}}번째 트랙을 집었어요",
+    "over": "{{position}}번째 위치 위",
+    "dropped": "{{position}}번째 위치에 놓았어요",
+    "cancelled": "순서 바꾸기를 취소했어요"
+  },
   "trackSort": {
     "label": "정렬",
     "playlist_default": "재생 목록 순서",
     "playlist_reverse": "최근 추가순",
-    "likes_default": "최근 좋아요순",
-    "likes_reverse": "오래된 좋아요순",
+    "likes_default": "내 순서",
+    "likes_reverse": "역순",
     "released": "발매일",
     "plays": "재생 많은 순",
     "likes": "좋아요 많은 순",
@@ -1871,7 +1890,8 @@
     "artist": "아티스트",
     "duration": "재생 시간",
     "saveOrder": "이 순서로 저장",
-    "saveOrderHint": "이 순서를 모든 사람에게 보이는 재생 목록 순서로 지정해요"
+    "saveOrderHint": "이 순서를 모든 사람에게 보이는 재생 목록 순서로 지정해요",
+    "resetOrder": "순서 초기화"
   },
   "sync": {
     "title": "SoundCloud 동기화",

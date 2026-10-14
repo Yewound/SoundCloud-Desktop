@@ -31,11 +31,14 @@ const SortableLikedRow = React.memo(function SortableLikedRow({
 }) {
   const sortable = useSortableRow(track.urn);
   return (
-    <div ref={sortable.ref} style={sortable.style} className="flex items-center gap-1">
-      <DragGrip handle={sortable.handle} />
-      <div className="min-w-0 flex-1">
-        <LibraryTrackRow track={track} index={index} queue={queue} onPlay={onPlay} />
-      </div>
+    <div ref={sortable.ref} style={sortable.style}>
+      <LibraryTrackRow
+        track={track}
+        index={index}
+        queue={queue}
+        onPlay={onPlay}
+        grip={<DragGrip handle={sortable.handle} />}
+      />
     </div>
   );
 });
@@ -50,14 +53,8 @@ function LikedRowOverlay({
   queue: RowQueue;
 }) {
   return (
-    <div
-      className="flex items-center gap-1 rounded-2xl bg-white/[0.06] cursor-grabbing"
-      style={LIFTED_ROW_STYLE}
-    >
-      <DragGrip />
-      <div className="min-w-0 flex-1">
-        <LibraryTrackRow track={track} index={index} queue={queue} />
-      </div>
+    <div className="rounded-2xl bg-white/[0.06] cursor-grabbing" style={LIFTED_ROW_STYLE}>
+      <LibraryTrackRow track={track} index={index} queue={queue} grip={<DragGrip />} />
     </div>
   );
 }

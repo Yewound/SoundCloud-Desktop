@@ -8,10 +8,13 @@ import {filterTracks} from '../../lib/text-match';
 import {sortTracks} from '../../lib/track-sort';
 import {useAppMode} from '../../stores/app-status';
 import {useSettingsStore} from '../../stores/settings';
+import {GripSpace} from '../ui/SortableVirtualList';
 import {SyncNotice, syncNoticeOf} from '../ui/SyncNotice';
 import {VirtualList} from '../ui/VirtualList';
 import {LibraryTrackRow} from './LibraryTrackRow';
 import {OrderableLikes} from './OrderableLikes';
+
+const GRIP_SPACE = <GripSpace/>;
 
 const LIKES_NOTICE_TEXT = {
     failed: 'library.likesLoadFailed',
@@ -81,7 +84,13 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
                         disabled={filtered.length < 40}
                         getItemKey={(track) => track.urn}
                         renderItem={(track, i) => (
-                            <LibraryTrackRow track={track} index={i} queue={getQueue} onPlay={onLikePlay}/>
+                            <LibraryTrackRow
+                                track={track}
+                                index={i}
+                                queue={getQueue}
+                                onPlay={onLikePlay}
+                                grip={GRIP_SPACE}
+                            />
                         )}
                     />
                 ) : filter ? (

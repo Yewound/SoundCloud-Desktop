@@ -1900,7 +1900,15 @@
     "resetDone": "Order reset",
     "resetFailed": "Could not reset the order",
     "failed": "Could not save the new order",
-    "gone": "This track is no longer in your likes"
+    "changed": "Your likes changed in the meantime, the list was refreshed"
+  },
+  "reorder": {
+    "grip": "Drag to reorder",
+    "instructions": "To pick up a track, press space or enter. Move it with the arrow keys, press space or enter again to drop it, or escape to cancel.",
+    "pickedUp": "Picked up the track at position {{position}}",
+    "over": "Over position {{position}}",
+    "dropped": "Dropped at position {{position}}",
+    "cancelled": "Reordering cancelled"
   },
   "trackSort": {
     "label": "Sort",

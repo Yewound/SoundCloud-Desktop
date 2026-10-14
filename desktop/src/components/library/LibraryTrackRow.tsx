@@ -20,11 +20,13 @@ export const LibraryTrackRow = React.memo(
     index,
     queue,
     onPlay,
+    grip,
   }: {
     track: Track;
     index: number;
     queue: Track[] | (() => Track[]);
     onPlay?: () => void;
+    grip?: React.ReactNode;
   }) {
     const { t } = useTranslation();
     const { isThis, isThisPlaying, togglePlay } = useTrackPlay(track, queue, onPlay);
@@ -41,6 +43,7 @@ export const LibraryTrackRow = React.memo(
             : 'hover:bg-white/[0.04]'
         }`}
       >
+        {grip}
         <div
           className="w-8 h-8 flex items-center justify-center shrink-0 cursor-pointer"
           onClick={togglePlay}
@@ -132,6 +135,7 @@ export const LibraryTrackRow = React.memo(
   (prev, next) =>
     prev.track.urn === next.track.urn &&
     prev.index === next.index &&
+    prev.grip === next.grip &&
     prev.track.title === next.track.title &&
     prev.track.enrichment === next.track.enrichment &&
     sameScdMeta(prev.track._scd_meta, next.track._scd_meta),

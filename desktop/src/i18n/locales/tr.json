@@ -1707,12 +1707,31 @@
     "mentionNotFound": "{{name}} SoundCloud'da bulunamadı",
     "mentionNotFoundBody": "Profil yeniden adlandırılmış veya silinmiş olabilir."
   },
+  "likesOrder": {
+    "moveToTop": "En üste taşı",
+    "moveToBottom": "En alta taşı",
+    "resetTitle": "Sıralama sıfırlansın mı?",
+    "resetText": "Beğenilen parçalar beğendiğin sıraya döner. Kendi sıralaman kaybolur.",
+    "resetAction": "Sıfırla",
+    "resetDone": "Sıralama sıfırlandı",
+    "resetFailed": "Sıralama sıfırlanamadı",
+    "failed": "Yeni sıralama kaydedilemedi",
+    "changed": "Beğenilerin bu arada değişti, liste yenilendi"
+  },
+  "reorder": {
+    "grip": "Sıralamak için sürükle",
+    "instructions": "Bir parçayı almak için boşluk veya Enter tuşuna bas. Ok tuşlarıyla taşı, bırakmak için yine boşluk veya Enter'a bas, iptal için Escape'e bas.",
+    "pickedUp": "{{position}}. sıradaki parça alındı",
+    "over": "{{position}}. sıranın üzerinde",
+    "dropped": "{{position}}. sıraya bırakıldı",
+    "cancelled": "Sıralama iptal edildi"
+  },
   "trackSort": {
     "label": "Sırala",
     "playlist_default": "Çalma listesi sırası",
     "playlist_reverse": "Son eklenenler",
-    "likes_default": "Son beğenilenler",
-    "likes_reverse": "İlk beğenilenler",
+    "likes_default": "Benim sıram",
+    "likes_reverse": "Ters sıra",
     "released": "Çıkış tarihi",
     "plays": "En çok dinlenen",
     "likes": "En çok beğenilen",
@@ -1721,7 +1740,8 @@
     "artist": "Sanatçı",
     "duration": "Süre",
     "saveOrder": "Bu sırayı kaydet",
-    "saveOrderHint": "Bu sırayı herkes için çalma listesinin sırası yap"
+    "saveOrderHint": "Bu sırayı herkes için çalma listesinin sırası yap",
+    "resetOrder": "Sıralamayı sıfırla"
   },
   "sync": {
     "title": "SoundCloud senkronizasyonu",
