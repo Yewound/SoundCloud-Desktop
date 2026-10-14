@@ -20,7 +20,7 @@ jobs:
   publish-to-aur:
     runs-on: ubuntu-latest
     # Используем контейнер Arch Linux, чтобы у нас была команда makepkg
-    container: archlinux:base-devel
+    container: mirror.gcr.io/library/archlinux:base-devel
     steps:
       - name: Install dependencies
         run: pacman -Syu --noconfirm git openssh wget sudo awk
@@ -102,11 +102,11 @@ jobs:
           wget -q "${URL}/soundcloud-desktop_${NEW_VER}_arm64.deb"
           
           # Вычисляем SHA256
-          SHA_AMD=$(sha256sum soundcloud-desktop_${NEW_VER}_amd64.deb | awk '{print $1}')
-          SHA_ARM=$(sha256sum soundcloud-desktop_${NEW_VER}_arm64.deb | awk '{print $1}')
+          SHA_AMD=$(sha256sum "soundcloud-desktop_${NEW_VER}_amd64.deb" | awk '{print $1}')
+          SHA_ARM=$(sha256sum "soundcloud-desktop_${NEW_VER}_arm64.deb" | awk '{print $1}')
           
           # Удаляем скачанные файлы (они не нужны в Git)
-          rm *.deb
+          rm ./*.deb
           
           # Обновляем значения в PKGBUILD
           sed -i "s/^pkgver=.*/pkgver=${NEW_VER}/" PKGBUILD
