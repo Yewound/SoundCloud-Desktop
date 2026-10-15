@@ -2,17 +2,25 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteScroll } from '../../../lib/hooks';
 import { Loader2 } from '../../../lib/icons';
+import { armSuperlikesContinuation } from '../../../lib/queue-continuation';
+import { SUPERLIKED_ORDER_SCOPE, superlikesOrder } from '../../../lib/superlikes-order';
 import { useSuperlikeQuota, useSuperlikedTracks } from '../../../lib/superlikes';
 import { filterTracks } from '../../../lib/text-match';
+import { useAppMode } from '../../../stores/app-status';
+import { GripSpace } from '../../ui/SortableVirtualList';
 import { SyncNotice } from '../../ui/SyncNotice';
 import { VirtualList } from '../../ui/VirtualList';
 import { LibraryTrackRow } from '../LibraryTrackRow';
+import { OrderableTracks } from '../OrderableTracks';
 import { SuperlikesEmpty } from './SuperlikesEmpty';
 import { SuperlikesHero } from './SuperlikesHero';
 import { usePlaySuperlikes } from './usePlaySuperlikes';
 
+const GRIP_SPACE = <GripSpace />;
+
 export const SuperlikesTab = React.memo(function SuperlikesTab({ filter }: { filter: string }) {
   const { t } = useTranslation();
+  const online = useAppMode() === 'online';
   const query = useSuperlikedTracks();
   const { data: quota } = useSuperlikeQuota();
   const { tracks, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = query;
@@ -27,6 +35,7 @@ export const SuperlikesTab = React.memo(function SuperlikesTab({ filter }: { fil
   const filteredRef = useRef(filtered);
   filteredRef.current = filtered;
   const getQueue = useCallback(() => filteredRef.current, []);
+  const onPlay = filter ? undefined : armSuperlikesContinuation;
 
   const hero = (
     <SuperlikesHero
@@ -68,9 +77,16 @@ export const SuperlikesTab = React.memo(function SuperlikesTab({ filter }: { fil
   }
 
   return (
-    <div className="min-h-[400px]">
+    <div className="min-h-[400px]" data-menu-scope={filter ? undefined : SUPERLIKED_ORDER_SCOPE}>
       {hero}
-      {filtered.length > 0 ? (
+      {filtered.length > 0 && !filter && online ? (
+        <OrderableTracks
+          tracks={filtered}
+          order={superlikesOrder}
+          queue={getQueue}
+          onPlay={onPlay}
+        />
+      ) : filtered.length > 0 ? (
         <VirtualList
           items={filtered}
           rowHeight={68}
@@ -78,7 +94,15 @@ export const SuperlikesTab = React.memo(function SuperlikesTab({ filter }: { fil
           className="flex flex-col gap-1"
           disabled={filtered.length < 40}
           getItemKey={(track) => track.urn}
-          renderItem={(track, i) => <LibraryTrackRow track={track} index={i} queue={getQueue} />}
+          renderItem={(track, i) => (
+            <LibraryTrackRow
+              track={track}
+              index={i}
+              queue={getQueue}
+              onPlay={onPlay}
+              grip={GRIP_SPACE}
+            />
+          )}
         />
       ) : (
         <div className="py-20 text-center text-white/20">

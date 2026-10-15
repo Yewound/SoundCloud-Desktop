@@ -13,7 +13,7 @@ export interface SuperlikeQuota {
   limit: number | null;
 }
 
-interface SuperlikesPage {
+export interface SuperlikesPage {
   collection: Track[];
   next_href: string | null;
 }
@@ -145,14 +145,26 @@ const superlikesList = infiniteQueryOptions({
   getNextPageParam: (last) => last.next_href ?? undefined,
 });
 
+export async function fetchAllSuperlikedTracks(): Promise<Track[]> {
+  const tracks: Track[] = [];
+  let link: string | null = FIRST_PAGE;
+  while (link) {
+    const page: SuperlikesPage = await api<SuperlikesPage>(`/superlikes${link}`);
+    tracks.push(...page.collection);
+    link = page.next_href;
+  }
+  return tracks;
+}
+
 export function useSuperlikesWarm() {
   const used = useSuperlikeCount();
   useInfiniteQuery({ ...superlikesList, enabled: used > 0, staleTime: 60_000 });
 }
 
-export function useSuperlikedTracks() {
+export function useSuperlikedTracks(enabled = true) {
   const query = useInfiniteQuery({
     ...superlikesList,
+    enabled,
     staleTime: 0,
     refetchOnMount: 'always',
   });

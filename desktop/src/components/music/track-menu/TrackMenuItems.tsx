@@ -19,9 +19,10 @@ import {
 } from '../../../lib/icons';
 import { setTrackLiked } from '../../../lib/like-toggle';
 import { useLiked } from '../../../lib/likes';
-import { LIKED_ORDER_SCOPE, moveLikedTrack } from '../../../lib/likes-order';
+import { LIKED_ORDER_SCOPE, likesOrder } from '../../../lib/likes-order';
 import { isLocalUrn } from '../../../lib/local-library';
 import { toggleSuperlike } from '../../../lib/superlike-actions';
+import { SUPERLIKED_ORDER_SCOPE, superlikesOrder } from '../../../lib/superlikes-order';
 import { useSuperliked } from '../../../lib/superlikes';
 import {
   copyTrackLabel,
@@ -37,6 +38,12 @@ import { type TrackMenuTarget, useTrackMenuStore } from '../../../stores/trackMe
 import { SuperHeart } from '../superlike/SuperHeart';
 import { MenuItem, MenuSeparator } from './MenuItem';
 
+function orderOf(scope: string | undefined, liked: boolean, superliked: boolean) {
+  if (scope === LIKED_ORDER_SCOPE && liked) return likesOrder;
+  if (scope === SUPERLIKED_ORDER_SCOPE && superliked) return superlikesOrder;
+  return null;
+}
+
 export function TrackMenuItems({ target }: { target: TrackMenuTarget }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -48,7 +55,7 @@ export function TrackMenuItems({ target }: { target: TrackMenuTarget }) {
   const playable = getArtistDisplay(track).availability === 'indexed';
   const remote = !isLocalUrn(track.urn);
   const artistPath = getArtistTarget(track);
-  const reorderable = target.scope === LIKED_ORDER_SCOPE && online && liked;
+  const order = online ? orderOf(target.scope, liked, superliked) : null;
 
   const run = (action: () => void) => () => {
     useTrackMenuStore.getState().close();
@@ -145,20 +152,20 @@ export function TrackMenuItems({ target }: { target: TrackMenuTarget }) {
     [
       'order',
       [
-        reorderable && (
+        order && (
           <MenuItem
             key="top"
             icon={<ArrowUpToLine size={15} />}
             label={t('likesOrder.moveToTop')}
-            onSelect={run(() => moveLikedTrack(qc, track, 'top'))}
+            onSelect={run(() => order.move(qc, track, 'top'))}
           />
         ),
-        reorderable && (
+        order && (
           <MenuItem
             key="bottom"
             icon={<ArrowDownToLine size={15} />}
             label={t('likesOrder.moveToBottom')}
-            onSelect={run(() => moveLikedTrack(qc, track, 'bottom'))}
+            onSelect={run(() => order.move(qc, track, 'bottom'))}
           />
         ),
       ],

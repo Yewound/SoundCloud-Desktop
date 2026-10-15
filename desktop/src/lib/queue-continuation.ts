@@ -16,6 +16,7 @@ import {api} from './api';
 import {fetchAllLikedTracks, fetchAllPlaylistTracks} from './hooks';
 import {trackUrn} from './ids';
 import {fetchSmartWave} from './soundwave';
+import {fetchAllSuperlikedTracks, type SuperlikesPage} from './superlikes';
 
 export interface QueueContinuationSource {
   /** Имя для логов. */
@@ -181,6 +182,28 @@ export function armPlaylistContinuation(playlistUrn: string): void {
       },
     ),
   );
+}
+
+function createSuperlikesContinuationSource(alreadyLoaded: number): QueueContinuationSource {
+    let link: string | null = `?limit=${LIKES_PAGE_SIZE}&offset=${alreadyLoaded}`;
+    return {
+        kind: 'superlikes',
+        async next() {
+            if (!link) return [];
+            const page: SuperlikesPage = await api<SuperlikesPage>(`/superlikes${link}`);
+            link = page.next_href;
+            return page.collection ?? [];
+        },
+    };
+}
+
+export function armSuperlikesContinuation(): void {
+    const {shuffle, queue} = usePlayerStore.getState();
+    setQueueContinuationSource(
+        shuffle
+            ? createShuffledContinuationSource('superlikes-shuffled', fetchAllSuperlikedTracks)
+            : createSuperlikesContinuationSource(queue.length),
+    );
 }
 
 const TRACK_WAVE_PAGE_SIZE = 20;

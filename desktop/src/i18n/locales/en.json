@@ -510,7 +510,9 @@
     "emptyTitle": "Press and hold a heart",
     "emptyBody": "Hold ♥ on any track for half a second: the ring fills up and the track becomes a superlike. You can also pick Superlike in the track menu.",
     "emptyWave": "A superlike includes a like and shapes your Wave three times as much.",
-    "loadFailed": "Could not load superlikes"
+    "loadFailed": "Could not load superlikes",
+    "orderChanged": "Your superlikes changed in the meantime, the list was refreshed",
+    "resetText": "Superlikes go back to the order you added them in, newest first. Your manual order is lost."
   },
   "errors": {
     "title": "Something went wrong",

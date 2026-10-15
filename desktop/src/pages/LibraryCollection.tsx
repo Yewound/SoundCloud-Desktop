@@ -10,6 +10,7 @@ import {LikesSortMenu} from '../components/library/LikesSortMenu';
 import {LikesTab} from '../components/library/LikesTab';
 import {PlaylistsTab} from '../components/library/PlaylistsTab';
 import {StatsView} from '../components/library/stats/StatsView';
+import {SuperlikesOrderReset} from '../components/library/superlikes/SuperlikesOrderReset';
 import {SuperlikesTab} from '../components/library/superlikes/SuperlikesTab';
 import {useSoundprint} from '../components/library/useSoundprint';
 import {useDislikedCount} from '../lib/dislikes';
@@ -77,6 +78,8 @@ export const LibraryCollection = React.memo(() => {
                 actions={
                     sec === 'likes' ? (
                         <LikesSortMenu loading={likesSort !== 'default' && !!likesHaveMore}/>
+                    ) : sec === 'superlikes' && superlikeCount > 1 ? (
+                        <SuperlikesOrderReset/>
                     ) : undefined
                 }
             />

@@ -443,7 +443,9 @@
     "emptyTitle": "Bir kalbi basılı tut",
     "emptyBody": "Herhangi bir parçada ♥ simgesini yarım saniye basılı tut: halka dolar ve parça süper beğeni olur. Parça menüsünden Süper beğeni de seçebilirsin.",
     "emptyWave": "Süper beğeni bir beğeni içerir ve Dalga'nı üç kat daha fazla etkiler.",
-    "loadFailed": "Süper beğeniler yüklenemedi"
+    "loadFailed": "Süper beğeniler yüklenemedi",
+    "orderChanged": "Süper beğenilerin bu arada değişti, liste yenilendi",
+    "resetText": "Süper beğeniler eklediğin sıraya döner, en yeniler üstte. Kendi sıralaman kaybolur."
   },
   "errors": {
     "title": "Bir seyler ters gitti",
