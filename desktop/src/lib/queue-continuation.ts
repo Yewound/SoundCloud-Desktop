@@ -185,25 +185,25 @@ export function armPlaylistContinuation(playlistUrn: string): void {
 }
 
 function createSuperlikesContinuationSource(alreadyLoaded: number): QueueContinuationSource {
-    let link: string | null = `?limit=${LIKES_PAGE_SIZE}&offset=${alreadyLoaded}`;
-    return {
-        kind: 'superlikes',
-        async next() {
-            if (!link) return [];
-            const page: SuperlikesPage = await api<SuperlikesPage>(`/superlikes${link}`);
-            link = page.next_href;
-            return page.collection ?? [];
-        },
-    };
+  let link: string | null = `?limit=${LIKES_PAGE_SIZE}&offset=${alreadyLoaded}`;
+  return {
+    kind: 'superlikes',
+    async next() {
+      if (!link) return [];
+      const page: SuperlikesPage = await api<SuperlikesPage>(`/superlikes${link}`);
+      link = page.next_href;
+      return page.collection ?? [];
+    },
+  };
 }
 
 export function armSuperlikesContinuation(): void {
-    const {shuffle, queue} = usePlayerStore.getState();
-    setQueueContinuationSource(
-        shuffle
-            ? createShuffledContinuationSource('superlikes-shuffled', fetchAllSuperlikedTracks)
-            : createSuperlikesContinuationSource(queue.length),
-    );
+  const { shuffle, queue } = usePlayerStore.getState();
+  setQueueContinuationSource(
+    shuffle
+      ? createShuffledContinuationSource('superlikes-shuffled', fetchAllSuperlikedTracks)
+      : createSuperlikesContinuationSource(queue.length),
+  );
 }
 
 const TRACK_WAVE_PAGE_SIZE = 20;

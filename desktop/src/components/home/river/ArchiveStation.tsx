@@ -2,7 +2,7 @@ import React from 'react';
 import {useTranslation} from 'react-i18next';
 import {useDiscoverFeed} from '../../../lib/hooks';
 import {armLikesContinuation, armSuperlikesContinuation} from '../../../lib/queue-continuation';
-import {useSuperlikeCount, useSuperlikedTracks} from '../../../lib/superlikes';
+import {useSuperlikeCount, useWarmSuperlikedTracks} from '../../../lib/superlikes';
 import type {Track} from '../../../stores/player';
 import {SubShelf} from './SubShelf';
 
@@ -35,7 +35,7 @@ const SHELVES: Record<ArchiveShelf, { label: string; onPlay?: () => void; to?: s
 function useSuperlikesShelf(shelves: ArchiveShelf[]): ShelfTracks {
   const count = useSuperlikeCount();
   const shown = shelves.includes('superlikes') && count > 0;
-  const { tracks, isLoading } = useSuperlikedTracks(shown);
+  const { tracks, isLoading } = useWarmSuperlikedTracks(shown);
   return shown ? { tracks, isLoading } : NO_TRACKS;
 }
 
@@ -53,8 +53,10 @@ function ArchiveView({
     likes: { tracks: likedTracks, isLoading: likedLoading },
     recommended,
   };
-  const filled = shelves.some((shelf) => lists[shelf].isLoading || lists[shelf].tracks.length > 0);
-  if (!filled) return null;
+  const filled = shelves.filter(
+    (shelf) => lists[shelf].isLoading || lists[shelf].tracks.length > 0,
+  );
+  if (filled.length === 0) return null;
 
   return (
     <section className="pt-14">
@@ -69,7 +71,7 @@ function ArchiveView({
         </div>
       )}
       <div className="flex flex-col gap-8">
-        {shelves.map((shelf, i) => (
+        {filled.map((shelf, i) => (
           <SubShelf
             key={shelf}
             index={String(i + 1).padStart(2, '0')}

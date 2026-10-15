@@ -3,6 +3,7 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useAuthStore } from '../stores/auth';
 import type { Track } from '../stores/player';
 import { api } from './api';
+import { dedupeByUrn } from './hooks';
 import { getIsPremium, usePremium } from './premium-cache';
 import { queryClient } from './query-client';
 
@@ -153,24 +154,31 @@ export async function fetchAllSuperlikedTracks(): Promise<Track[]> {
     tracks.push(...page.collection);
     link = page.next_href;
   }
-  return tracks;
+  return dedupeByUrn(tracks);
+}
+
+function useSuperlikesList(options: {
+  enabled: boolean;
+  staleTime: number;
+  refetchOnMount?: 'always';
+}) {
+  const query = useInfiniteQuery({ ...superlikesList, ...options });
+  const tracks = useMemo(
+    () => dedupeByUrn(query.data?.pages.flatMap((page) => page.collection) ?? []),
+    [query.data],
+  );
+  return { ...query, tracks };
 }
 
 export function useSuperlikesWarm() {
   const used = useSuperlikeCount();
-  useInfiniteQuery({ ...superlikesList, enabled: used > 0, staleTime: 60_000 });
+  useSuperlikesList({ enabled: used > 0, staleTime: 60_000 });
 }
 
-export function useSuperlikedTracks(enabled = true) {
-  const query = useInfiniteQuery({
-    ...superlikesList,
-    enabled,
-    staleTime: 0,
-    refetchOnMount: 'always',
-  });
-  const tracks = useMemo(
-    () => query.data?.pages.flatMap((page) => page.collection) ?? [],
-    [query.data],
-  );
-  return { ...query, tracks };
+export function useWarmSuperlikedTracks(enabled: boolean) {
+  return useSuperlikesList({ enabled, staleTime: 60_000 });
+}
+
+export function useSuperlikedTracks() {
+  return useSuperlikesList({ enabled: true, staleTime: 0, refetchOnMount: 'always' });
 }
