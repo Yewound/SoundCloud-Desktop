@@ -1,7 +1,7 @@
 import {BaseDirectory, exists, mkdir, readTextFile, writeTextFile} from '@tauri-apps/plugin-fs';
 import type {Track} from '../stores/player';
 import {type LikedSnapshot, mergeLikedUrns} from './liked-merge';
-import type {LikeTarget} from './likes-order';
+import type {OrderTarget} from './list-order';
 import {isLocalUrn} from './local-library';
 
 const BASE_DIR = BaseDirectory.AppData;
@@ -154,7 +154,7 @@ export async function rememberLikedUrn(urn: string, track?: Track) {
   schedulePersist();
 }
 
-export async function placeLikedUrn(urn: string, target: LikeTarget) {
+export async function placeLikedUrn(urn: string, target: OrderTarget) {
   const index = await loadIndex();
   if (!index.likedUrns.includes(urn)) return;
   const rest = index.likedUrns.filter((u) => u !== urn);

@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef} from 'react';
 import {useTranslation} from 'react-i18next';
 import {useInfiniteScroll, useLikedTracks} from '../../lib/hooks';
 import {Loader2} from '../../lib/icons';
-import {LIKED_ORDER_SCOPE} from '../../lib/likes-order';
+import {LIKED_ORDER_SCOPE, likesOrder} from '../../lib/likes-order';
 import {armLikesContinuation} from '../../lib/queue-continuation';
 import {filterTracks} from '../../lib/text-match';
 import {sortTracks} from '../../lib/track-sort';
@@ -12,7 +12,7 @@ import {GripSpace} from '../ui/SortableVirtualList';
 import {SyncNotice, syncNoticeOf} from '../ui/SyncNotice';
 import {VirtualList} from '../ui/VirtualList';
 import {LibraryTrackRow} from './LibraryTrackRow';
-import {OrderableLikes} from './OrderableLikes';
+import {OrderableTracks} from './OrderableTracks';
 
 const GRIP_SPACE = <GripSpace/>;
 
@@ -74,7 +74,7 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
                         <Loader2 size={32} className="animate-spin text-white/20"/>
                     </div>
                 ) : filtered.length > 0 && orderable ? (
-                    <OrderableLikes tracks={filtered} queue={getQueue} onPlay={onLikePlay}/>
+                    <OrderableTracks tracks={filtered} order={likesOrder} queue={getQueue} onPlay={onLikePlay}/>
                 ) : filtered.length > 0 ? (
                     <VirtualList
                         items={filtered}
