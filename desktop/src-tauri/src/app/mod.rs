@@ -12,6 +12,7 @@ pub mod storage;
 pub mod tray;
 pub mod updater;
 pub mod visibility;
+pub mod webview_data;
 #[cfg(all(windows, not(feature = "cef")))]
 pub mod webview2;
 

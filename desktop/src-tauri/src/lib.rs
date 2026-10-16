@@ -31,6 +31,7 @@ pub fn run() {
     app::diagnostics::install_panic_hook();
     let _ = rustls::crypto::ring::default_provider().install_default();
     app::render_mode::apply_before_launch();
+    app::webview_data::wipe_before_launch();
     #[cfg(all(windows, not(feature = "cef")))]
     app::webview2::exit_if_runtime_missing();
 
