@@ -387,6 +387,19 @@ jobs:
           node .github/scripts/updater-manifest.mjs manifest /tmp/release "$V"
           rm -f /tmp/release/*.sig
 
+      - name: Add version-less aliases
+        working-directory: /tmp/release
+        env:
+          V: ${{ needs.version.outputs.version }}
+        run: |
+          for file in *"$V"*; do
+            alias=$(printf '%s' "$file" | sed -e "s/_${V}_/_/" -e "s/-${V}-1\./\./")
+            if [ "$alias" != "$file" ]; then
+              cp "$file" "$alias"
+              echo "$file -> $alias"
+            fi
+          done
+
       - name: Publish release
         uses: zxcloli666/release-helper@main
         with:
