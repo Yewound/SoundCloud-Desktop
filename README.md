@@ -71,8 +71,7 @@ SoundCloud заблокирован Роскомнадзором — веб-ве
 ### Нативное и лёгкое
 
 Построено на **Tauri 2** (Rust) вместо Electron. Результат:
-- Размер установщика **~15 МБ** (а не 200+ МБ как у Electron-приложений)
-- Потребление оперативной памяти **~80–120 МБ** при воспроизведении
+- Системный WebView вместо встроенного Chromium
 - Мгновенный запуск
 - Плавный интерфейс на 60 FPS даже на слабом железе
 
@@ -96,12 +95,13 @@ SoundCloud заблокирован Роскомнадзором — веб-ве
 ### Windows
 
 Перейди на [страницу релизов](https://github.com/zxcloli666/SoundCloud-Desktop/releases/latest) и скачай:
-- **`.exe`** (NSIS-установщик) — рекомендуется
-- **`.msi`** — альтернативный установщик
+- **`*_x64-setup.exe`** - установщик, рекомендуется
+- **`*_x64_en-US.msi`** - альтернативный установщик
+- **`soundcloud-desktop-portable.exe`** - portable-версия, без установки
 
 Требования: Windows 10 (1809+) или Windows 11
 
-Нужен Microsoft Edge WebView2 Runtime. Установщики ставят его сами, для portable-версии и урезанных сборок Windows поставь [Evergreen Standalone Installer](https://developer.microsoft.com/microsoft-edge/webview2/) от имени администратора. Сам Edge не нужен.
+Нужен Microsoft Edge WebView2 Runtime. Установщики (~220 МБ) несут его внутри и ставят без загрузки из сети, такую загрузку антивирусы принимают за угрозу. Portable (~43 МБ) его не несёт: если WebView2 нет или Windows урезанная, поставь [Evergreen Standalone Installer](https://developer.microsoft.com/microsoft-edge/webview2/) от имени администратора. Сам Edge не нужен.
 
 ### Linux
 
@@ -129,15 +129,15 @@ flatpak install --user https://zxcloli666.github.io/SoundCloud-Desktop/flatpak/s
 
 Для AppImage:
 ```bash
-chmod +x soundcloud-desktop-*.AppImage
-./soundcloud-desktop-*.AppImage
+chmod +x soundcloud-desktop_*.AppImage
+./soundcloud-desktop_*.AppImage
 ```
 
 Белое или пустое окно при запуске: запусти с флагом `--safe-render` (во Flatpak это пункт "Безопасный режим отрисовки" / "Safe render mode" в меню ярлыка). Лог: `~/.local/share/com.soundcloud.desktop/logs/desktop.log`, во Flatpak `~/.var/app/io.github.zxcloli666.SoundcloudDesktop/data/com.soundcloud.desktop/logs/desktop.log`.
 
 ### macOS
 
-- **Apple Silicon** (M1/M2/M3/M4): `*_arm64.dmg`
+- **Apple Silicon** (M1/M2/M3/M4): `*_aarch64.dmg`
 - **Intel**: `*_x64.dmg`
 
 Скачай со [страницы релизов](https://github.com/zxcloli666/SoundCloud-Desktop/releases/latest).
