@@ -2268,5 +2268,13 @@
     "exportSkipped_one": "{{count}} file was already in the folder and was skipped",
     "exportSkipped_other": "{{count}} files were already in the folder and were skipped",
     "showInFolder": "Show in folder"
+  },
+  "trayMenu": {
+    "show": "Show",
+    "mini": "Mini player",
+    "playPause": "Play / Pause",
+    "prev": "Previous",
+    "next": "Next",
+    "quit": "Quit"
   }
 }

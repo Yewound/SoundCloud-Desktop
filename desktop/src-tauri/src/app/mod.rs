@@ -10,6 +10,7 @@ pub mod render_mode;
 pub mod restart;
 pub mod storage;
 pub mod tray;
+pub mod tray_labels;
 pub mod updater;
 pub mod visibility;
 #[cfg(all(windows, not(feature = "cef")))]

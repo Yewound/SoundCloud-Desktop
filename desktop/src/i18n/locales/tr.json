@@ -2079,5 +2079,13 @@
     "exportSkipped_one": "{{count}} dosya zaten klasördeydi, atlandı",
     "exportSkipped_other": "{{count}} dosya zaten klasördeydi, atlandı",
     "showInFolder": "Klasörde göster"
+  },
+  "trayMenu": {
+    "show": "Göster",
+    "mini": "Mini oynatıcı",
+    "playPause": "Çal / Duraklat",
+    "prev": "Önceki",
+    "next": "Sonraki",
+    "quit": "Çıkış"
   }
 }
