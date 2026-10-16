@@ -91,6 +91,7 @@ export default function App() {
   const updateRelease = useAppUpdateStore((s) => (s.modalOpen ? s.release : null));
   const dismissUpdate = useAppUpdateStore((s) => s.dismiss);
   const appMode = useAppMode();
+  const navigatorOnline = useAppStatusStore((s) => s.navigatorOnline);
   const offlineBypass = useAppStatusStore((s) => s.offlineBypass);
   const canUseMainShell = isAuthenticated || hasSession;
   // Offline-only shell is the explicit "browse offline" choice from Login — NOT
@@ -159,7 +160,7 @@ export default function App() {
   }, [appMode, fetchUser, hasSession]);
 
   useEffect(() => {
-    if (!CHECK_UPDATES || !isAuthenticated || appMode !== 'online') return;
+    if (!CHECK_UPDATES || !navigatorOnline) return;
 
     const checkUpdates = () => void useAppUpdateStore.getState().check(false);
     const interval = window.setInterval(checkUpdates, UPDATE_RECHECK_MS);
@@ -177,7 +178,7 @@ export default function App() {
       window.clearInterval(interval);
       clearTimeout(id);
     };
-  }, [appMode, isAuthenticated]);
+  }, [navigatorOnline]);
 
   return (
     <ThemeProvider>

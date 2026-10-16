@@ -66,7 +66,7 @@ export function pickReleaseAsset(
   return assets.find((asset) => pattern.test(asset.name)) ?? null;
 }
 
-export function mirroredDownloadUrl(url: string): string {
+export function mirroredUrl(url: string): string {
   return `${IMAGES_BASE}/x-target/${btoa(url)}`;
 }
 
