@@ -1,4 +1,4 @@
-import { THEME_ASSET_NAME, THEME_LIMITS } from './rules.ts';
+import { imageSize, THEME_ASSET_NAME, THEME_LIMITS } from './rules.ts';
 import type { Position, Token, TokenType } from './css-tokens.ts';
 import { asciiLower, tokenize } from './css-tokens.ts';
 
@@ -119,6 +119,7 @@ const SVG_URL = /url\(\s*["']?/gi;
 const SVG_FUNCTION = /\b(image-set|image|src|element|paint|cross-fade)\s*\(/gi;
 const SVG_ENCODING = /\bencoding\s*=\s*["']?([\w.:-]*)/gi;
 const SVG_NESTED = /data:image\/svg/gi;
+const SVG_RASTER = /data:image\/(?:png|jpeg|webp|gif|avif)((?:;[a-z0-9=._-]*)*),([^"'<>)]*)/gi;
 const SVG_TEXT = new RegExp(`<\\s*${SVG_PREFIX}text\\b`, 'gi');
 const SVG_SAFE_TARGET = /^(?:#|data:image\/)/i;
 
@@ -168,33 +169,8 @@ function applyCuts(css: string, cuts: Cut[]): { css: string; blocked: number } {
   return { css: out + css.slice(last), blocked };
 }
 
-function atRuleEnd(tokens: Token[], index: number, end: number): number {
-  const expected: TokenType[] = [];
-  for (let i = index + 1; i < tokens.length; i++) {
-    const token = tokens[i];
-    const close = CLOSERS[token.type];
-    if (close) {
-      expected.push(close);
-    } else if (expected.length === 0) {
-      if (token.type === 'semicolon') return token.end;
-      if (token.type === '}') return token.start;
-    } else if (token.type === expected[expected.length - 1]) {
-      expected.pop();
-      if (expected.length === 0 && token.type === '}') return token.end;
-    }
-  }
-  return end;
-}
-
 function isSingleString(parts: Token[]): boolean {
   return parts.length === 1 && parts[0].type === 'string';
-}
-
-function isBannedProperty(tokens: Token[], index: number): boolean {
-  if (!BANNED_PROPERTIES.includes(asciiLower(tokens[index].value))) return false;
-  let next = index + 1;
-  while (tokens[next]?.type === 'whitespace') next++;
-  return tokens[next]?.type === 'colon';
 }
 
 function firstControl(text: string): number {
@@ -216,6 +192,25 @@ function isKeptUrl(raw: string): boolean {
   return (
     value === '' || KEPT_SCHEME.test(value) || KEPT_FRAGMENT.test(value) || KEPT_PATH.test(value)
   );
+}
+
+function rasterProblem(body: string, base64: boolean): string | null {
+  let binary: string;
+  try {
+    binary = base64
+      ? atob(body)
+      : body.replace(/%([0-9a-f]{2})/gi, (_hit, hex: string) =>
+          String.fromCharCode(Number.parseInt(hex, 16)),
+        );
+  } catch {
+    return 'image cannot be decoded';
+  }
+  const size = imageSize(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+  if (!size) return 'image cannot be read';
+  if (Math.max(size.width, size.height) > THEME_LIMITS.assetMaxSide) {
+    return `image is ${size.width}x${size.height}, too big`;
+  }
+  return null;
 }
 
 function excerpt(text: string, from: number): string {
@@ -261,11 +256,17 @@ export function inspectThemeCss(css: string, assetNames: readonly string[]): Gua
     const head = DATA_URI.exec(value);
     if (!head) return error('data-uri', at, 'data: must be an image or woff2');
     if (value.length > THEME_LIMITS.dataUriChars) return error('data-uri', at, 'data: is too long');
-    if (!/^data:image\/svg\+xml/i.test(value)) return;
+    if (/^data:font\//i.test(value)) return;
     const body = value.slice(head[0].length);
+    const base64 = /;base64,$/i.test(head[0]);
+    if (!/^data:image\/svg\+xml/i.test(value)) {
+      const problem = rasterProblem(body, base64);
+      if (problem) error('data-uri', at, `data: ${problem}`);
+      return;
+    }
     let svg: string;
     try {
-      svg = /;base64,$/i.test(head[0]) ? atob(body) : decodeURIComponent(body);
+      svg = base64 ? atob(body) : decodeURIComponent(body);
     } catch {
       return error('data-uri', at, 'data: svg cannot be decoded');
     }
@@ -345,8 +346,12 @@ export function inspectThemeCss(css: string, assetNames: readonly string[]): Gua
           error('image-set', token, `strings are not allowed in ${top.imageSet.name}()`);
         }
         if (top?.name !== 'url' && top?.name !== 'type') declarationChars += token.value.length;
-      } else if (token.type === 'ident' && isBannedProperty(scan.tokens, index)) {
-        error('property', token, `${token.value} is not allowed`);
+      } else if (token.type === 'ident' && BANNED_PROPERTIES.includes(asciiLower(token.value))) {
+        let next = index + 1;
+        while (scan.tokens[next]?.type === 'whitespace') next++;
+        if (scan.tokens[next]?.type === 'colon') {
+          error('property', token, `${token.value} is not allowed`);
+        }
       }
       if (!declaration && token.type === 'ident') declaration = token;
     },
@@ -406,7 +411,24 @@ export function stripRemoteCss(css: string): { css: string; blocked: number } {
     token(token, top, index) {
       if (token.type === 'at-keyword' && asciiLower(token.value) === 'import') {
         if (token.start < importEnd) return;
-        importEnd = atRuleEnd(tokens, index, css.length);
+        importEnd = css.length;
+        const expected: TokenType[] = [];
+        for (let i = index + 1; i < tokens.length; i++) {
+          const next = tokens[i];
+          const close = CLOSERS[next.type];
+          if (close) {
+            expected.push(close);
+          } else if (expected.length === 0 && (next.type === 'semicolon' || next.type === '}')) {
+            importEnd = next.type === 'semicolon' ? next.end : next.start;
+            break;
+          } else if (next.type === expected[expected.length - 1]) {
+            expected.pop();
+            if (expected.length === 0 && next.type === '}') {
+              importEnd = next.end;
+              break;
+            }
+          }
+        }
         cuts.push({ start: token.start, end: importEnd, text: '/**/' });
       } else if (token.type === 'bad-url' || (token.type === 'url' && !isKeptUrl(token.value))) {
         cuts.push({ start: token.start, end: token.end, text: 'none' });
@@ -452,6 +474,10 @@ export function inspectSvg(text: string): { errors: string[]; warnings: string[]
     if (hit[1].toLowerCase() !== 'utf-8') errors.add(`encoding ${hit[1]}`);
   });
   each(SVG_NESTED, text, () => errors.add('nested svg'));
+  each(SVG_RASTER, text, (hit) => {
+    const problem = rasterProblem(hit[2], /;base64$/i.test(hit[1]));
+    if (problem) errors.add(`embedded ${problem}`);
+  });
   for (const source of [text, flat]) {
     each(SVG_IMPORT, source, () => errors.add('@import'));
     each(SVG_URL, source, linkTarget(source));

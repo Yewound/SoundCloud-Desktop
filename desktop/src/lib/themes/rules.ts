@@ -4,6 +4,7 @@ export const THEME_LIMITS = {
   assetBytes: 1_048_576,
   assetsTotalBytes: 3_145_728,
   assetsCount: 24,
+  assetMaxSide: 4096,
   previewBytes: 262_144,
   previewMinWidth: 960,
   previewMaxWidth: 1600,
@@ -108,4 +109,101 @@ export function sniffAssetType(bytes: Uint8Array): AssetType | null {
   if (startsWith(bytes, 0, 'wOF2')) return 'woff2';
   if (looksLikeSvg(bytes)) return 'svg';
   return null;
+}
+
+export interface ImageSize {
+  width: number;
+  height: number;
+}
+
+type SizeReader = (bytes: Uint8Array, view: DataView) => ImageSize | null;
+
+const colorTableBytes = (flags: number) => (flags & 0x80 ? 3 << ((flags & 7) + 1) : 0);
+
+const SIZE_READERS: Partial<Record<AssetType, SizeReader>> = {
+  png(bytes, view) {
+    if (!startsWith(bytes, 12, 'IHDR')) return null;
+    return { width: view.getUint32(16), height: view.getUint32(20) };
+  },
+
+  webp(bytes, view) {
+    if (startsWith(bytes, 12, 'VP8 ') && startsWith(bytes, 23, '\x9d\x01\x2a')) {
+      return {
+        width: view.getUint16(26, true) & 0x3fff,
+        height: view.getUint16(28, true) & 0x3fff,
+      };
+    }
+    if (startsWith(bytes, 12, 'VP8L') && bytes[20] === 0x2f) {
+      const bits = view.getUint32(21, true);
+      return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+    }
+    if (startsWith(bytes, 12, 'VP8X') && bytes.length >= 30) {
+      return {
+        width: (view.getUint16(24, true) | (bytes[26] << 16)) + 1,
+        height: (view.getUint16(27, true) | (bytes[29] << 16)) + 1,
+      };
+    }
+    return null;
+  },
+
+  gif(bytes, view) {
+    let width = view.getUint16(6, true);
+    let height = view.getUint16(8, true);
+    let at = 13 + colorTableBytes(bytes[10]);
+    while (at < bytes.length && bytes[at] !== 0x3b) {
+      if (bytes[at] === 0x2c) {
+        width = Math.max(width, view.getUint16(at + 1, true) + view.getUint16(at + 5, true));
+        height = Math.max(height, view.getUint16(at + 3, true) + view.getUint16(at + 7, true));
+        at += 11 + colorTableBytes(bytes[at + 9]);
+      } else if (bytes[at] === 0x21) {
+        at += 2;
+      } else {
+        return null;
+      }
+      while (at < bytes.length && bytes[at] !== 0) at += bytes[at] + 1;
+      at++;
+    }
+    return { width, height };
+  },
+
+  jpeg(bytes, view) {
+    let at = 2;
+    while (at + 9 <= bytes.length) {
+      const marker = bytes[at + 1];
+      if (bytes[at] !== 0xff) return null;
+      if (marker === 0xff) {
+        at++;
+      } else if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+        return { width: view.getUint16(at + 7), height: view.getUint16(at + 5) };
+      } else if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
+        at += 2;
+      } else {
+        at += 2 + view.getUint16(at + 2);
+      }
+    }
+    return null;
+  },
+
+  avif(bytes, view) {
+    let width = 0;
+    let height = 0;
+    for (let at = 8; at + 16 <= bytes.length; at++) {
+      if (!startsWith(bytes, at, 'ispe')) continue;
+      width = Math.max(width, view.getUint32(at + 8));
+      height = Math.max(height, view.getUint32(at + 12));
+    }
+    return { width, height };
+  },
+};
+
+export function imageSize(bytes: Uint8Array): ImageSize | null {
+  const type = sniffAssetType(bytes);
+  const read = type ? SIZE_READERS[type] : undefined;
+  if (!read) return null;
+  try {
+    const size = read(bytes, new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength));
+    return size && size.width > 0 && size.height > 0 ? size : null;
+  } catch {
+    return null;
+  }
 }

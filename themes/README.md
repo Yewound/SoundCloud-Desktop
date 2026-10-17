@@ -73,6 +73,7 @@ Long text in `content:` and `<text>` in SVG get a look in review.
 ## Images and fonts
 
 - `assets/` has no subfolders: up to 24 files, 1 MB each, 3 MB in total.
+- Images up to 4096 px on each side, `data:` images too.
 - File names: `a-z`, `0-9`, `-`, `_`. Extensions: `webp`, `png`, `jpg`, `jpeg`, `avif`, `gif`, `svg`, `woff2`.
 - Every file must be used in `theme.css`.
 - SVG: no scripts, no outside links, no `&...;`, no backslash, only the svg and xlink namespaces.

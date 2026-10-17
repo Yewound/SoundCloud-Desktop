@@ -10,6 +10,8 @@ import {
 
 const ASSETS = ['a.webp', 'f.woff2'];
 const KEPT = true;
+const PNG_1X1 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 const svgUri = (svg) => `data:image/svg+xml,${encodeURIComponent(svg)}`;
 const svgBase64 = (svg) => `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
@@ -35,7 +37,11 @@ const BAD_CSS = [
   ['a{background:url(assets/../a.png)}', 'url', KEPT],
   ['a{background:url("assets/missing.webp")}', 'asset-missing', KEPT],
   ['a{background:url(data:text/html,hi)}', 'data-uri', KEPT],
-  [`a{background:url("${svgUri('<svg><image href="https://x.test/a.png"/></svg>')}")}`, 'data-uri', KEPT],
+  [
+    `a{background:url("${svgUri('<svg><image href="https://x.test/a.png"/></svg>')}")}`,
+    'data-uri',
+    KEPT,
+  ],
   ['@font-face{font-family:f;src:url(https://x.test/f.woff2)}', 'url'],
   ['a{-webkit-app-region:drag}', 'property', KEPT],
   ['a{content:attr(data-x type(<url>))}', 'attr', KEPT],
@@ -133,8 +139,7 @@ test('svg with text only warns', () => {
 });
 
 test('a plain svg passes', () => {
-  const svg =
-    '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 8 8"><defs><linearGradient id="g"><stop offset="0" stop-color="#fff"/></linearGradient></defs><circle cx="4" cy="4" r="1" fill="url(#g)"/><use xlink:href="#g"/><image href="data:image/png;base64,AAAA"/></svg>';
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 8 8"><defs><linearGradient id="g"><stop offset="0" stop-color="#fff"/></linearGradient></defs><circle cx="4" cy="4" r="1" fill="url(#g)"/><use xlink:href="#g"/><image href="data:image/png;base64,${PNG_1X1}"/></svg>`;
   assert.deepEqual(inspectSvg(svg), { errors: [], warnings: [] });
 });
 
@@ -157,7 +162,7 @@ test('nested css, media, keyframes and font-face pass', () => {
 }
 html[data-perf="light"] [data-ui="app"] { animation: none; }
 a { background: url( "assets/a.webp" ), url(assets/a.webp), url("#glow"); }
-b { background-image: url("data:image/png;base64,iVBORw0KGgo="); }
+b { background-image: url("data:image/png;base64,${PNG_1X1}"); }
 `;
   const report = inspectThemeCss(css, ASSETS);
   assert.deepEqual(report.errors, []);
@@ -165,7 +170,8 @@ b { background-image: url("data:image/png;base64,iVBORw0KGgo="); }
 });
 
 test('reports the line and column of the first error', () => {
-  const css = 'a { color: red; }\n\n  b {\n    background: url(https://x.test/a.png);\n    behavior: url(x.htc);\n  }\n';
+  const css =
+    'a { color: red; }\n\n  b {\n    background: url(https://x.test/a.png);\n    behavior: url(x.htc);\n  }\n';
   const report = inspectThemeCss(css, []);
   assert.deepEqual(
     { code: report.errors[0].code, line: report.errors[0].line, column: report.errors[0].column },
@@ -210,6 +216,36 @@ test('every remaining error code fires', () => {
   assert.ok(codes('a{b:url(ASSETS/a.webp)}').includes('url'));
 });
 
+test('data: images must be readable and not too big', () => {
+  const png = Buffer.from(PNG_1X1, 'base64');
+  const percent = [...png].map((byte) => `%${byte.toString(16).padStart(2, '0')}`).join('');
+  assert.deepEqual(codes(`a{b:url(data:image/png;base64,${PNG_1X1})}`), []);
+  assert.deepEqual(codes(`a{b:url("data:image/png,${percent}")}`), []);
+  assert.deepEqual(codes('a{src:url(data:font/woff2;base64,d09GMgAB)}'), []);
+  png.writeUInt32BE(5000, 16);
+  const huge = inspectThemeCss(`a{b:url(data:image/png;base64,${png.toString('base64')})}`, []);
+  assert.deepEqual(
+    huge.errors.map((issue) => [issue.code, issue.message]),
+    [['data-uri', 'data: image is 5000x1, too big']],
+  );
+  assert.deepEqual(codes('a{b:url(data:image/png;base64,AAAA)}'), ['data-uri']);
+  assert.deepEqual(codes('a{b:url(data:image/gif;base64,%%%)}'), ['data-uri']);
+  assert.deepEqual(codes(`a{b:url("data:image/png,${encodeURIComponent('<svg/>')}")}`), [
+    'data-uri',
+  ]);
+
+  const svg = (href) => `<svg xmlns="http://www.w3.org/2000/svg"><image href="${href}"/></svg>`;
+  assert.deepEqual(inspectSvg(svg(`data:image/png;base64,${PNG_1X1}`)).errors, []);
+  assert.deepEqual(inspectSvg(svg(`data:image/png;base64,${png.toString('base64')}`)).errors, [
+    'embedded image is 5000x1, too big',
+  ]);
+  assert.deepEqual(inspectSvg(svg('data:image/gif;base64,R0lGODlh')).errors, [
+    'embedded image cannot be read',
+  ]);
+  const inCss = `a{b:url("${svgBase64(svg(`data:image/png;base64,${png.toString('base64')}`))}")}`;
+  assert.deepEqual(codes(inCss), ['data-uri']);
+});
+
 test('content-text warns on long strings per declaration', () => {
   const short = inspectThemeCss('a::before{content:"Now playing"}', []);
   assert.deepEqual(short.warnings, []);
@@ -241,7 +277,10 @@ test('rewriteThemeAssetUrls rewrites only asset urls and keeps every other byte'
     out,
     '/* keep */ a{background:url("http://127.0.0.1:9/theme-files/a.webp") , url("http://127.0.0.1:9/theme-files/f.woff2") ,url(#f),url("data:image/png;base64,AA")}\r\nb{x:url("http://127.0.0.1:9/theme-files/a.webp")}',
   );
-  assert.equal(rewriteThemeAssetUrls('a{b:url("x\\"y")}', () => 'z'), 'a{b:url("x\\"y")}');
+  assert.equal(
+    rewriteThemeAssetUrls('a{b:url("x\\"y")}', () => 'z'),
+    'a{b:url("x\\"y")}',
+  );
   assert.equal(
     rewriteThemeAssetUrls('a{b:url(assets/a.webp)}', () => 'a"b\\c'),
     'a{b:url("a\\"b\\\\c")}',
@@ -269,10 +308,13 @@ test('stripRemoteCss replaces remote urls and removes imports', () => {
     css: 'a{}/**/b{}',
     blocked: 1,
   });
-  assert.deepEqual(stripRemoteCss('@import url(https://x.test/a.css) supports(display: grid) screen;a{}'), {
-    css: '/**/a{}',
-    blocked: 1,
-  });
+  assert.deepEqual(
+    stripRemoteCss('@import url(https://x.test/a.css) supports(display: grid) screen;a{}'),
+    {
+      css: '/**/a{}',
+      blocked: 1,
+    },
+  );
   assert.deepEqual(stripRemoteCss('a{@import "x"}b{}'), { css: 'a{/**/}b{}', blocked: 1 });
   assert.deepEqual(stripRemoteCss('u@import "x";rl(https://x.test/a.png)'), {
     css: 'u/**/rl(https://x.test/a.png)',
@@ -282,14 +324,20 @@ test('stripRemoteCss replaces remote urls and removes imports', () => {
     css: 'a{b:none url(sc-assets/a.png)}',
     blocked: 1,
   });
-  assert.deepEqual(stripRemoteCss('a{b:image-set(url(https://x.test/a.png) 1x, "sc-assets/b.png" 2x)}'), {
-    css: 'a{b:image-set(none 1x, "sc-assets/b.png" 2x)}',
-    blocked: 1,
-  });
-  assert.deepEqual(stripRemoteCss('a{b:cross-fade(image-set("https://x.test/a.png" 1x), url(sc-assets/b.png))}'), {
-    css: 'a{b:cross-fade(none, url(sc-assets/b.png))}',
-    blocked: 1,
-  });
+  assert.deepEqual(
+    stripRemoteCss('a{b:image-set(url(https://x.test/a.png) 1x, "sc-assets/b.png" 2x)}'),
+    {
+      css: 'a{b:image-set(none 1x, "sc-assets/b.png" 2x)}',
+      blocked: 1,
+    },
+  );
+  assert.deepEqual(
+    stripRemoteCss('a{b:cross-fade(image-set("https://x.test/a.png" 1x), url(sc-assets/b.png))}'),
+    {
+      css: 'a{b:cross-fade(none, url(sc-assets/b.png))}',
+      blocked: 1,
+    },
+  );
   assert.deepEqual(stripRemoteCss('a{b:image("https://x.test/a.png")}c{d:paint(x)}'), {
     css: 'a{b:none}c{d:none}',
     blocked: 2,
@@ -313,6 +361,14 @@ test('stripRemoteCss stays linear on unclosed imports', () => {
   const started = Date.now();
   assert.deepEqual(stripRemoteCss('@import '.repeat(30000)), { css: '/**/', blocked: 1 });
   assert.equal(stripRemoteCss(`a{${'@import{'.repeat(20000)}`).blocked, 1);
+  assert.ok(Date.now() - started < 2000);
+});
+
+test('inspectSvg stays linear on repeated data: images', () => {
+  const started = Date.now();
+  for (const unit of ['data:image/png;', 'data:image/png;x', 'data:image/png,']) {
+    inspectSvg(`<svg>${unit.repeat(32000)}`);
+  }
   assert.ok(Date.now() - started < 2000);
 });
 

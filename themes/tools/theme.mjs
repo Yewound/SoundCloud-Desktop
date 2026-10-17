@@ -6,6 +6,7 @@ import {
   compareVersions,
   GITHUB_LOGIN,
   HEX_COLOR,
+  imageSize,
   isCleanText,
   SEMVER,
   SHA256,
@@ -21,7 +22,6 @@ import {
   THEME_RESERVED_IDS,
 } from '../../desktop/src/lib/themes/rules.ts';
 import { commitTime, tryGit } from './git.mjs';
-import { dimensions } from './images.mjs';
 
 const THEME_KEYS = [
   '$schema',
@@ -38,12 +38,17 @@ const THEME_KEYS = [
 ];
 const AUTHOR_KEYS = ['name', 'github'];
 const REVOKED_KEYS = ['id', 'hash', 'reason'];
+const OS_FILES = ['.DS_Store', 'Thumbs.db', 'desktop.ini'];
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 const isText = (value, max) => typeof value === 'string' && isCleanText(value, max);
 const isVersion = (value) => typeof value === 'string' && SEMVER.test(value);
 const decodeUtf8 = (bytes) => new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+const listFiles = (dir) =>
+  readdirSync(dir)
+    .filter((name) => !OS_FILES.includes(name))
+    .sort();
 
 export function listThemes(root) {
   return readdirSync(join(root, 'themes'), { withFileTypes: true })
@@ -73,18 +78,25 @@ export function readRevoked(root) {
   }
 }
 
-function readLayout(dir, at, errors) {
-  const names = readdirSync(dir).sort();
+export function loadTheme(dir, buildRev, previousEntry) {
+  const folder = basename(dir);
+  const at = `themes/${folder}`;
+  const errors = [];
+  const warnings = [];
+  const failed = () => ({ entry: null, errors, warnings });
+
+  const names = listFiles(dir);
   const previews = [];
-  const assets = [];
+  const assetNames = [];
   for (const name of names) {
     const stat = lstatSync(join(dir, name));
     if (name === 'assets' && stat.isDirectory()) {
-      for (const asset of readdirSync(join(dir, name)).sort()) {
+      for (const asset of listFiles(join(dir, name))) {
         const file = lstatSync(join(dir, name, asset));
-        if (!file.isFile()) errors.push(`${at}/assets/${asset}: assets/ must hold only plain files`);
+        if (!file.isFile())
+          errors.push(`${at}/assets/${asset}: assets/ must hold only plain files`);
         else if (!THEME_ASSET_NAME.test(asset)) errors.push(`${at}/assets/${asset}: bad file name`);
-        else assets.push(asset);
+        else assetNames.push(asset);
       }
     } else if (!stat.isFile()) {
       errors.push(`${at}/${name}: only plain files and a flat assets/ are allowed`);
@@ -97,124 +109,104 @@ function readLayout(dir, at, errors) {
   for (const required of ['theme.json', 'theme.css']) {
     if (!names.includes(required)) errors.push(`${at}/${required}: missing`);
   }
-  if (previews.length !== 1) {
-    errors.push(`${at}: needs exactly one preview.webp or preview.png`);
-  }
-  return errors.length > 0 ? null : { preview: previews[0], assets };
-}
+  if (previews.length !== 1) errors.push(`${at}: needs exactly one preview.webp or preview.png`);
+  if (errors.length > 0) return failed();
 
-function checkDescription(description, bad) {
-  if (!isObject(description)) return bad('description', 'must be an object of languages');
-  const langs = Object.keys(description);
-  if (langs.length < 1 || langs.length > THEME_LANGS.length) {
-    bad('description', `needs 1-${THEME_LANGS.length} languages`);
-  }
-  for (const lang of langs) {
-    if (!THEME_LANGS.includes(lang)) bad(`description.${lang}`, 'is not a supported language');
-    else if (!isText(description[lang], TEXT_LIMITS.description)) {
-      bad(`description.${lang}`, `must be 1-${TEXT_LIMITS.description} plain characters`);
-    }
-  }
-}
-
-function checkAuthor(author, bad) {
-  if (!isObject(author)) return bad('author', 'must be an object with a name');
-  for (const key of Object.keys(author)) {
-    if (!AUTHOR_KEYS.includes(key)) bad(`author.${key}`, 'is not a known key');
-  }
-  if (!isText(author.name, TEXT_LIMITS.authorName)) {
-    bad('author.name', `must be 1-${TEXT_LIMITS.authorName} plain characters`);
-  }
-  if (author.github !== undefined && !(typeof author.github === 'string' && GITHUB_LOGIN.test(author.github))) {
-    bad('author.github', 'must be a GitHub login');
-  }
-}
-
-function checkMeta(meta, at, folder, errors) {
-  const bad = (field, rule) => {
-    errors.push(`${at}/theme.json: ${field} ${rule}`);
-  };
-  if (!isObject(meta)) return bad('theme.json', 'must be an object');
-  for (const key of Object.keys(meta)) {
-    if (!THEME_KEYS.includes(key)) bad(key, 'is not a known key');
-  }
-  if (typeof meta.id !== 'string' || !THEME_ID.test(meta.id)) {
-    bad('id', 'must be 3-32 characters of a-z, 0-9 and -');
-  } else if (THEME_RESERVED_IDS.includes(meta.id)) {
-    bad('id', 'is reserved');
-  }
-  if (meta.id !== folder) bad('id', `must equal the folder name "${folder}"`);
-  if (!isText(meta.name, TEXT_LIMITS.name)) {
-    bad('name', `must be 1-${TEXT_LIMITS.name} plain characters`);
-  }
-  checkDescription(meta.description, bad);
-  if (!isVersion(meta.version)) bad('version', 'must look like 1.0.0');
-  checkAuthor(meta.author, bad);
-  if (!THEME_LICENSES.includes(meta.license)) {
-    bad('license', `must be one of ${THEME_LICENSES.join(', ')}`);
-  }
-  if (meta.minApp !== undefined && !isVersion(meta.minApp)) bad('minApp', 'must look like 1.0.0');
-  for (const key of ['accent', 'background']) {
-    if (meta[key] !== undefined && !(typeof meta[key] === 'string' && HEX_COLOR.test(meta[key]))) {
-      bad(key, 'must look like #1a2b3c in lowercase');
-    }
-  }
-  if (meta.font !== undefined && !THEME_FONTS.includes(meta.font)) {
-    bad('font', `must be one of ${THEME_FONTS.join(', ')}`);
-  }
-  if (meta.$schema !== undefined && typeof meta.$schema !== 'string') bad('$schema', 'must be a string');
-}
-
-function readMeta(dir, at, folder, errors) {
+  const bad = (field, rule) => errors.push(`${at}/theme.json: ${field} ${rule}`);
   let meta;
   try {
     meta = JSON.parse(decodeUtf8(readFileSync(join(dir, 'theme.json'))));
   } catch (error) {
     errors.push(`${at}/theme.json: cannot be read: ${error.message}`);
-    return null;
   }
-  const before = errors.length;
-  checkMeta(meta, at, folder, errors);
-  return errors.length === before ? meta : null;
-}
+  if (meta !== undefined && !isObject(meta)) bad('theme.json', 'must be an object');
+  if (isObject(meta)) {
+    for (const key of Object.keys(meta)) {
+      if (!THEME_KEYS.includes(key)) bad(key, 'is not a known key');
+    }
+    if (typeof meta.id !== 'string' || !THEME_ID.test(meta.id)) {
+      bad('id', 'must be 3-32 characters of a-z, 0-9 and -');
+    } else if (THEME_RESERVED_IDS.includes(meta.id)) {
+      bad('id', 'is reserved');
+    }
+    if (meta.id !== folder) bad('id', `must equal the folder name "${folder}"`);
+    if (!isText(meta.name, TEXT_LIMITS.name)) {
+      bad('name', `must be 1-${TEXT_LIMITS.name} plain characters`);
+    }
 
-function readCss(dir, at, assetNames, errors, warnings) {
-  const bytes = readFileSync(join(dir, 'theme.css'));
-  let css;
+    const { description, author } = meta;
+    if (!isObject(description)) {
+      bad('description', 'must be an object of languages');
+    } else {
+      const langs = Object.keys(description);
+      if (langs.length < 1 || langs.length > THEME_LANGS.length) {
+        bad('description', `needs 1-${THEME_LANGS.length} languages`);
+      }
+      for (const lang of langs) {
+        if (!THEME_LANGS.includes(lang)) {
+          bad(`description.${lang}`, 'is not a supported language');
+        } else if (!isText(description[lang], TEXT_LIMITS.description)) {
+          bad(`description.${lang}`, `must be 1-${TEXT_LIMITS.description} plain characters`);
+        }
+      }
+    }
+
+    if (!isVersion(meta.version)) bad('version', 'must look like 1.0.0');
+
+    if (!isObject(author)) {
+      bad('author', 'must be an object with a name');
+    } else {
+      for (const key of Object.keys(author)) {
+        if (!AUTHOR_KEYS.includes(key)) bad(`author.${key}`, 'is not a known key');
+      }
+      if (!isText(author.name, TEXT_LIMITS.authorName)) {
+        bad('author.name', `must be 1-${TEXT_LIMITS.authorName} plain characters`);
+      }
+      const github = author.github;
+      if (github !== undefined && !(typeof github === 'string' && GITHUB_LOGIN.test(github))) {
+        bad('author.github', 'must be a GitHub login');
+      }
+    }
+
+    if (!THEME_LICENSES.includes(meta.license)) {
+      bad('license', `must be one of ${THEME_LICENSES.join(', ')}`);
+    }
+    if (meta.minApp !== undefined && !isVersion(meta.minApp)) bad('minApp', 'must look like 1.0.0');
+    for (const key of ['accent', 'background']) {
+      const color = meta[key];
+      if (color !== undefined && !(typeof color === 'string' && HEX_COLOR.test(color))) {
+        bad(key, 'must look like #1a2b3c in lowercase');
+      }
+    }
+    if (meta.font !== undefined && !THEME_FONTS.includes(meta.font)) {
+      bad('font', `must be one of ${THEME_FONTS.join(', ')}`);
+    }
+    if (meta.$schema !== undefined && typeof meta.$schema !== 'string') {
+      bad('$schema', 'must be a string');
+    }
+  }
+
+  const cssBytes = readFileSync(join(dir, 'theme.css'));
+  const css = { path: 'theme.css', sha256: sha256(cssBytes), size: cssBytes.length };
+  let cssText = null;
   try {
-    css = decodeUtf8(bytes);
+    cssText = decodeUtf8(cssBytes);
   } catch {
     errors.push(`${at}/theme.css: is not valid UTF-8`);
-    return null;
   }
-  const report = inspectThemeCss(css, assetNames);
+  const report = cssText === null ? null : inspectThemeCss(cssText, assetNames);
   const format = (issue) =>
     `${at}/theme.css:${issue.line}:${issue.column} ${issue.code} ${issue.message}`;
-  errors.push(...report.errors.map(format));
-  warnings.push(...report.warnings.map(format));
-  return { file: { path: 'theme.css', sha256: sha256(bytes), size: bytes.length }, used: report.assets };
-}
+  errors.push(...(report?.errors ?? []).map(format));
+  warnings.push(...(report?.warnings ?? []).map(format));
+  const used = report?.assets ?? [];
 
-function checkSvg(bytes, where, errors, warnings) {
-  let text;
-  try {
-    text = decodeUtf8(bytes);
-  } catch {
-    errors.push(`${where}: is not valid UTF-8`);
-    return;
-  }
-  const report = inspectSvg(text);
-  errors.push(...report.errors.map((message) => `${where}: ${message}`));
-  warnings.push(...report.warnings.map((message) => `${where}: svg-text ${message}`));
-}
-
-function readAssets(dir, at, names, used, errors, warnings) {
-  if (names.length > THEME_LIMITS.assetsCount) {
+  if (assetNames.length > THEME_LIMITS.assetsCount) {
     errors.push(`${at}/assets: more than ${THEME_LIMITS.assetsCount} files`);
   }
   let total = 0;
   const assets = [];
-  for (const name of names) {
+  for (const name of assetNames) {
     const path = `assets/${name}`;
     const where = `${at}/${path}`;
     const bytes = readFileSync(join(dir, path));
@@ -222,72 +214,64 @@ function readAssets(dir, at, names, used, errors, warnings) {
     if (bytes.length > THEME_LIMITS.assetBytes) errors.push(`${where}: bigger than 1 MiB`);
     const extension = name.slice(name.lastIndexOf('.') + 1);
     const expected = extension === 'jpg' ? 'jpeg' : extension;
-    if (sniffAssetType(bytes) !== expected) errors.push(`${where}: content is not ${expected}`);
-    else if (expected === 'svg') checkSvg(bytes, where, errors, warnings);
+    if (sniffAssetType(bytes) !== expected) {
+      errors.push(`${where}: content is not ${expected}`);
+    } else if (expected === 'svg') {
+      let svg = null;
+      try {
+        svg = decodeUtf8(bytes);
+      } catch {
+        errors.push(`${where}: is not valid UTF-8`);
+      }
+      const svgReport = svg === null ? { errors: [], warnings: [] } : inspectSvg(svg);
+      errors.push(...svgReport.errors.map((message) => `${where}: ${message}`));
+      warnings.push(...svgReport.warnings.map((message) => `${where}: svg-text ${message}`));
+    } else if (expected !== 'woff2') {
+      const size = imageSize(bytes);
+      if (!size) {
+        errors.push(`${where}: cannot read the image size`);
+      } else if (Math.max(size.width, size.height) > THEME_LIMITS.assetMaxSide) {
+        errors.push(
+          `${where}: ${size.width}x${size.height} is over ${THEME_LIMITS.assetMaxSide} px on a side`,
+        );
+      }
+    }
     if (!used.includes(name)) errors.push(`${where}: not used in theme.css`);
     assets.push({ path, sha256: sha256(bytes), size: bytes.length });
   }
   if (total > THEME_LIMITS.assetsTotalBytes) errors.push(`${at}/assets: more than 3 MiB in total`);
-  return assets;
-}
 
-function readPreview(dir, at, path, errors) {
-  const where = `${at}/${path}`;
-  const bytes = readFileSync(join(dir, path));
-  const type = path === 'preview.png' ? 'png' : 'webp';
-  const before = errors.length;
-  if (sniffAssetType(bytes) !== type) errors.push(`${where}: content is not ${type}`);
-  if (bytes.length > THEME_LIMITS.previewBytes) errors.push(`${where}: bigger than 256 KiB`);
-  const size = dimensions(bytes);
-  if (!size) {
-    errors.push(`${where}: cannot read the image size`);
-    return null;
+  const previewPath = previews[0];
+  const previewAt = `${at}/${previewPath}`;
+  const previewBytes = readFileSync(join(dir, previewPath));
+  const previewType = previewPath === 'preview.png' ? 'png' : 'webp';
+  if (sniffAssetType(previewBytes) !== previewType) {
+    errors.push(`${previewAt}: content is not ${previewType}`);
   }
-  const { width, height } = size;
-  if (width < THEME_LIMITS.previewMinWidth || width > THEME_LIMITS.previewMaxWidth) {
-    errors.push(
-      `${where}: width ${width} is outside ${THEME_LIMITS.previewMinWidth}-${THEME_LIMITS.previewMaxWidth}`,
-    );
+  if (previewBytes.length > THEME_LIMITS.previewBytes) {
+    errors.push(`${previewAt}: bigger than 256 KiB`);
   }
-  const aspect = width / height;
-  if (!(aspect >= THEME_LIMITS.previewMinAspect && aspect <= THEME_LIMITS.previewMaxAspect)) {
-    errors.push(
-      `${where}: ${width}x${height} is not ${THEME_LIMITS.previewMinAspect}-${THEME_LIMITS.previewMaxAspect} wide, 16:10 fits`,
-    );
+  const previewSize = imageSize(previewBytes);
+  if (!previewSize) {
+    errors.push(`${previewAt}: cannot read the image size`);
+  } else {
+    const { width, height } = previewSize;
+    const { previewMinWidth, previewMaxWidth, previewMinAspect, previewMaxAspect } = THEME_LIMITS;
+    if (width < previewMinWidth || width > previewMaxWidth) {
+      errors.push(`${previewAt}: width ${width} is outside ${previewMinWidth}-${previewMaxWidth}`);
+    }
+    const aspect = width / height;
+    if (!(aspect >= previewMinAspect && aspect <= previewMaxAspect)) {
+      errors.push(
+        `${previewAt}: ${width}x${height} is not ${previewMinAspect}-${previewMaxAspect} wide, 16:10 fits`,
+      );
+    }
   }
-  if (errors.length > before) return null;
-  return { path, sha256: sha256(bytes), size: bytes.length, width, height };
-}
+  if (errors.length > 0) return failed();
 
-function themeHash(css, assets, meta) {
   const files = assets.map((a) => [a.path, a.sha256]).sort((x, y) => (x[0] < y[0] ? -1 : 1));
   const key = [css.sha256, files, meta.accent ?? null, meta.background ?? null, meta.font ?? null];
-  return sha256(Buffer.from(JSON.stringify(key), 'utf8'));
-}
-
-function themeRev(root, at, buildRev) {
-  const rev = tryGit(root, ['log', '-1', '--format=%H', buildRev, '--', at]);
-  if (!rev) return buildRev;
-  const current = tryGit(root, ['rev-parse', `${buildRev}:${at}`]);
-  return current && tryGit(root, ['rev-parse', `${rev}:${at}`]) === current ? rev : buildRev;
-}
-
-export function loadTheme(dir, buildRev, previousEntry) {
-  const folder = basename(dir);
-  const at = `themes/${folder}`;
-  const errors = [];
-  const warnings = [];
-  const failed = () => ({ entry: null, errors, warnings });
-
-  const layout = readLayout(dir, at, errors);
-  if (!layout) return failed();
-  const meta = readMeta(dir, at, folder, errors);
-  const css = readCss(dir, at, layout.assets, errors, warnings);
-  const assets = readAssets(dir, at, layout.assets, css?.used ?? [], errors, warnings);
-  const preview = readPreview(dir, at, layout.preview, errors);
-  if (!meta || !css || !preview || errors.length > 0) return failed();
-
-  const hash = themeHash(css.file, assets, meta);
+  const hash = sha256(Buffer.from(JSON.stringify(key), 'utf8'));
   if (previousEntry && previousEntry.hash !== hash && isVersion(previousEntry.version)) {
     if (compareVersions(meta.version, previousEntry.version) <= 0) {
       errors.push(
@@ -298,13 +282,22 @@ export function loadTheme(dir, buildRev, previousEntry) {
   }
 
   const root = resolve(dir, '..', '..');
-  const rev = buildRev ? themeRev(root, at, buildRev) : undefined;
+  let rev;
+  if (buildRev) {
+    rev = tryGit(root, ['log', '-1', '--format=%H', buildRev, '--', at]) || buildRev;
+    const tree = tryGit(root, ['rev-parse', `${buildRev}:${at}`]);
+    if (!tree || tryGit(root, ['rev-parse', `${rev}:${at}`]) !== tree) rev = buildRev;
+  }
+
   const entry = {
     id: meta.id,
     rev,
     name: meta.name,
     description: Object.fromEntries(
-      THEME_LANGS.filter((lang) => lang in meta.description).map((lang) => [lang, meta.description[lang]]),
+      THEME_LANGS.filter((lang) => lang in meta.description).map((lang) => [
+        lang,
+        meta.description[lang],
+      ]),
     ),
     version: meta.version,
     author: meta.author.github
@@ -317,9 +310,15 @@ export function loadTheme(dir, buildRev, previousEntry) {
     font: meta.font,
     updated: rev ? commitTime(root, rev) : undefined,
     hash,
-    size: css.file.size + assets.reduce((sum, asset) => sum + asset.size, 0),
-    preview,
-    css: css.file,
+    size: css.size + assets.reduce((sum, asset) => sum + asset.size, 0),
+    preview: {
+      path: previewPath,
+      sha256: sha256(previewBytes),
+      size: previewBytes.length,
+      width: previewSize.width,
+      height: previewSize.height,
+    },
+    css,
     assets,
   };
   return { entry, errors, warnings };

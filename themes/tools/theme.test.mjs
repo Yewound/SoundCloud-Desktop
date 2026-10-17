@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import * as rules from '../../desktop/src/lib/themes/rules.ts';
-import { dimensions } from './images.mjs';
 import { md, table } from './summary.mjs';
 import { loadTheme } from './theme.mjs';
 
@@ -20,6 +19,14 @@ function assertError(id, pattern) {
     errors.some((line) => pattern.test(line)),
     errors.join('\n'),
   );
+}
+
+function copyTheme(id) {
+  const dir = join(mkdtempSync(join(tmpdir(), 'themes-')), id);
+  cpSync(join(fixtures, 'good-theme'), dir, { recursive: true });
+  const meta = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
+  writeFileSync(join(dir, 'theme.json'), JSON.stringify({ ...meta, id }));
+  return dir;
 }
 
 test('the good theme passes and builds an entry', () => {
@@ -51,7 +58,8 @@ test('the good theme passes and builds an entry', () => {
 
 test('a bad id fails', () => assertError('bad-id', /bad-id\/theme\.json: id must be/));
 test('an unknown key fails', () => assertError('unknown-key', /homepage is not a known key/));
-test('a bidi character in the name fails', () => assertError('bidi-name', /name must be 1-32 plain/));
+test('a bidi character in the name fails', () =>
+  assertError('bidi-name', /name must be 1-32 plain/));
 test('an unused asset fails', () => assertError('unused-asset', /assets\/extra\.png: not used/));
 test('a bad svg fails', () => assertError('bad-svg', /assets\/evil\.svg: <script> is not allowed/));
 test('a wrong preview ratio fails', () => assertError('wrong-ratio', /preview\.png: 1000x1000/));
@@ -68,18 +76,17 @@ test('changed files need a higher version', () => {
 });
 
 test('a missing preview is an error', () => {
-  const dir = join(mkdtempSync(join(tmpdir(), 'themes-')), 'no-preview');
-  cpSync(join(fixtures, 'good-theme'), dir, { recursive: true });
+  const dir = copyTheme('no-preview');
   rmSync(join(dir, 'preview.png'));
-  const meta = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
-  writeFileSync(join(dir, 'theme.json'), JSON.stringify({ ...meta, id: 'no-preview' }));
   const result = loadTheme(dir, null);
   assert.equal(result.entry, null);
   assert.match(result.errors.join('\n'), /needs exactly one preview/);
 });
 
 test('theme.schema.json matches rules.ts', () => {
-  const schema = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'theme.schema.json'), 'utf8'));
+  const schema = JSON.parse(
+    readFileSync(join(import.meta.dirname, '..', 'theme.schema.json'), 'utf8'),
+  );
   const { properties, $defs } = schema;
   assert.equal(schema.additionalProperties, false);
   assert.equal(properties.id.pattern, rules.THEME_ID.source);
@@ -100,33 +107,33 @@ test('md leaves no markdown or link syntax', () => {
   const text = '[x](https://e.com) ![i](a.png) <b> | `c` *d* _e_ #1 @u ~f~ & +g\\ {h}\r\nwww.e.com';
   const escaped = md(text);
   assert.doesNotMatch(escaped.replace(/&#\d+;/g, ''), /[\\`*_{}[\]()<>#+!|~&:.@\r\n]/);
-  assert.equal(escaped.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(code)), text);
+  assert.equal(
+    escaped.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(code)),
+    text,
+  );
   assert.equal(table(['a'], [['x|y'], [['p', 'q']]]), '| a |\n| --- |\n| x&#124;y |\n| p<br>q |');
 });
 
-test('dimensions reads png and every webp kind', () => {
-  assert.deepEqual(dimensions(readFileSync(join(fixtures, 'good-theme', 'preview.png'))), {
-    width: 960,
-    height: 600,
-  });
-  const riff = (chunk, body) => {
-    const data = Buffer.concat([Buffer.from(chunk, 'latin1'), Buffer.alloc(4), body]);
-    data.writeUInt32LE(body.length, 4);
-    const head = Buffer.from('RIFF\0\0\0\0WEBP', 'latin1');
-    head.writeUInt32LE(4 + data.length, 4);
-    return Buffer.concat([head, data, Buffer.alloc(8)]);
-  };
-  const lossy = Buffer.from([0, 0, 0, 0x9d, 0x01, 0x2a, 0, 0, 0, 0]);
-  lossy.writeUInt16LE(1280, 6);
-  lossy.writeUInt16LE(800, 8);
-  assert.deepEqual(dimensions(riff('VP8 ', lossy)), { width: 1280, height: 800 });
-  const lossless = Buffer.alloc(5);
-  lossless[0] = 0x2f;
-  lossless.writeUInt32LE((1279 | (799 << 14)) >>> 0, 1);
-  assert.deepEqual(dimensions(riff('VP8L', lossless)), { width: 1280, height: 800 });
-  const extended = Buffer.alloc(10);
-  extended.writeUIntLE(1599, 4, 3);
-  extended.writeUIntLE(999, 7, 3);
-  assert.deepEqual(dimensions(riff('VP8X', extended)), { width: 1600, height: 1000 });
-  assert.equal(dimensions(Buffer.from('GIF89a')), null);
+test('os files are skipped', () => {
+  const dir = copyTheme('os-files');
+  writeFileSync(join(dir, '.DS_Store'), 'x');
+  writeFileSync(join(dir, 'Thumbs.db'), 'x');
+  writeFileSync(join(dir, 'assets', '.DS_Store'), 'x');
+  writeFileSync(join(dir, 'assets', 'desktop.ini'), 'x');
+  const result = loadTheme(dir, null);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(
+    result.entry.assets.map((asset) => asset.path),
+    ['assets/dots.svg', 'assets/glow.png'],
+  );
+});
+
+test('a huge image asset fails', () => {
+  const dir = copyTheme('huge-asset');
+  const png = readFileSync(join(dir, 'assets', 'glow.png'));
+  png.writeUInt32BE(5000, 16);
+  writeFileSync(join(dir, 'assets', 'glow.png'), png);
+  const result = loadTheme(dir, null);
+  assert.equal(result.entry, null);
+  assert.match(result.errors.join('\n'), /glow\.png: 5000x\d+ is over 4096 px/);
 });
