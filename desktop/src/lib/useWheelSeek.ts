@@ -74,7 +74,7 @@ export function useWheelSeek(
       }
 
       const step = (e.shiftKey ? SHIFT_STEP_SEC : STEP_SEC) * (streamPx < 0 ? 1 : -1);
-      streamPx = 0;
+      streamPx %= STREAM_STEP_PX;
       const target = Math.max(0, Math.min(duration, (targetRef.current ?? src.position()) + step));
       targetRef.current = target;
       src.preview(target);
