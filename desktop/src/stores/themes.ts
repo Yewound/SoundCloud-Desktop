@@ -22,6 +22,7 @@ import {
   isBroken,
   isRevoked,
   rolledBack,
+  rollbackTarget,
   type ThemeTrial,
   versionOf,
   withMetadata,
@@ -287,8 +288,7 @@ export const useThemesStore = create<ThemesState>()(
             if (!theme) continue;
             if (isRevoked(catalog, id, theme.hash)) {
               notices.push({ kind: 'revoked', id, name: theme.name });
-              if (theme.previous && !isRevoked(catalog, id, theme.previous.hash))
-                get().rollback(id);
+              if (rollbackTarget(theme, catalog, id)) get().rollback(id);
               else get().remove(id);
               continue;
             }
@@ -325,8 +325,8 @@ export const useThemesStore = create<ThemesState>()(
           get().markBroken(id);
           get().notify([{ kind: 'breaksUi', id, name: look.name }]);
           const theme = get().installed[id];
-          const previous = theme?.previous;
-          if (theme && previous && !isRevoked(get().catalog, id, previous.hash)) {
+          const previous = theme && rollbackTarget(theme, get().catalog, id);
+          if (theme && previous) {
             putTheme(id, rolledBack(theme, previous));
             const restored = activeTheme(get());
             if (restored) {

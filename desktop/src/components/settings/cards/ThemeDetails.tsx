@@ -4,7 +4,7 @@ import { formatBytes } from '../../../lib/formatters';
 import { ArrowUp, Check, Pin, RotateCcw, Trash2 } from '../../../lib/icons';
 import { BUNDLED_FONTS } from '../../../lib/interface-font';
 import { pickDescription } from '../../../lib/themes/index-parse.ts';
-import { activeTheme, hasUpdate, isRevoked } from '../../../lib/themes/records';
+import { activeTheme, hasUpdate, rollbackTarget } from '../../../lib/themes/records';
 import { useThemesStore } from '../../../stores/themes';
 import { Modal, ModalContent, ModalDescription, ModalTitle } from '../../ui/Modal';
 import { Toggle } from '../primitives';
@@ -61,8 +61,7 @@ export function ThemeDetails({ item, onClose }: { item: ThemeItem | null; onClos
   const broken = item ? itemBroken(item) : false;
   const canApply = !busy && !broken && (entry ? entry.compatible : !!installed);
   const canUpdate = !!installed && !!entry && hasUpdate(installed, entry) && !broken;
-  const previous = installed?.previous;
-  const canRollback = !!item && !!previous && !isRevoked(catalog, item.id, previous.hash);
+  const canRollback = !!item && !!installed && !!rollbackTarget(installed, catalog, item.id);
 
   const apply = () => {
     if (!item) return;

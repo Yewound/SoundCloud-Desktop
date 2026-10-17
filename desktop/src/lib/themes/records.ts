@@ -35,6 +35,18 @@ export function isRevoked(catalog: Catalog | null, id: string, hash: string): bo
   return !!catalog?.revoked.some((item) => item.id === id && item.hash === hash);
 }
 
+export function rollbackTarget(
+  theme: InstalledTheme,
+  catalog: Catalog | null,
+  id: string,
+): InstalledVersion | null {
+  const { previous } = theme;
+  if (!previous || isRevoked(catalog, id, previous.hash) || isBroken(theme, previous.hash)) {
+    return null;
+  }
+  return previous;
+}
+
 export function hasUpdate(theme: InstalledTheme, entry: CatalogTheme): boolean {
   return (
     entry.compatible &&
