@@ -1066,11 +1066,15 @@ export function useDiscoverData(pool: RelatedPool | undefined, likedTracks: Trac
  * призма Discover читали один источник, а не пересобирали пул каждая у себя.
  */
 export function useDiscoverFeed() {
-  const { tracks: likedTracks } = useLikedTracks(100);
-  const { data: pool, isLoading } = useRelatedPool(likedTracks);
+  const likes = useLikedTracks(100);
+  const likedTracks = likes.tracks;
+  const related = useRelatedPool(likedTracks);
+  const { data: pool, isLoading } = related;
   const recommended = useRecommendedTracks(pool, 40);
   const byGenre = useDiscoverData(pool, likedTracks);
-  return { likedTracks, isLoading, recommended, byGenre };
+  const isError = (likes.isError && likedTracks.length === 0) || related.isError;
+  const refetch = () => (likes.isError ? likes.refetch() : related.refetch());
+  return { likedTracks, isLoading, isError, refetch, recommended, byGenre };
 }
 
 /* ── Infinite scroll ───────────────────────────────────────────── */

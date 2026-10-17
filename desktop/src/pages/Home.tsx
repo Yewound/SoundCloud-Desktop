@@ -1,4 +1,4 @@
-import {useMemo, useState} from 'react';
+import {useCallback, useMemo, useState} from 'react';
 import {type ArchiveShelf, ArchiveStation} from '../components/home/river/ArchiveStation';
 import {RIVER_KEYFRAMES} from '../components/home/river/keyframes';
 import {RiverFlow} from '../components/home/river/RiverFlow';
@@ -41,6 +41,9 @@ export function Home() {
     [likedTracksQuery.tracks],
   );
 
+  const { refetch: refetchLiked } = likedTracksQuery;
+  const retryLiked = useCallback(() => void refetchLiked(), [refetchLiked]);
+
   return (
     <WaveFrame sound={sound}>
       <style>{RIVER_KEYFRAMES}</style>
@@ -59,6 +62,8 @@ export function Home() {
             titled={groups.findIndex((g) => g.kind === 'archive') === i}
             likedTracks={likedShelfTracks}
             likedLoading={likedTracksQuery.isLoading}
+            likedFailed={likedTracksQuery.isError && likedShelfTracks.length === 0}
+            onRetryLiked={retryLiked}
           />
         ),
       )}
