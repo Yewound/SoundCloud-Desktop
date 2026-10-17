@@ -28,7 +28,8 @@
 - **wreq** 0.16 через `sc-fingerprint` (TLS и HTTP/2 отпечаток Chrome, socks, stream) — единственный HTTP-клиент
 - **rodio** + **symphonia** (mp3, aac/m4a/mp4, ogg) — аудио-движок и декодеры
 - **cpal** — устройства вывода
-- **biquad** — параметрический EQ
+- **biquad** — параметрический EQ. В 0.5 `from_params` ставит частоту в 4 раза ниже, коэффициенты брать только через `audio::eq_curve::design`
+- **signalsmith-stretch** — ручной питч (`audio/pitch.rs`), C++ через bindgen, как и `btls-sys`
 - **rustfft** — анализатор спектра (FFT в выделенном потоке)
 - **souvlaki** — системные media controls (MPRIS / SMTC / NowPlaying)
 - **discord-rich-presence** — Discord RPC
@@ -89,7 +90,9 @@ desktop/
       lib.rs, main.rs    — bootstrap, регистрация команд, `scproxy://` scheme
       app/               diagnostics (app_log_dir/desktop.log + FD-monitor на Linux), tray
       audio/             engine, decode (symphonia + cached normalization gain),
-                         eq (biquad), analyser (rustfft, отдельный поток),
+                         eq (biquad + преамп), eq_curve (АЧХ полос, автопреамп, подгонка
+                         чужих кривых под 10 полос), eq_preset (импорт/экспорт APO, Peace,
+                         GraphicEQ), pitch (signalsmith-stretch), analyser (rustfft, отдельный поток),
                          device (cpal + follow-default-output),
                          media_controls (souvlaki), tick (emit `audio:tick`/`audio:ended`),
                          timing (lyrics / floating-comments timelines), state, types, commands

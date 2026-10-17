@@ -6,6 +6,8 @@ mod decode;
 mod device;
 mod engine;
 mod eq;
+mod eq_curve;
+mod eq_preset;
 mod media_controls;
 mod mpeg;
 mod output;

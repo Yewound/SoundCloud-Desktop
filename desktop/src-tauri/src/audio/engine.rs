@@ -7,9 +7,10 @@ use tokio::task;
 
 use crate::audio::crossfade;
 use crate::audio::decode::{create_player_from_bytes, resolve_normalization_gain};
+use crate::audio::eq_curve;
 use crate::audio::silence;
 use crate::audio::state::AudioState;
-use crate::audio::types::{AudioLoadResult, MediaCmd, EQ_BANDS, STALL_SUPPRESS_MS, TICK_INTERVAL_MS};
+use crate::audio::types::{AudioLoadResult, MediaCmd, STALL_SUPPRESS_MS, TICK_INTERVAL_MS};
 use crate::network::system_proxy::follow;
 use crate::rt::AppHandle;
 
@@ -570,12 +571,13 @@ pub fn set_ab_loop(a: Option<f64>, b: Option<f64>, state: State<'_, AudioState>)
     *state.ab_loop.lock().unwrap() = value;
 }
 
-pub fn set_eq(enabled: bool, gains: Vec<f64>, state: State<'_, AudioState>) {
+pub fn set_eq(enabled: bool, gains: &[f64], preamp: Option<f64>, state: State<'_, AudioState>) {
+    let gains = eq_curve::band_gains(gains);
+    let preamp = eq_curve::resolve_preamp(&gains, preamp);
     if let Ok(mut params) = state.eq_params.write() {
         params.enabled = enabled;
-        for (index, &gain) in gains.iter().enumerate().take(EQ_BANDS) {
-            params.gains[index] = gain.clamp(-12.0, 12.0);
-        }
+        params.gains = gains;
+        params.preamp = preamp;
     }
 }
 

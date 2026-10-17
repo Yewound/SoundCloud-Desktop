@@ -9,6 +9,9 @@ pub const EQ_FREQS: [f64; EQ_BANDS] = [
     32.0, 64.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0,
 ];
 pub const EQ_Q: f64 = 1.414;
+pub const EQ_MAX_GAIN_DB: f64 = 12.0;
+pub const EQ_PREAMP_MIN_DB: f64 = -24.0;
+pub const EQ_PREAMP_MAX_DB: f64 = 6.0;
 pub const NORMALIZATION_ANALYSIS_SAMPLES: usize = 48_000 * 2 * 30;
 pub const NORMALIZATION_BLOCK_SAMPLES: usize = 48_000 * 2 / 2;
 pub const NORMALIZATION_WINDOWS: usize = 10;
@@ -31,6 +34,7 @@ pub fn frames_in(duration: Duration, sample_rate: SampleRate) -> usize {
 pub struct EqParams {
     pub enabled: bool,
     pub gains: [f64; EQ_BANDS],
+    pub preamp: f64,
 }
 
 impl Default for EqParams {
@@ -38,6 +42,7 @@ impl Default for EqParams {
         Self {
             enabled: false,
             gains: [0.0; EQ_BANDS],
+            preamp: 0.0,
         }
     }
 }

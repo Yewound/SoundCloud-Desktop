@@ -1,34 +1,25 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::collections::VecDeque;
+use std::f32::consts::FRAC_PI_2;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
-use biquad::{Biquad, Coefficients, DirectForm1, ToHertz, Type, Q_BUTTERWORTH_F32};
-use rodio::source::SeekError;
 use rodio::Source;
+use rodio::source::SeekError;
+use signalsmith_stretch::Stretch;
 
-use crate::audio::types::{frames_in, ChannelCount, SampleRate};
+use crate::audio::types::{ChannelCount, SampleRate, frames_in};
 
-const HOP: Duration = Duration::from_millis(25);
-const TOLERANCE: Duration = Duration::from_millis(12);
-const COARSE_STEP: usize = 4;
-const LOWPASS_PRIME_SAMPLES: usize = 256;
+const BLOCK: Duration = Duration::from_millis(10);
+const FADE: Duration = Duration::from_millis(40);
+const TONALITY_LIMIT_HZ: f32 = 8000.0;
 
-fn hop_frames(sample_rate: SampleRate) -> usize {
-    frames_in(HOP, sample_rate).max(64)
+fn block_frames(sample_rate: SampleRate) -> usize {
+    frames_in(BLOCK, sample_rate).max(64)
 }
 
 fn is_unity(ratio: f32) -> bool {
     (ratio - 1.0).abs() < 1e-3
-}
-
-fn passthrough() -> Coefficients<f32> {
-    Coefficients {
-        a1: 0.0,
-        a2: 0.0,
-        b0: 1.0,
-        b1: 0.0,
-        b2: 0.0,
-    }
 }
 
 pub struct PitchSource<S: Source<Item = f32>> {
@@ -38,6 +29,7 @@ pub struct PitchSource<S: Source<Item = f32>> {
     sample_rate: SampleRate,
     span_len: usize,
     channel: usize,
+    started: bool,
     shifter: Option<Shifter>,
 }
 
@@ -50,8 +42,9 @@ impl<S: Source<Item = f32>> PitchSource<S> {
             ratio,
             channels,
             sample_rate,
-            span_len: hop_frames(sample_rate) * channels.get() as usize,
+            span_len: block_frames(sample_rate) * channels.get() as usize,
             channel: 0,
+            started: false,
             shifter: None,
         }
     }
@@ -61,19 +54,12 @@ impl<S: Source<Item = f32>> PitchSource<S> {
     }
 
     fn switch_mode(&mut self, ratio: f32) {
-        let unity = is_unity(ratio);
-        if let Some(shifter) = self.shifter.as_mut()
-            && shifter.hop_done()
-        {
-            if unity && !shifter.finishing {
-                shifter.finish(&mut self.source);
-            }
-            if shifter.finishing && shifter.hop_done() {
-                self.shifter = None;
-            }
+        if self.shifter.as_ref().is_some_and(Shifter::done) {
+            self.shifter = None;
         }
-        if self.shifter.is_none() && !unity {
-            self.shifter = Some(Shifter::new(self.channels, self.sample_rate));
+        if self.shifter.is_none() && !is_unity(ratio) {
+            let mix = if self.started { 0.0 } else { 1.0 };
+            self.shifter = Some(Shifter::new(self.channels, self.sample_rate, mix));
         }
     }
 }
@@ -91,6 +77,7 @@ impl<S: Source<Item = f32>> Iterator for PitchSource<S> {
             None => self.source.next()?,
         };
         self.channel = (self.channel + 1) % self.channels.get() as usize;
+        self.started = true;
         Some(sample)
     }
 }
@@ -114,93 +101,82 @@ impl<S: Source<Item = f32>> Source for PitchSource<S> {
 
     fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError> {
         self.source.try_seek(pos)?;
-        if self.shifter.take().is_some() {
-            for _ in 0..self.channel {
-                self.source.next();
+        let ratio = self.ratio();
+        match self.shifter.as_mut() {
+            Some(shifter) if !shifter.draining => {
+                shifter.restart();
+                for _ in 0..self.channel {
+                    shifter.next(&mut self.source, ratio);
+                }
             }
+            Some(_) => {
+                self.shifter = None;
+                for _ in 0..self.channel {
+                    self.source.next();
+                }
+            }
+            None => {}
         }
         Ok(())
     }
 }
 
 struct Shifter {
+    stretch: Stretch,
     channels: usize,
-    sample_rate: f32,
-    hop: usize,
-    tolerance: usize,
-    rise: Vec<f32>,
-    lowpass: Vec<[DirectForm1<f32>; 2]>,
-    lowpass_ratio: f32,
-    previous: Vec<f32>,
-    upcoming: Vec<f32>,
-    previous_frame: usize,
-    phase: f32,
-    started: bool,
-    pitched: Vec<f32>,
-    positions: Vec<f64>,
-    base: usize,
-    continuation: usize,
-    target: f64,
-    reference: Vec<f32>,
-    mono: Vec<f32>,
+    block: usize,
+    fade_step: f32,
+    tonality_limit: f32,
+    factor: f32,
+    input: Vec<f32>,
+    processed: Vec<f32>,
+    raw: VecDeque<f32>,
     out: Vec<f32>,
     out_pos: usize,
-    raw: Vec<f32>,
-    raw_base: usize,
-    read_frames: usize,
-    played_frames: usize,
+    mix: f32,
+    primed: bool,
     source_done: bool,
-    finishing: bool,
+    draining: bool,
 }
 
 impl Shifter {
-    fn new(channels: ChannelCount, sample_rate: SampleRate) -> Self {
-        let channels = channels.get() as usize;
-        let hop = hop_frames(sample_rate);
-        let rise = (0..hop)
-            .map(|j| {
-                let x = (j as f32 + 0.5) / hop as f32 * std::f32::consts::FRAC_PI_2;
-                x.sin().powi(2)
-            })
-            .collect();
+    fn new(channels: ChannelCount, sample_rate: SampleRate, mix: f32) -> Self {
+        let count = channels.get() as usize;
         Self {
-            channels,
-            sample_rate: sample_rate.get() as f32,
-            hop,
-            tolerance: frames_in(TOLERANCE, sample_rate).max(16),
-            rise,
-            lowpass: vec![[DirectForm1::new(passthrough()); 2]; channels],
-            lowpass_ratio: 1.0,
-            previous: vec![0.0; channels],
-            upcoming: vec![0.0; channels],
-            previous_frame: 0,
-            phase: 0.0,
-            started: false,
-            pitched: Vec::new(),
-            positions: Vec::new(),
-            base: 0,
-            continuation: 0,
-            target: 0.0,
-            reference: Vec::new(),
-            mono: Vec::new(),
+            stretch: Stretch::preset_default(count as u32, sample_rate.get()),
+            channels: count,
+            block: block_frames(sample_rate),
+            fade_step: 1.0 / frames_in(FADE, sample_rate).max(1) as f32,
+            tonality_limit: TONALITY_LIMIT_HZ / sample_rate.get() as f32,
+            factor: 1.0,
+            input: Vec::new(),
+            processed: Vec::new(),
+            raw: VecDeque::new(),
             out: Vec::new(),
             out_pos: 0,
-            raw: Vec::new(),
-            raw_base: 0,
-            read_frames: 0,
-            played_frames: 0,
+            mix,
+            primed: false,
             source_done: false,
-            finishing: false,
+            draining: false,
         }
     }
 
-    fn hop_done(&self) -> bool {
-        self.out_pos == self.out.len()
+    fn done(&self) -> bool {
+        self.draining && self.raw.is_empty() && self.out_pos == self.out.len()
+    }
+
+    fn restart(&mut self) {
+        self.stretch.reset();
+        self.raw.clear();
+        self.out.clear();
+        self.out_pos = 0;
+        self.primed = false;
+        self.source_done = false;
     }
 
     fn next<S: Source<Item = f32>>(&mut self, source: &mut S, ratio: f32) -> Option<f32> {
         if self.out_pos == self.out.len() {
-            self.render_hop(source, ratio);
+            self.render(source, ratio);
             if self.out.is_empty() {
                 return None;
             }
@@ -210,203 +186,74 @@ impl Shifter {
         Some(sample)
     }
 
-    fn update_lowpass(&mut self, ratio: f32) {
-        if ratio == self.lowpass_ratio {
-            return;
-        }
-        self.lowpass_ratio = ratio;
-        let coefficients = if ratio > 1.0 {
-            let cutoff = 0.45 * self.sample_rate / ratio;
-            Coefficients::<f32>::from_params(
-                Type::LowPass,
-                self.sample_rate.hz(),
-                cutoff.hz(),
-                Q_BUTTERWORTH_F32,
-            )
-            .unwrap_or_else(|_| passthrough())
-        } else {
-            passthrough()
-        };
-        for filter in self.lowpass.iter_mut().flatten() {
-            filter.update_coefficients(coefficients);
-        }
-    }
-
-    fn read_frame<S: Source<Item = f32>>(&mut self, source: &mut S) {
-        let frame_start = self.raw.len();
-        for channel in 0..self.channels {
-            let sample = if self.source_done { None } else { source.next() };
-            let sample = sample.unwrap_or_else(|| {
-                self.source_done = true;
-                0.0
-            });
-            self.raw.push(sample);
-            let [first, second] = &mut self.lowpass[channel];
-            if self.read_frames == 0 && !self.started {
-                for _ in 0..LOWPASS_PRIME_SAMPLES {
-                    second.run(first.run(sample));
+    fn read<S: Source<Item = f32>>(&mut self, source: &mut S, frames: usize) {
+        self.input.clear();
+        for _ in 0..frames {
+            let frame_start = self.raw.len();
+            for _ in 0..self.channels {
+                let sample = if self.source_done {
+                    None
+                } else {
+                    source.next()
+                };
+                match sample {
+                    Some(sample) => {
+                        self.input.push(sample);
+                        self.raw.push_back(sample);
+                    }
+                    None => {
+                        self.source_done = true;
+                        self.input.push(0.0);
+                    }
                 }
             }
-            self.upcoming[channel] = second.run(first.run(sample));
-        }
-        if self.source_done {
-            self.raw.truncate(frame_start);
-        } else {
-            self.read_frames += 1;
-        }
-    }
-
-    fn push_pitched<S: Source<Item = f32>>(&mut self, source: &mut S, ratio: f32) {
-        if !self.started {
-            self.read_frame(source);
-            std::mem::swap(&mut self.previous, &mut self.upcoming);
-            self.read_frame(source);
-            self.started = true;
-        }
-        for channel in 0..self.channels {
-            let from = self.previous[channel];
-            let to = self.upcoming[channel];
-            self.pitched.push(from + (to - from) * self.phase);
-        }
-        self.positions.push(self.previous_frame as f64 + self.phase as f64);
-        self.phase += ratio;
-        while self.phase >= 1.0 {
-            self.phase -= 1.0;
-            std::mem::swap(&mut self.previous, &mut self.upcoming);
-            self.previous_frame += 1;
-            self.read_frame(source);
-        }
-    }
-
-    fn render_hop<S: Source<Item = f32>>(&mut self, source: &mut S, ratio: f32) {
-        self.update_lowpass(ratio);
-        self.out.clear();
-        self.out_pos = 0;
-
-        let channels = self.channels;
-        let hop = self.hop;
-        let target = self.target.round() as usize;
-        let low = target.saturating_sub(self.tolerance).max(self.base);
-        let high = target + self.tolerance;
-        let end = (high + hop).max(self.continuation + hop);
-        while self.base + self.pitched.len() / channels < end {
-            self.push_pitched(source, ratio);
-        }
-
-        let best = self.best_match(low, high);
-        let from = (self.continuation - self.base) * channels;
-        let to = (best - self.base) * channels;
-        for (j, rise) in self.rise.iter().enumerate() {
-            for channel in 0..channels {
-                let a = self.pitched[from + j * channels + channel];
-                let b = self.pitched[to + j * channels + channel];
-                self.out.push(a + (b - a) * rise);
+            if self.source_done {
+                self.raw.truncate(frame_start);
             }
         }
-
-        if self.source_done {
-            let left = self.read_frames.saturating_sub(self.played_frames).min(hop);
-            self.out.truncate(left * channels);
-        }
-        self.played_frames += hop;
-
-        self.continuation = best + hop;
-        self.target += hop as f64 / ratio as f64;
-        let keep = (self.target as usize)
-            .saturating_sub(self.tolerance)
-            .min(self.continuation);
-        if keep > self.base {
-            self.pitched.drain(..(keep - self.base) * channels);
-            self.positions.drain(..keep - self.base);
-            self.base = keep;
-            self.drop_played_raw();
-        }
+        self.processed.resize(self.input.len(), 0.0);
+        self.stretch.process(&self.input, &mut self.processed);
     }
 
-    fn drop_played_raw(&mut self) {
-        let Some(&position) = self.positions.first() else {
+    fn render<S: Source<Item = f32>>(&mut self, source: &mut S, ratio: f32) {
+        self.out.clear();
+        self.out_pos = 0;
+        if self.draining {
+            let take = (self.block * self.channels).min(self.raw.len());
+            self.out.extend(self.raw.drain(..take));
             return;
-        };
-        let keep = position as usize;
-        if keep > self.raw_base {
-            let samples = ((keep - self.raw_base) * self.channels).min(self.raw.len());
-            self.raw.drain(..samples);
-            self.raw_base = keep;
         }
-    }
 
-    fn finish<S: Source<Item = f32>>(&mut self, source: &mut S) {
+        if ratio != self.factor {
+            self.stretch
+                .set_transpose_factor(ratio, Some(self.tonality_limit));
+            self.factor = ratio;
+        }
+        if !self.primed {
+            let delay = self.stretch.input_latency() + self.stretch.output_latency();
+            self.read(source, delay);
+            self.primed = true;
+        }
+        self.read(source, self.block);
+
         let channels = self.channels;
-        while self.base + self.pitched.len() / channels < self.continuation + self.hop {
-            self.push_pitched(source, 1.0);
-        }
-        let start = self.positions[self.continuation - self.base].round() as usize;
-        let pitched_from = (self.continuation - self.base) * channels;
-        let raw_from = start.saturating_sub(self.raw_base) * channels;
-
-        self.out.clear();
-        self.out_pos = 0;
-        for (j, rise) in self.rise.iter().enumerate() {
-            let at = raw_from + j * channels;
-            let Some(frame) = self.raw.get(at..at + channels) else {
-                break;
+        let target = if is_unity(ratio) { 0.0 } else { 1.0 };
+        let frames = self.block.min(self.raw.len() / channels);
+        for frame in 0..frames {
+            self.mix = if target > self.mix {
+                (self.mix + self.fade_step).min(1.0)
+            } else {
+                (self.mix - self.fade_step).max(0.0)
             };
-            for (channel, &to) in frame.iter().enumerate() {
-                let from = self.pitched[pitched_from + j * channels + channel];
-                self.out.push(from + (to - from) * rise);
+            let wet = (self.mix * FRAC_PI_2).sin().powi(2);
+            for channel in 0..channels {
+                let index = frame * channels + channel;
+                let dry = self.raw[index];
+                self.out.push(dry + (self.processed[index] - dry) * wet);
             }
         }
-        let rest = (raw_from + self.out.len()).min(self.raw.len());
-        self.out.extend_from_slice(&self.raw[rest..]);
-        self.finishing = true;
-    }
-
-    fn best_match(&mut self, low: usize, high: usize) -> usize {
-        let channels = self.channels;
-        let mono_at = |pitched: &[f32], frame: usize| -> f32 {
-            pitched[frame * channels..(frame + 1) * channels].iter().sum()
-        };
-
-        let continuation = self.continuation - self.base;
-        self.reference.clear();
-        for j in (0..self.hop).step_by(2) {
-            self.reference.push(mono_at(&self.pitched, continuation + j));
-        }
-        self.mono.clear();
-        for frame in low - self.base..high + self.hop - self.base {
-            self.mono.push(mono_at(&self.pitched, frame));
-        }
-
-        let score = |offset: usize| -> f32 {
-            let mut correlation = 0.0;
-            let mut energy = 1e-9;
-            for (i, reference) in self.reference.iter().enumerate() {
-                let sample = self.mono[offset + i * 2];
-                correlation += reference * sample;
-                energy += sample * sample;
-            }
-            correlation / energy.sqrt()
-        };
-
-        let span = high - low;
-        let mut best = 0;
-        let mut best_score = f32::MIN;
-        for offset in (0..=span).step_by(COARSE_STEP) {
-            let value = score(offset);
-            if value > best_score {
-                best = offset;
-                best_score = value;
-            }
-        }
-        let around = best.saturating_sub(COARSE_STEP - 1)..=(best + COARSE_STEP - 1).min(span);
-        for offset in around {
-            let value = score(offset);
-            if value > best_score {
-                best = offset;
-                best_score = value;
-            }
-        }
-        low + best
+        self.raw.drain(..frames * channels);
+        self.draining = target == 0.0 && self.mix == 0.0;
     }
 }
 
@@ -414,8 +261,10 @@ impl Shifter {
 mod tests {
     use std::num::NonZero;
 
-    use rodio::buffer::SamplesBuffer;
     use rodio::Player;
+    use rodio::buffer::SamplesBuffer;
+    use rustfft::FftPlanner;
+    use rustfft::num_complex::Complex;
 
     use super::*;
 
@@ -425,11 +274,32 @@ mod tests {
         let frames = (RATE as f32 * seconds) as usize;
         let samples = (0..frames)
             .flat_map(|i| {
-                let value = (i as f32 / RATE as f32 * frequency * std::f32::consts::TAU).sin() * 0.5;
+                let value =
+                    (i as f32 / RATE as f32 * frequency * std::f32::consts::TAU).sin() * 0.5;
                 [value, value]
             })
             .collect::<Vec<_>>();
-        SamplesBuffer::new(NonZero::new(2).unwrap(), NonZero::new(RATE).unwrap(), samples)
+        SamplesBuffer::new(
+            NonZero::new(2).unwrap(),
+            NonZero::new(RATE).unwrap(),
+            samples,
+        )
+    }
+
+    fn noise(seconds: f32) -> SamplesBuffer {
+        let mut state = 0x1234_5678u32;
+        let samples = (0..(RATE as f32 * seconds) as usize)
+            .flat_map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let value = ((state >> 8) as f32 / (1 << 24) as f32 - 0.5) * 0.5;
+                [value, value]
+            })
+            .collect::<Vec<_>>();
+        SamplesBuffer::new(
+            NonZero::new(2).unwrap(),
+            NonZero::new(RATE).unwrap(),
+            samples,
+        )
     }
 
     fn shifted(ratio: f32) -> Vec<f32> {
@@ -437,8 +307,12 @@ mod tests {
         PitchSource::new(sine(440.0, 2.0), ratio).collect()
     }
 
+    fn left(samples: &[f32]) -> Vec<f32> {
+        samples.iter().step_by(2).copied().collect()
+    }
+
     fn frequency(samples: &[f32]) -> f32 {
-        let left = samples.iter().step_by(2).copied().collect::<Vec<_>>();
+        let left = left(samples);
         let middle = &left[left.len() / 4..left.len() * 3 / 4];
         let crossings = middle
             .windows(2)
@@ -447,9 +321,47 @@ mod tests {
         crossings as f32 / (middle.len() as f32 / RATE as f32)
     }
 
+    fn power_spectrum(samples: &[f32], size: usize) -> Vec<f32> {
+        let left = left(samples);
+        let start = (left.len() - size) / 2;
+        let mut buffer = left[start..start + size]
+            .iter()
+            .enumerate()
+            .map(|(i, &sample)| {
+                let window = 0.5 - 0.5 * (std::f32::consts::TAU * i as f32 / size as f32).cos();
+                Complex::new(sample * window, 0.0)
+            })
+            .collect::<Vec<_>>();
+        FftPlanner::new()
+            .plan_fft_forward(size)
+            .process(&mut buffer);
+        buffer[..size / 2]
+            .iter()
+            .map(|bin| bin.norm_sqr())
+            .collect()
+    }
+
+    fn level_spread(samples: &[f32]) -> f32 {
+        let left = left(samples);
+        let levels = left
+            .chunks(RATE as usize / 100)
+            .map(|chunk| {
+                chunk.iter().map(|sample| sample * sample).sum::<f32>() / chunk.len() as f32
+            })
+            .collect::<Vec<_>>();
+        let middle = &levels[levels.len() / 4..levels.len() * 3 / 4];
+        let mean = middle.iter().sum::<f32>() / middle.len() as f32;
+        let variance = middle
+            .iter()
+            .map(|level| (level - mean).powi(2))
+            .sum::<f32>()
+            / middle.len() as f32;
+        variance.sqrt() / mean
+    }
+
     fn largest_step(samples: &[f32]) -> f32 {
-        let left = samples.iter().step_by(2).copied().collect::<Vec<_>>();
-        left.windows(2)
+        left(samples)
+            .windows(2)
             .map(|pair| (pair[1] - pair[0]).abs())
             .fold(0.0, f32::max)
     }
@@ -468,28 +380,158 @@ mod tests {
     fn shifts_pitch_and_keeps_length() {
         for ratio in [0.25f32, 0.5, 0.8, 1.5, 2.0, 4.0] {
             let output = shifted(ratio);
-            let frames = output.len() / 2;
-            assert!(frames.abs_diff(2 * RATE as usize) <= RATE as usize / 40, "{ratio}: {frames}");
+            assert_eq!(output.len(), 4 * RATE as usize, "{ratio}");
             let measured = frequency(&output);
-            assert!((measured / (440.0 * ratio) - 1.0).abs() < 0.03, "{ratio}: {measured}");
+            assert!(
+                (measured / (440.0 * ratio) - 1.0).abs() < 0.03,
+                "{ratio}: {measured}"
+            );
         }
+    }
+
+    #[test]
+    fn starts_shifted_from_the_first_sample() {
+        let head = left(&shifted(1.5))[..RATE as usize / 25].to_vec();
+        let window =
+            |i: usize| 0.5 - 0.5 * (std::f32::consts::TAU * i as f32 / head.len() as f32).cos();
+        let power = |frequency: f32| -> f32 {
+            let mut re = 0.0;
+            let mut im = 0.0;
+            for (i, sample) in head.iter().enumerate() {
+                let phase = std::f32::consts::TAU * frequency * i as f32 / RATE as f32;
+                re += sample * window(i) * phase.cos();
+                im -= sample * window(i) * phase.sin();
+            }
+            re * re + im * im
+        };
+        assert!(
+            power(440.0) < power(660.0) * 0.01,
+            "{} {}",
+            power(440.0),
+            power(660.0)
+        );
+    }
+
+    #[test]
+    fn switching_on_mid_track_fades_in() {
+        let ratio = Arc::new(AtomicU32::new(1.0f32.to_bits()));
+        let mut source = PitchSource::new(sine(440.0, 2.0), ratio.clone());
+        let mut output = source.by_ref().take(RATE as usize).collect::<Vec<_>>();
+        ratio.store(1.5f32.to_bits(), Ordering::Relaxed);
+        output.extend(source.take(RATE as usize));
+        assert!(largest_step(&output) < 0.06, "{}", largest_step(&output));
+        let shifted = &output[RATE as usize * 6 / 5..];
+        assert!(
+            close_to(frequency(shifted), 660.0),
+            "{}",
+            frequency(shifted)
+        );
+    }
+
+    #[test]
+    fn shifted_tone_has_no_side_bands() {
+        const SIZE: usize = 32_768;
+        let bin_hz = RATE as f32 / SIZE as f32;
+        for semitones in [2.0f32, 5.0, 7.0, 12.0] {
+            let ratio = 2f32.powf(semitones / 12.0);
+            let spectrum = power_spectrum(&shifted(ratio), SIZE);
+            let peak = (0..spectrum.len())
+                .max_by(|&a, &b| spectrum[a].total_cmp(&spectrum[b]))
+                .unwrap();
+            let expected = 440.0 * ratio;
+            assert!(
+                (peak as f32 * bin_hz / expected - 1.0).abs() < 0.005,
+                "{semitones}: {peak}"
+            );
+
+            let around = (8.0 / bin_hz) as usize;
+            let total = spectrum.iter().sum::<f32>();
+            let tone = spectrum[peak - around..=peak + around].iter().sum::<f32>();
+            let side_db = 10.0 * ((total - tone) / total).log10();
+            assert!(side_db < -40.0, "{semitones}: {side_db} dB");
+        }
+    }
+
+    #[test]
+    fn shifted_noise_keeps_its_level_and_highs() {
+        const SIZE: usize = 65_536;
+        let bin_hz = RATE as f32 / SIZE as f32;
+        let highs = |samples: &[f32]| -> f32 {
+            let band = (6000.0 / bin_hz) as usize..(10_000.0 / bin_hz) as usize;
+            power_spectrum(samples, SIZE)[band].iter().sum()
+        };
+        let input = noise(4.0).collect::<Vec<_>>();
+        let (input_spread, input_highs) = (level_spread(&input), highs(&input));
+        for semitones in [1.0f32, 3.0, 7.0, -5.0] {
+            let ratio = Arc::new(AtomicU32::new(2f32.powf(semitones / 12.0).to_bits()));
+            let output = PitchSource::new(noise(4.0), ratio).collect::<Vec<_>>();
+            let spread = level_spread(&output);
+            assert!(
+                spread < input_spread * 2.0,
+                "{semitones}: {spread} vs {input_spread}"
+            );
+            let highs_db = 10.0 * (highs(&output) / input_highs).log10();
+            assert!(highs_db > -4.0, "{semitones}: {highs_db} dB");
+        }
+    }
+
+    #[test]
+    fn output_stays_aligned_with_input() {
+        let input = (0..RATE as usize * 2)
+            .map(|i| {
+                let t = i as f32 / RATE as f32;
+                let burst = if (0.5..0.7).contains(&t) { 0.5 } else { 0.0 };
+                (std::f32::consts::TAU * 440.0 * t).sin() * burst
+            })
+            .flat_map(|value| [value, value])
+            .collect::<Vec<_>>();
+        let buffer = SamplesBuffer::new(
+            NonZero::new(2).unwrap(),
+            NonZero::new(RATE).unwrap(),
+            input.clone(),
+        );
+        let ratio = Arc::new(AtomicU32::new(1.5f32.to_bits()));
+        let output = PitchSource::new(buffer, ratio).collect::<Vec<_>>();
+
+        let centre = |samples: &[f32]| -> f32 {
+            let left = left(samples);
+            let energy = left.iter().map(|sample| sample * sample).sum::<f32>();
+            let moment = left
+                .iter()
+                .enumerate()
+                .map(|(i, sample)| i as f32 * sample * sample)
+                .sum::<f32>();
+            moment / energy / RATE as f32
+        };
+        let shift = centre(&output) - centre(&input);
+        assert!(shift.abs() < 0.003, "{shift}");
     }
 
     #[test]
     fn seek_keeps_channel_order() {
         let ratio = Arc::new(AtomicU32::new(1.5f32.to_bits()));
-        let samples = (0..RATE as usize * 2)
-            .flat_map(|_| [0.5f32, -0.5])
+        let samples = sine(440.0, 2.0)
+            .enumerate()
+            .map(|(i, sample)| if i % 2 == 0 { sample } else { 0.0 })
             .collect::<Vec<_>>();
-        let buffer = SamplesBuffer::new(NonZero::new(2).unwrap(), NonZero::new(RATE).unwrap(), samples);
+        let buffer = SamplesBuffer::new(
+            NonZero::new(2).unwrap(),
+            NonZero::new(RATE).unwrap(),
+            samples,
+        );
         let mut source = PitchSource::new(buffer, ratio);
         source.by_ref().take(RATE as usize + 1).for_each(drop);
         source.try_seek(Duration::from_millis(200)).unwrap();
         let after = source.take(RATE as usize).collect::<Vec<_>>();
-        assert!(after[0] < 0.0);
-        assert!((after[1] - 0.5).abs() < 0.01);
-        assert!(after[RATE as usize / 2] < 0.0);
-        assert!(after[RATE as usize / 2 + 1] > 0.0);
+        let energy = |offset: usize| -> f32 {
+            after
+                .iter()
+                .skip(offset)
+                .step_by(2)
+                .map(|sample| sample * sample)
+                .sum()
+        };
+        assert!(energy(0) < energy(1) * 1e-3, "{} {}", energy(0), energy(1));
     }
 
     #[test]
@@ -506,7 +548,11 @@ mod tests {
         output.by_ref().take(RATE as usize / 5).for_each(drop);
         let after = output.by_ref().take(RATE as usize * 2).collect::<Vec<_>>();
         let position_after = player.get_pos().as_secs_f32();
-        assert!(close_to(frequency(&before), 660.0), "{}", frequency(&before));
+        assert!(
+            close_to(frequency(&before), 660.0),
+            "{}",
+            frequency(&before)
+        );
         assert!(close_to(frequency(&after), 1320.0), "{}", frequency(&after));
         assert!((position_after - position_before - 1.1).abs() < 0.03);
 
@@ -529,8 +575,7 @@ mod tests {
 
         let tail = RATE as usize;
         assert_eq!(output[output.len() - tail..], input[input.len() - tail..]);
-        let frames = output.len() / 2;
-        assert!(frames.abs_diff(input.len() / 2) <= RATE as usize / 40, "{frames}");
+        assert_eq!(output.len(), input.len());
         assert!(largest_step(&output) < 0.1, "{}", largest_step(&output));
     }
 }

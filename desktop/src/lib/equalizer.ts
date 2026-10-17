@@ -5,6 +5,8 @@ export const EQ_LABELS = ['32', '64', '125', '250', '500', '1K', '2K', '4K', '8K
 export const EQ_BAND_COUNT = EQ_FREQUENCIES.length;
 export const EQ_MIN_GAIN = -12;
 export const EQ_MAX_GAIN = 12;
+export const EQ_PREAMP_MIN = -24;
+export const EQ_PREAMP_MAX = 6;
 
 export const EQ_PRESETS: Record<string, { label: string; labelRu: string; gains: number[] }> = {
   flat: { label: 'Flat', labelRu: 'Ровный', gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
@@ -55,4 +57,15 @@ export interface EqCustomPreset {
   id: string;
   name: string;
   gains: number[];
+  preamp?: number | null;
+}
+
+export type EqFormat = 'apo' | 'graphic';
+
+export interface EqImport {
+  gains: number[];
+  preamp: number | null;
+  used: number;
+  skipped: string[];
+  deviation: number;
 }

@@ -20,7 +20,7 @@ let started = false;
 
 function readLive(): TrackSound {
   const { playbackRate, pitchSemitones, pitchControlMode } = usePlayerStore.getState();
-  const { eqEnabled, eqGains, eqPreset } = useSettingsStore.getState();
+  const { eqEnabled, eqGains, eqPreset, eqPreamp } = useSettingsStore.getState();
   return {
     rate: playbackRate,
     pitch: pitchSemitones,
@@ -28,6 +28,7 @@ function readLive(): TrackSound {
     eqEnabled,
     eqGains: [...eqGains],
     eqPreset,
+    eqPreamp,
   };
 }
 
@@ -43,6 +44,7 @@ function applyLive(sound: TrackSound) {
       eqEnabled: sound.eqEnabled,
       eqGains: [...sound.eqGains],
       eqPreset: sound.eqPreset,
+      eqPreamp: sound.eqPreamp ?? null,
     });
   } finally {
     applying = false;
@@ -149,7 +151,8 @@ export async function initTrackSound() {
     if (
       state.eqEnabled !== prev.eqEnabled ||
       state.eqGains !== prev.eqGains ||
-      state.eqPreset !== prev.eqPreset
+      state.eqPreset !== prev.eqPreset ||
+      state.eqPreamp !== prev.eqPreamp
     ) {
       captureLiveChange();
     }

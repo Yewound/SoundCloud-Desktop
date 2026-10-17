@@ -10,6 +10,7 @@ export interface TrackSound {
   eqEnabled: boolean;
   eqGains: number[];
   eqPreset: string;
+  eqPreamp: number | null;
 }
 
 export interface TrackSoundOverride extends TrackSound {

@@ -456,8 +456,11 @@ async function loadTrack(track: Track, resumeAt = 0) {
   notify();
 
   // Sync EQ state to Rust
-  const { eqEnabled, eqGains, normalizeVolume, skipSilence } = useSettingsStore.getState();
-  invoke('audio_set_eq', { enabled: eqEnabled, gains: eqGains }).catch(console.error);
+  const { eqEnabled, eqGains, eqPreamp, normalizeVolume, skipSilence } =
+    useSettingsStore.getState();
+  invoke('audio_set_eq', { enabled: eqEnabled, gains: eqGains, preamp: eqPreamp }).catch(
+    console.error,
+  );
   invoke('audio_set_normalization', { enabled: normalizeVolume }).catch(console.error);
   invoke('audio_set_skip_silence', { enabled: skipSilence }).catch(console.error);
 
@@ -954,8 +957,16 @@ function syncPlaybackRateAndPitch() {
 /* ── EQ settings subscriber ──────────────────────────────────── */
 
 useSettingsStore.subscribe((state, prev) => {
-  if (state.eqEnabled !== prev.eqEnabled || state.eqGains !== prev.eqGains) {
-    invoke('audio_set_eq', { enabled: state.eqEnabled, gains: state.eqGains }).catch(console.error);
+  if (
+    state.eqEnabled !== prev.eqEnabled ||
+    state.eqGains !== prev.eqGains ||
+    state.eqPreamp !== prev.eqPreamp
+  ) {
+    invoke('audio_set_eq', {
+      enabled: state.eqEnabled,
+      gains: state.eqGains,
+      preamp: state.eqPreamp,
+    }).catch(console.error);
   }
 
   if (state.normalizeVolume !== prev.normalizeVolume) {

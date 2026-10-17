@@ -5,6 +5,8 @@ use tauri::{Manager, State};
 
 use crate::audio::device;
 use crate::audio::engine;
+use crate::audio::eq_curve;
+use crate::audio::eq_preset::{self, EqFormat, EqImport};
 use crate::audio::silence;
 use crate::audio::state::AudioState;
 use crate::audio::timing;
@@ -127,8 +129,44 @@ pub fn audio_get_position(state: State<'_, AudioState>) -> f64 {
 }
 
 #[tauri::command]
-pub fn audio_set_eq(enabled: bool, gains: Vec<f64>, state: State<'_, AudioState>) {
-    engine::set_eq(enabled, gains, state);
+pub fn audio_set_eq(
+    enabled: bool,
+    gains: Vec<f64>,
+    preamp: Option<f64>,
+    state: State<'_, AudioState>,
+) {
+    engine::set_eq(enabled, &gains, preamp, state);
+}
+
+#[tauri::command]
+pub fn audio_eq_auto_preamp(gains: Vec<f64>) -> f64 {
+    let gains = eq_curve::band_gains(&gains);
+    eq_curve::resolve_preamp(&gains, None)
+}
+
+#[tauri::command]
+pub fn audio_eq_import(text: String) -> Result<EqImport, String> {
+    eq_preset::import(&text)
+}
+
+#[tauri::command]
+pub async fn audio_eq_import_file(path: String) -> Result<EqImport, String> {
+    let bytes = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
+    eq_preset::import(&eq_preset::decode(&bytes))
+}
+
+#[tauri::command]
+pub fn audio_eq_export(gains: Vec<f64>, preamp: Option<f64>, format: EqFormat) -> String {
+    let gains = eq_curve::band_gains(&gains);
+    let preamp = eq_curve::resolve_preamp(&gains, preamp);
+    eq_preset::export(&gains, preamp, format)
+}
+
+#[tauri::command]
+pub async fn audio_eq_save(path: String, text: String) -> Result<(), String> {
+    tokio::fs::write(&path, text)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

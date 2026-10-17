@@ -40,6 +40,7 @@ rodio = { version = "0.22.2", features = ["mp3", "symphonia-aac", "symphonia-iso
 symphonia = { version = "0.5.5", default-features = false, features = ["mp3", "aac", "isomp4", "flac", "ogg", "vorbis", "wav", "pcm"] }
 cpal = "0.17"
 biquad = "0.5"
+signalsmith-stretch = "0.1.3"
 rustfft = { version = "6", default-features = false }
 souvlaki = "0.8"
 raw-window-handle = "0.6"
@@ -72,6 +73,9 @@ cef = ["tauri/cef"]
 
 [profile.release]
 lto = true
+
+[profile.dev.package.signalsmith-stretch]
+opt-level = 3
 
 # Экспериментальная ветка Tauri с рантаймом tauri-runtime-cef и фичей `cef`.
 # Патчим ТОЛЬКО `tauri` (одна крейта на весь граф → плагины с crates.io разделяют
