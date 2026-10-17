@@ -1,4 +1,4 @@
-import { type KeyboardEvent, memo, useMemo, useState } from 'react';
+import { type KeyboardEvent, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Hash, Plus, X } from '../../../lib/icons';
 import { normalizeKeyword } from '../../../lib/keyword-filter';
@@ -13,10 +13,31 @@ function cleanKeyword(value: string): string {
 }
 
 const KeywordChip = memo(
-  ({ keyword, onRemove }: { keyword: string; onRemove: (keyword: string) => void }) => {
+  ({
+    keyword,
+    armed,
+    onRemove,
+  }: {
+    keyword: string;
+    armed: boolean;
+    onRemove: (keyword: string) => void;
+  }) => {
     const { t } = useTranslation();
+    const ref = useRef<HTMLLIElement>(null);
+
+    useEffect(() => {
+      if (armed) ref.current?.scrollIntoView({ block: 'nearest' });
+    }, [armed]);
+
     return (
-      <li className="group/chip inline-flex h-8 items-center gap-1 rounded-full border-[0.5px] border-white/[0.08] bg-white/[0.04] pl-3 pr-1 text-[12.5px] font-medium text-white/75 transition-colors duration-200 hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-white">
+      <li
+        ref={ref}
+        className={`group/chip inline-flex h-8 items-center gap-1 rounded-full border-[0.5px] pl-3 pr-1 text-[12.5px] font-medium transition-colors duration-200 ${
+          armed
+            ? 'border-rose-400/40 bg-rose-500/15 text-rose-200'
+            : 'border-white/[0.08] bg-white/[0.04] text-white/75 hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-white'
+        }`}
+      >
         <span className="max-w-[220px] truncate">{keyword}</span>
         <button
           type="button"
@@ -36,11 +57,13 @@ export function HiddenKeywordsCard() {
   const keywords = useSettingsStore((s) => s.blockedKeywords);
   const setKeywords = useSettingsStore((s) => s.setBlockedKeywords);
   const [draft, setDraft] = useState('');
+  const [armed, setArmed] = useState<string | null>(null);
 
   const taken = useMemo(() => new Set(keywords.map(normalizeKeyword)), [keywords]);
   const suggestions = SUGGESTIONS.filter((s) => !taken.has(normalizeKeyword(s)));
   const draftKey = normalizeKeyword(draft);
   const duplicate = draftKey !== '' && taken.has(draftKey);
+  const last = keywords[keywords.length - 1];
 
   const add = (value: string) => {
     const keyword = cleanKeyword(value);
@@ -61,8 +84,13 @@ export function HiddenKeywordsCard() {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
       submit();
-    } else if (e.key === 'Backspace' && draft === '' && keywords.length > 0) {
-      remove(keywords[keywords.length - 1]);
+    } else if (e.key === 'Backspace' && draft === '' && last !== undefined && !e.repeat) {
+      if (armed === last) {
+        remove(last);
+        setArmed(null);
+      } else {
+        setArmed(last);
+      }
     }
   };
 
@@ -90,8 +118,12 @@ export function HiddenKeywordsCard() {
           <Hash size={14} className="shrink-0 text-white/25" />
           <input
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setArmed(null);
+            }}
             onKeyDown={onKeyDown}
+            onBlur={() => setArmed(null)}
             maxLength={MAX_KEYWORD_LENGTH}
             placeholder={t('keywordFilter.placeholder')}
             spellCheck={false}
@@ -122,7 +154,12 @@ export function HiddenKeywordsCard() {
         ) : (
           <ul className="flex max-h-[220px] flex-wrap gap-1.5 overflow-y-auto pr-1">
             {keywords.map((keyword) => (
-              <KeywordChip key={keyword} keyword={keyword} onRemove={remove} />
+              <KeywordChip
+                key={keyword}
+                keyword={keyword}
+                armed={keyword === armed && keyword === last}
+                onRemove={remove}
+              />
             ))}
           </ul>
         )}
