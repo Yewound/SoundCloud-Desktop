@@ -33,6 +33,8 @@ export interface UploadedTrack {
   title?: string;
 }
 
+export type UploadAction = 'signIn' | 'retry' | 'restart';
+
 const SERVER_CODES: Record<string, string> = {
   upload_too_large: 'upload.errors.tooLarge',
   upload_format_unsupported: 'upload.errors.format',
@@ -40,7 +42,16 @@ const SERVER_CODES: Record<string, string> = {
   upload_in_progress: 'upload.errors.inProgress',
   uploads_busy: 'upload.errors.busy',
   upload_invalid: 'upload.errors.invalid',
+  soundcloud_reauthorization_required: 'upload.errors.signIn',
 };
+
+const SOUNDCLOUD_DOWN_CODES = new Set([
+  'soundcloud_temporarily_unavailable',
+  'soundcloud_refresh_timed_out',
+  'soundcloud_refresh_rate_limited',
+]);
+
+const RETRY_CODES = new Set([...SOUNDCLOUD_DOWN_CODES, 'uploads_busy', 'upload_in_progress']);
 
 const FILE_CODES: Record<string, string> = {
   audio_unreadable: 'upload.errors.fileUnreadable',
@@ -80,15 +91,38 @@ export function isUploadFailure(error: unknown): error is UploadFailure {
   return typeof error === 'object' && error !== null && 'kind' in error;
 }
 
-export function failureText(error: unknown): string {
+export function failureText(error: unknown, sending: boolean): string {
   if (!isUploadFailure(error)) return 'upload.errors.failed';
-  if (error.kind === 'network') return 'upload.errors.network';
+  if (error.kind === 'network') {
+    return sending ? 'upload.errors.network' : 'upload.errors.networkAfterSend';
+  }
   if (error.kind === 'file') return FILE_CODES[error.code ?? ''] ?? 'upload.errors.fileUnreadable';
+  if (SOUNDCLOUD_DOWN_CODES.has(error.code ?? '')) {
+    return error.retryAfter ? 'upload.errors.soundcloudDownFor' : 'upload.errors.soundcloudDown';
+  }
   const known = SERVER_CODES[error.code ?? ''];
   if (known) return known;
   if (error.status === 401) return 'upload.errors.session';
   if (error.status === 403 || error.status === 422) return 'upload.errors.rejected';
   return 'upload.errors.failed';
+}
+
+export function failureAction(error: unknown, sending: boolean): UploadAction {
+  if (!isUploadFailure(error) || error.kind === 'file') return 'restart';
+  if (error.kind === 'network') return sending ? 'retry' : 'restart';
+  if (error.code === 'soundcloud_reauthorization_required' || error.status === 401) {
+    return 'signIn';
+  }
+  return RETRY_CODES.has(error.code ?? '') ? 'retry' : 'restart';
+}
+
+export function failureReason(error: unknown): string | null {
+  if (!isUploadFailure(error)) return null;
+  const code = error.code ?? '';
+  if (code === 'soundcloud_reauthorization_required' || SOUNDCLOUD_DOWN_CODES.has(code)) {
+    return null;
+  }
+  return error.message ?? null;
 }
 
 export function fileNameOf(path: string): string {

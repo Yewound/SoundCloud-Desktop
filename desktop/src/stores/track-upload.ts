@@ -5,15 +5,24 @@ import i18n from '../i18n';
 import { queryClient } from '../lib/query-client';
 import {
   cancelTrackUpload,
+  failureAction,
+  failureReason,
   failureText,
   isUploadFailure,
   PROGRESS_EVENT,
   startTrackUpload,
+  type UploadAction,
   type UploadFields,
   type UploadProgress,
 } from '../lib/track-upload';
 
 export type UploadPhase = 'idle' | 'sending' | 'processing' | 'done' | 'failed';
+
+interface UploadRequest {
+  filePath: string;
+  artworkPath: string | null;
+  fields: UploadFields;
+}
 
 interface TrackUploadState {
   phase: UploadPhase;
@@ -23,10 +32,15 @@ interface TrackUploadState {
   total: number;
   error: string | null;
   reason: string | null;
+  action: UploadAction;
+  retryAfter: number | null;
+  failedAt: number;
+  request: UploadRequest | null;
   trackUrn: string | null;
   dialogOpen: boolean;
   setDialogOpen: (open: boolean) => void;
   start: (filePath: string, artworkPath: string | null, fields: UploadFields) => Promise<void>;
+  retry: () => Promise<void>;
   cancel: () => void;
   reset: () => void;
 }
@@ -58,6 +72,10 @@ const IDLE = {
   total: 0,
   error: null,
   reason: null,
+  action: 'restart' as UploadAction,
+  retryAfter: null,
+  failedAt: 0,
+  request: null,
   trackUrn: null,
 };
 
@@ -71,7 +89,13 @@ export const useTrackUploadStore = create<TrackUploadState>((set, get) => ({
     if (phase === 'sending' || phase === 'processing') return;
     const id = crypto.randomUUID();
     await listenForProgress();
-    set({ ...IDLE, phase: 'sending', id, title: fields.title.trim() });
+    set({
+      ...IDLE,
+      phase: 'sending',
+      id,
+      title: fields.title.trim(),
+      request: { filePath, artworkPath, fields },
+    });
     try {
       const track = await startTrackUpload(id, filePath, artworkPath, fields);
       if (get().id !== id) return;
@@ -88,10 +112,22 @@ export const useTrackUploadStore = create<TrackUploadState>((set, get) => ({
         toast(i18n.t('upload.cancelled'));
         return;
       }
-      const reason = isUploadFailure(error) ? (error.message ?? null) : null;
-      set({ phase: 'failed', error: failureText(error), reason });
+      const sending = get().phase === 'sending';
+      set({
+        phase: 'failed',
+        error: failureText(error, sending),
+        action: failureAction(error, sending),
+        reason: failureReason(error),
+        retryAfter: isUploadFailure(error) ? (error.retryAfter ?? null) : null,
+        failedAt: Date.now(),
+      });
       if (!get().dialogOpen) toast.error(i18n.t('upload.failedToast'));
     }
+  },
+
+  retry: async () => {
+    const request = get().request;
+    if (request) await get().start(request.filePath, request.artworkPath, request.fields);
   },
 
   cancel: () => {

@@ -27,12 +27,13 @@ interface AuthRecoveryState {
   oauthActive: boolean;
   /** Момент последнего успешного восстановления — для cooldown. */
   recoveredAt: number;
+  signedInAt: number;
   setPhase: (phase: RecoveryPhase, reason?: RecoveryReason) => void;
   setBusy: (busy: boolean) => void;
   setLastFailure: (lastFailure: RenewFailure | null) => void;
   setOauthActive: (oauthActive: boolean) => void;
   /** Успех: гасим модалку и ставим cooldown-метку. */
-  markRecovered: () => void;
+  markRecovered: (signedIn?: boolean) => void;
   /** Сброс без cooldown (dismiss / logout). */
   reset: () => void;
 }
@@ -44,17 +45,21 @@ export const useAuthRecoveryStore = create<AuthRecoveryState>((set) => ({
   lastFailure: null,
   oauthActive: false,
   recoveredAt: 0,
+  signedInAt: 0,
   setPhase: (phase, reason = 'session') => set({ phase, reason }),
   setBusy: (busy) => set({ busy }),
   setLastFailure: (lastFailure) => set({ lastFailure }),
   setOauthActive: (oauthActive) => set({ oauthActive }),
-  markRecovered: () =>
-    set({
+  markRecovered: (signedIn = false) => {
+    const now = Date.now();
+    set((s) => ({
       phase: 'idle',
       reason: 'session',
       busy: false,
       lastFailure: null,
-      recoveredAt: Date.now(),
-    }),
+      recoveredAt: now,
+      signedInAt: signedIn ? now : s.signedInAt,
+    }));
+  },
   reset: () => set({ phase: 'idle', reason: 'session', busy: false, lastFailure: null }),
 }));
