@@ -20,7 +20,9 @@ use crate::network::edge::{Hop, Tier};
 use crate::network::fail::Fail;
 use crate::network::system_proxy::{self, follow};
 use crate::shared::urn::{canonical_track_urn, track_urn_from_storage_name};
-use crate::track_cache::api_download::{StreamJob, download_api, refused_for, tier_url};
+use crate::track_cache::api_download::{
+    StreamJob, download_api, refused_by_both, refused_for, tier_url,
+};
 use crate::track_cache::direct_download::{Candidate, consume_at, fetch_candidates};
 use crate::track_cache::sc_anon::AnonClient;
 use crate::track_cache::transcode;
@@ -353,7 +355,27 @@ struct RaceJob<'a> {
     quality: PlaybackQuality,
     start: std::time::Instant,
     receiving: Arc<std::sync::atomic::AtomicBool>,
-    candidates: &'a OnceCell<Option<Vec<Candidate>>>,
+    candidates: &'a OnceCell<Vec<Candidate>>,
+}
+
+pub(super) struct Miss {
+    pub err: String,
+    pub refused: Option<Duration>,
+}
+
+impl Miss {
+    fn unasked(err: &str) -> Self {
+        Self {
+            err: err.to_string(),
+            refused: Some(Duration::ZERO),
+        }
+    }
+}
+
+impl From<String> for Miss {
+    fn from(err: String) -> Self {
+        Self { err, refused: None }
+    }
 }
 
 fn now_secs() -> u64 {
@@ -1568,7 +1590,7 @@ impl TrackCacheState {
         &self,
         job: &RaceJob<'_>,
         download_urls: &[String],
-    ) -> Result<PathBuf, String> {
+    ) -> Result<PathBuf, Miss> {
         let RaceJob {
             target_dir,
             urn,
@@ -1578,14 +1600,12 @@ impl TrackCacheState {
             ..
         } = *job;
         if download_urls.is_empty() {
-            return Err("no download_urls".into());
+            return Err(Miss::unasked("no download_urls"));
         }
         let candidates = job
             .candidates
-            .get_or_init(|| fetch_candidates(&self.direct_client, download_urls, session_id))
-            .await
-            .as_deref()
-            .ok_or_else(|| "direct: no candidates".to_string())?;
+            .get_or_try_init(|| fetch_candidates(&self.direct_client, download_urls, session_id))
+            .await?;
         println!(
             "[TrackCache] direct: {urn} at {} from {} candidate(s)",
             quality.label(),
@@ -1625,14 +1645,14 @@ impl TrackCacheState {
                 let line = format!("[TrackCache] direct write failed for {urn}: {e}");
                 eprintln!("{line}");
                 self.diag("ERROR", line);
-                Err(e)
+                Err(e.into())
             }
         }
     }
 
     /// Race all `/stream` API URLs in parallel; first success wins, the
     /// rest are dropped → reqwest cancels their connections.
-    async fn try_api(&self, job: &RaceJob<'_>, urls: &[String]) -> Result<PathBuf, String> {
+    async fn try_api(&self, job: &RaceJob<'_>, urls: &[String]) -> Result<PathBuf, Miss> {
         let RaceJob {
             target_dir,
             urn,
@@ -1641,7 +1661,7 @@ impl TrackCacheState {
             ..
         } = *job;
         if urls.is_empty() {
-            return Err("no /stream URLs".into());
+            return Err(Miss::unasked("no /stream URLs"));
         }
 
         type DownloadFut = std::pin::Pin<
@@ -1689,16 +1709,16 @@ impl TrackCacheState {
                 }
                 Err(err) => {
                     diagnostics::warn(format!("[TrackCache] {urn} URL #{} failed: {err}", idx + 1));
-                    refused = refused.zip(refused_for(&err)).map(|(a, b)| a.max(b));
+                    refused = refused_by_both(refused, refused_for(&err));
                     last_err = err;
                     futures = remaining;
                 }
             }
         }
-        if let Some(hold) = refused {
-            self.note_refused(job.quality, session_id, hold);
-        }
-        Err(last_err)
+        Err(Miss {
+            err: last_err,
+            refused,
+        })
     }
 
     /// Run direct (`/download`) and api (`/stream`) in parallel; first success
@@ -1714,41 +1734,27 @@ impl TrackCacheState {
         tokio::pin!(direct_fut);
         tokio::pin!(api_fut);
 
-        let mut direct_done = false;
-        let mut api_done = false;
-        let mut direct_err: Option<String> = None;
-        let mut api_err: Option<String> = None;
+        let mut direct_miss: Option<Miss> = None;
+        let mut api_miss: Option<Miss> = None;
 
         loop {
             tokio::select! {
-                res = &mut direct_fut, if !direct_done => match res {
+                res = &mut direct_fut, if direct_miss.is_none() => match res {
                     Ok(path) => return Ok(path),
-                    Err(e) => {
-                        direct_done = true;
-                        direct_err = Some(e);
-                    }
+                    Err(miss) => direct_miss = Some(miss),
                 },
-                res = &mut api_fut, if !api_done => match res {
+                res = &mut api_fut, if api_miss.is_none() => match res {
                     Ok(path) => return Ok(path),
-                    Err(e) => {
-                        api_done = true;
-                        api_err = Some(e);
-                    }
+                    Err(miss) => api_miss = Some(miss),
                 },
             }
-            if direct_done && api_done {
-                break;
+            if let (Some(direct), Some(api)) = (&direct_miss, &api_miss) {
+                if let Some(hold) = refused_by_both(direct.refused, api.refused) {
+                    self.note_refused(job.quality, job.session_id, hold);
+                }
+                return Err(format!("direct: {}; api: {}", direct.err, api.err));
             }
         }
-
-        let mut parts = Vec::with_capacity(2);
-        if let Some(e) = direct_err {
-            parts.push(format!("direct: {e}"));
-        }
-        if let Some(e) = api_err {
-            parts.push(format!("api: {e}"));
-        }
-        Err(parts.join("; "))
     }
 
     /// Download from a single URL with retries for retryable errors.

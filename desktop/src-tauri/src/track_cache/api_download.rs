@@ -112,7 +112,10 @@ async fn open_stream(
         .ok_or_else(|| DownloadError::Retryable("ticket: redirect without location".into()))
 }
 
-async fn http_failure(status: wreq::StatusCode, response: wreq::Response) -> DownloadError {
+pub(super) async fn http_failure(
+    status: wreq::StatusCode,
+    response: wreq::Response,
+) -> DownloadError {
     let wait = retry_after(&response).filter(|_| status == wreq::StatusCode::TOO_MANY_REQUESTS);
     let body = match response.text().await {
         Ok(body) => normalize_error_body(&body),
@@ -158,6 +161,10 @@ pub(super) fn refused_for(err: &str) -> Option<Duration> {
         .1;
     let secs = wait.split_once(' ')?.0.parse().ok()?;
     Some(Duration::from_secs(secs))
+}
+
+pub(super) fn refused_by_both(a: Option<Duration>, b: Option<Duration>) -> Option<Duration> {
+    a.zip(b).map(|(a, b)| a.max(b))
 }
 
 fn quality_from_url(url: &str) -> PlaybackQuality {

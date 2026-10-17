@@ -8,6 +8,7 @@ use tokio::sync::OnceCell;
 
 use super::storage::StorageJob;
 use super::{HQ_ANON_BACKUP_SECS, PlaybackQuality, RaceJob, TrackCacheState};
+use crate::track_cache::api_download::tier_url;
 use crate::track_cache::direct_download::Candidate;
 
 pub(super) struct Ladder<'a> {
@@ -25,7 +26,7 @@ pub(super) struct Ladder<'a> {
 struct Climb<'a> {
     ladder: &'a Ladder<'a>,
     storage: &'a StorageJob<'a>,
-    candidates: &'a OnceCell<Option<Vec<Candidate>>>,
+    candidates: &'a OnceCell<Vec<Candidate>>,
     receiving: &'a Arc<AtomicBool>,
     start: Instant,
 }
@@ -37,6 +38,14 @@ fn upper_tiers(wanted: PlaybackQuality, above: PlaybackQuality) -> Vec<PlaybackQ
         .into_iter()
         .filter(|tier| tier.rank() <= wanted.rank() && tier.rank() > above.rank())
         .collect()
+}
+
+fn download_urls_at(urls: &[String], tier: PlaybackQuality) -> Vec<String> {
+    match tier {
+        PlaybackQuality::Uq => Vec::new(),
+        PlaybackQuality::Hq => urls.iter().map(|url| tier_url(url, tier)).collect(),
+        PlaybackQuality::Sq => urls.to_vec(),
+    }
 }
 
 impl TrackCacheState {
@@ -124,10 +133,7 @@ impl TrackCacheState {
         tier: PlaybackQuality,
     ) -> Result<PathBuf, String> {
         let ladder = climb.ladder;
-        let download_urls: &[String] = match tier {
-            PlaybackQuality::Uq => &[],
-            _ => ladder.download_urls,
-        };
+        let download_urls = download_urls_at(ladder.download_urls, tier);
         if download_urls.is_empty() && ladder.urls.is_empty() {
             return Err("no stream URLs provided".into());
         }
@@ -140,7 +146,7 @@ impl TrackCacheState {
             receiving: climb.receiving.clone(),
             candidates: climb.candidates,
         };
-        self.race_direct_and_api(&job, download_urls, ladder.urls)
+        self.race_direct_and_api(&job, &download_urls, ladder.urls)
             .await
     }
 
@@ -202,5 +208,17 @@ mod tests {
         assert!(upper_tiers(Sq, Sq).is_empty());
         assert_eq!(labels(upper_tiers(Uq, Hq)), ["uq"]);
         assert!(upper_tiers(Hq, Hq).is_empty());
+    }
+
+    #[test]
+    fn only_an_hq_ask_names_its_tier_to_download() {
+        use PlaybackQuality::{Hq, Sq, Uq};
+        let urls = ["https://api.example/download/soundcloud%3Atracks%3A1".to_string()];
+        assert_eq!(
+            download_urls_at(&urls, Hq),
+            ["https://api.example/download/soundcloud%3Atracks%3A1?hq=true&quality=hq"]
+        );
+        assert_eq!(download_urls_at(&urls, Sq), urls);
+        assert!(download_urls_at(&urls, Uq).is_empty());
     }
 }

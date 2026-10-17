@@ -51,7 +51,7 @@ impl TrackCacheState {
         session_id: Option<&str>,
         hold: Duration,
     ) {
-        if tier.rank() == PlaybackQuality::Sq.rank() {
+        if tier.rank() == PlaybackQuality::Sq.rank() || hold.is_zero() {
             return;
         }
         let hold = hold.min(REFUSAL_TTL);
