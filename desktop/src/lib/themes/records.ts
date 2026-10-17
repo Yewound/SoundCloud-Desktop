@@ -51,6 +51,7 @@ export function hasUpdate(theme: InstalledTheme, entry: CatalogTheme): boolean {
   return (
     entry.compatible &&
     entry.hash !== theme.hash &&
+    !isBroken(theme, entry.hash) &&
     compareVersions(entry.version, theme.version) > 0
   );
 }

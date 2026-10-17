@@ -23,10 +23,6 @@ const TOAST_KEYS: Record<ThemeNotice['kind'], string> = {
 
 let bootVerified = false;
 
-function hasInstalled(): boolean {
-  return Object.keys(useThemesStore.getState().installed).length > 0;
-}
-
 async function repairInstalled() {
   for (const [id, theme] of Object.entries(useThemesStore.getState().installed)) {
     for (const version of theme.previous ? [theme, theme.previous] : [theme]) {
@@ -74,7 +70,8 @@ export function useThemes() {
 
   useEffect(() => {
     const check = () => {
-      if (hasInstalled()) void useThemesStore.getState().refresh(false);
+      const { installed, refresh } = useThemesStore.getState();
+      if (Object.keys(installed).length) void refresh(false);
     };
     const stopIdle = onIdle(STARTUP_IDLE_MS, () => {
       stopIdle();

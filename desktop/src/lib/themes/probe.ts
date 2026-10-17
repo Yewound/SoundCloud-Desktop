@@ -19,21 +19,19 @@ function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-function nextChange(): Promise<void> {
-  return new Promise((resolve) => {
-    const done = () => {
-      document.removeEventListener('visibilitychange', done);
-      window.removeEventListener('resize', done);
-      resolve();
-    };
-    document.addEventListener('visibilitychange', done);
-    window.addEventListener('resize', done);
-  });
-}
-
 export async function whenShown() {
   do {
-    while (!ready()) await nextChange();
+    while (!ready()) {
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          document.removeEventListener('visibilitychange', done);
+          window.removeEventListener('resize', done);
+          resolve();
+        };
+        document.addEventListener('visibilitychange', done);
+        window.addEventListener('resize', done);
+      });
+    }
     await nextFrame();
     await nextFrame();
   } while (!ready());

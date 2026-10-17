@@ -21,10 +21,6 @@ export function themePreviewUrl(entry: CatalogTheme): string | null {
   return proxiedAssetUrl(fileUrl(THEMES_RAW_BASE, entry.rev, entry.id, entry.preview.path));
 }
 
-export function itemBroken({ entry, installed }: ThemeItem): boolean {
-  return isBroken(installed) || isBroken(installed, entry?.hash);
-}
-
 export function ThemeSwatch({
   accent,
   background,
@@ -85,8 +81,8 @@ export const ThemeTile = memo(function ThemeTile({
   const name = entry?.name ?? installed?.name ?? item.id;
   const author = entry?.author.name;
   const preview = entry && !failed ? themePreviewUrl(entry) : null;
-  const locked = entry ? !entry.compatible : false;
-  const broken = itemBroken(item);
+  const locked = !installed && !!entry && !entry.compatible;
+  const broken = isBroken(installed);
   const update = !!installed && !!entry && hasUpdate(installed, entry);
 
   return (
@@ -111,8 +107,8 @@ export const ThemeTile = memo(function ThemeTile({
           />
         ) : (
           <ThemeSwatch
-            accent={entry?.accent ?? installed?.accent ?? '#ffffff'}
-            background={entry?.background ?? installed?.background ?? '#0b0b0e'}
+            accent={(installed ?? entry)?.accent ?? '#ffffff'}
+            background={(installed ?? entry)?.background ?? '#0b0b0e'}
           />
         )}
         <div className="absolute right-2 top-2 flex gap-1">
@@ -121,7 +117,7 @@ export const ThemeTile = memo(function ThemeTile({
               <span className="h-2 w-2 rounded-full bg-white" />
             </Badge>
           )}
-          {update && !broken && (
+          {update && (
             <Badge
               title={t('settings.themesHasUpdate')}
               className="bg-[var(--color-accent)] text-[var(--color-accent-contrast)]"

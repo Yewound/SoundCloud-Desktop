@@ -80,6 +80,8 @@ const SENTINEL_CLEAR_MS = 8_000;
 
 let trialTimer: ReturnType<typeof setTimeout> | undefined;
 let sentinelTimer: ReturnType<typeof setTimeout> | undefined;
+let trialBase: InstalledTheme | null = null;
+let updateDeferred = false;
 
 function failureKind(error: unknown): ThemeNoticeKind {
   return error instanceof ThemeCheckError ? 'checkFailed' : 'downloadFailed';
@@ -89,23 +91,14 @@ function isVisible(): boolean {
   return document.visibilityState === 'visible';
 }
 
-function clearSentinelSoon() {
-  clearTimeout(sentinelTimer);
-  sentinelTimer = setTimeout(() => void clearSentinel(), SENTINEL_CLEAR_MS);
-}
-
-function keptNames(state: ThemesState): string[] {
+function collect(state: ThemesState, afterRemove = false) {
+  if (!state.hydrated) return;
+  if (!afterRemove && Object.keys(state.installed).length === 0) return;
   const versions: InstalledVersion[] = Object.values(state.installed).flatMap((theme) =>
     theme.previous ? [theme, theme.previous] : [theme],
   );
   if (state.trial) versions.push(state.trial.version);
-  return versions.flatMap(versionNames);
-}
-
-function collect(state: ThemesState, afterRemove = false) {
-  if (!state.hydrated) return;
-  if (!afterRemove && Object.keys(state.installed).length === 0) return;
-  void collectGarbage(keptNames(state));
+  void collectGarbage(versions.flatMap(versionNames));
 }
 
 export const useThemesStore = create<ThemesState>()(
@@ -134,11 +127,61 @@ export const useThemesStore = create<ThemesState>()(
         const current = get().installed[id];
         if (!current) return null;
         const painted = get().activeId === id && get().enabled && !get().trial;
-        if (painted && isVisible()) await writeSentinel(id, version.hash);
+        if (painted) await writeSentinel(id, version.hash);
         putTheme(id, withVersion(version, current));
         collect(get());
         if (painted) void get().verifyActive();
         return { kind: 'updated', id, name: entry.name };
+      };
+
+      const runDeferred = () => {
+        const { catalog } = get();
+        if (!updateDeferred || !catalog) return;
+        updateDeferred = false;
+        void get()
+          .applyCatalog(catalog)
+          .then((notices) => get().notify(notices.filter((n) => n.kind !== 'downloadFailed')));
+      };
+
+      const deferUpdate = () => {
+        if (updateDeferred) return;
+        updateDeferred = true;
+        if (!isVisible()) void whenShown().then(runDeferred);
+      };
+
+      const settle = (id: string, look: InstalledTheme, retry: boolean) => {
+        clearTimeout(sentinelTimer);
+        sentinelTimer = setTimeout(async () => {
+          const painted = () => activeTheme(get()) === look && !get().trial;
+          if (painted() && (await probeFailed(id, look)) && painted()) {
+            await breaks(id, look, retry);
+          } else if (sentinelHolds(id, look.hash)) {
+            await clearSentinel();
+          }
+        }, SENTINEL_CLEAR_MS);
+      };
+
+      const breaks = async (id: string, look: InstalledTheme, retry: boolean) => {
+        get().markBroken(id);
+        get().notify([{ kind: 'breaksUi', id, name: look.name }]);
+        const theme = get().installed[id];
+        const previous = retry && theme ? rollbackTarget(theme, get().catalog, id) : null;
+        if (theme && previous) {
+          putTheme(id, rolledBack(theme, previous));
+          const restored = activeTheme(get());
+          if (restored) {
+            await writeSentinel(id, restored.hash);
+            await syncThemeCss(restored);
+            if (!(await probeFailed(id, restored))) {
+              settle(id, restored, false);
+              return;
+            }
+            get().markBroken(id);
+          }
+        }
+        set({ enabled: false });
+        await syncThemeCss(activeLook(get()));
+        await clearSentinel();
       };
 
       return {
@@ -171,22 +214,22 @@ export const useThemesStore = create<ThemesState>()(
 
         startTrial: async (id) => {
           const { catalog, busy, installed } = get();
-          const entry = catalog?.themes.find((theme) => theme.id === id);
           const current = installed[id];
-          const download = entry?.compatible && entry.hash !== current?.hash ? entry : null;
-          if (busy || (!download && !current) || isBroken(current, download?.hash)) return;
+          const entry = catalog?.themes.find((theme) => theme.id === id);
+          if (busy || (current ? isBroken(current) : !entry?.compatible)) return;
           get().revertTrial();
           set({ busy: id });
           let version: InstalledVersion;
           try {
-            version = download ? await downloadVersion(download) : versionOf(current!);
+            version = current ? versionOf(current) : await downloadVersion(entry!);
           } catch (error) {
             logInfo(`[Themes] ${id} download failed: ${describeError(error)}`);
             set({ busy: null });
-            get().notify([{ kind: failureKind(error), id, name: download?.name ?? id }]);
+            get().notify([{ kind: failureKind(error), id, name: entry?.name ?? id }]);
             return;
           }
           const trial = { id, version, until: Date.now() + TRIAL_MS };
+          trialBase = activeTheme(get());
           set({ busy: null, trial });
           clearTimeout(trialTimer);
           trialTimer = setTimeout(() => {
@@ -214,13 +257,18 @@ export const useThemesStore = create<ThemesState>()(
           });
           collect(get());
           void get().verifyActive();
+          runDeferred();
         },
 
         revertTrial: () => {
           if (!get().trial) return;
           clearTimeout(trialTimer);
           set({ trial: null });
-          void syncThemeCss(activeLook(get()));
+          collect(get(), true);
+          const active = activeTheme(get());
+          if (active && active !== trialBase) void get().verifyActive();
+          else void syncThemeCss(activeLook(get()));
+          runDeferred();
         },
 
         deactivate: () => {
@@ -298,8 +346,12 @@ export const useThemesStore = create<ThemesState>()(
               if (fresh !== theme) putTheme(id, fresh);
               continue;
             }
-            const wanted = get().autoUpdate && !theme.pinned && !isBroken(theme, entry.hash);
-            if (!wanted || !hasUpdate(theme, entry)) continue;
+            if (!get().autoUpdate || theme.pinned || !hasUpdate(theme, entry)) continue;
+            const painted = id === get().activeId && get().enabled;
+            if (painted && (get().trial || !isVisible())) {
+              deferUpdate();
+              continue;
+            }
             const notice = await installUpdate(id, entry);
             if (notice) notices.push(notice);
           }
@@ -318,29 +370,8 @@ export const useThemesStore = create<ThemesState>()(
           await syncThemeCss(look);
           const broken = await probeFailed(id, look);
           if (activeTheme(get()) !== look || get().trial) return;
-          if (!broken) {
-            clearSentinelSoon();
-            return;
-          }
-          get().markBroken(id);
-          get().notify([{ kind: 'breaksUi', id, name: look.name }]);
-          const theme = get().installed[id];
-          const previous = theme && rollbackTarget(theme, get().catalog, id);
-          if (theme && previous) {
-            putTheme(id, rolledBack(theme, previous));
-            const restored = activeTheme(get());
-            if (restored) {
-              await syncThemeCss(restored);
-              if (!(await probeFailed(id, restored))) {
-                clearSentinelSoon();
-                return;
-              }
-              get().markBroken(id);
-            }
-          }
-          set({ enabled: false });
-          await syncThemeCss(activeLook(get()));
-          await clearSentinel();
+          if (broken) await breaks(id, look, true);
+          else settle(id, look, true);
         },
 
         notify: (notices) => {

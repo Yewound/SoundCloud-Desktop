@@ -4,11 +4,11 @@ import { formatBytes } from '../../../lib/formatters';
 import { ArrowUp, Check, Pin, RotateCcw, Trash2 } from '../../../lib/icons';
 import { BUNDLED_FONTS } from '../../../lib/interface-font';
 import { pickDescription } from '../../../lib/themes/index-parse.ts';
-import { activeTheme, hasUpdate, rollbackTarget } from '../../../lib/themes/records';
+import { activeTheme, hasUpdate, isBroken, rollbackTarget } from '../../../lib/themes/records';
 import { useThemesStore } from '../../../stores/themes';
 import { Modal, ModalContent, ModalDescription, ModalTitle } from '../../ui/Modal';
 import { Toggle } from '../primitives';
-import { itemBroken, type ThemeItem, ThemeSwatch, themePreviewUrl } from './ThemeTile';
+import { type ThemeItem, ThemeSwatch, themePreviewUrl } from './ThemeTile';
 
 function ActionButton({
   icon,
@@ -53,14 +53,12 @@ export function ThemeDetails({ item, onClose }: { item: ThemeItem | null; onClos
   const { startTrial, update, rollback, setPinned, remove } = useThemesStore.getState();
   const entry = item?.entry ?? null;
   const installed = item?.installed ?? null;
+  const shown = installed ?? entry;
   const name = entry?.name ?? installed?.name ?? '';
-  const accent = entry?.accent ?? installed?.accent;
-  const background = entry?.background ?? installed?.background;
-  const font = entry?.font ?? installed?.font;
   const preview = entry ? themePreviewUrl(entry) : null;
-  const broken = item ? itemBroken(item) : false;
-  const canApply = !busy && !broken && (entry ? entry.compatible : !!installed);
-  const canUpdate = !!installed && !!entry && hasUpdate(installed, entry) && !broken;
+  const broken = isBroken(installed);
+  const canApply = !busy && (installed ? !broken : !!entry?.compatible);
+  const canUpdate = !!installed && !!entry && hasUpdate(installed, entry);
   const canRollback = !!item && !!installed && !!rollbackTarget(installed, catalog, item.id);
 
   const apply = () => {
@@ -76,7 +74,10 @@ export function ThemeDetails({ item, onClose }: { item: ThemeItem | null; onClos
           {preview ? (
             <img src={preview} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
-            <ThemeSwatch accent={accent ?? '#ffffff'} background={background ?? '#0b0b0e'} />
+            <ThemeSwatch
+              accent={shown?.accent ?? '#ffffff'}
+              background={shown?.background ?? '#0b0b0e'}
+            />
           )}
         </div>
         <div className="space-y-4 overflow-y-auto p-6">
@@ -84,14 +85,14 @@ export function ThemeDetails({ item, onClose }: { item: ThemeItem | null; onClos
             <div className="min-w-0 space-y-1">
               <ModalTitle>{name}</ModalTitle>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/40">
-                <span>v{entry?.version ?? installed?.version}</span>
+                <span>v{shown?.version}</span>
                 {entry && <span>{entry.author.name}</span>}
-                {entry && <span>{formatBytes(entry.size)}</span>}
-                {accent && <Swatch color={accent} />}
-                {background && <Swatch color={background} />}
-                {font && (
+                {entry && entry.hash === shown?.hash && <span>{formatBytes(entry.size)}</span>}
+                {shown?.accent && <Swatch color={shown.accent} />}
+                {shown?.background && <Swatch color={shown.background} />}
+                {shown?.font && (
                   <span
-                    style={{ fontFamily: BUNDLED_FONTS[font].family }}
+                    style={{ fontFamily: BUNDLED_FONTS[shown.font].family }}
                     className="text-white/60"
                   >
                     Aa
