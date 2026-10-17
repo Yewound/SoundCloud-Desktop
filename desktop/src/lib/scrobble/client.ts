@@ -99,12 +99,11 @@ export async function startLastfmAuth(): Promise<void> {
   try {
     url = await invoke<string>('lastfm_auth_start');
   } catch (e) {
+    if (attempt !== authAttempt) return;
     const message = String(e);
     logError(`[Scrobble] Last.fm auth start failed: ${message}`);
-    if (attempt === authAttempt) {
-      const failure = START_FAILURES.find((reason) => message.startsWith(reason)) ?? 'failed';
-      setAuth({ phase: 'error', failure });
-    }
+    const failure = START_FAILURES.find((reason) => message.startsWith(reason)) ?? 'failed';
+    setAuth({ phase: 'error', failure });
     return;
   }
   if (attempt !== authAttempt) return;
