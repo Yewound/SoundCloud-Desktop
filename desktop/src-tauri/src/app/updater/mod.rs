@@ -3,7 +3,7 @@ mod install_kind;
 mod mirror;
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::Manager;
@@ -18,6 +18,7 @@ use flatpak::FlatpakScope;
 use install_kind::InstallKind;
 
 const PROGRESS_STEP_BYTES: u64 = 512 * 1024;
+const PROGRESS_INTERVAL: Duration = Duration::from_secs(1);
 const CHECK_TIMEOUT: Duration = Duration::from_secs(20);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
@@ -163,6 +164,7 @@ async fn download(
 ) -> Result<Vec<u8>, String> {
     let mut downloaded = 0u64;
     let mut reported = 0u64;
+    let mut reported_at = Instant::now();
     let mut started = false;
     update
         .download(
@@ -173,8 +175,11 @@ async fn download(
                 }
                 downloaded += chunk as u64;
                 let finished = total.is_some_and(|t| downloaded >= t);
-                if finished || downloaded - reported >= PROGRESS_STEP_BYTES {
+                let due = downloaded - reported >= PROGRESS_STEP_BYTES
+                    || reported_at.elapsed() >= PROGRESS_INTERVAL;
+                if finished || due {
                     reported = downloaded;
+                    reported_at = Instant::now();
                     let _ = on_progress.send(InstallProgress::Progress { downloaded, total });
                 }
             },
