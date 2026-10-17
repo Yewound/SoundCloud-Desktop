@@ -19,6 +19,7 @@ import { initEdge } from './lib/edge';
 import { installFpsCap } from './lib/fps-cap';
 import { queryClient } from './lib/query-client';
 import { bootstrapPremium } from './lib/subscription';
+import { bootThemes } from './lib/themes/boot';
 import { initUiScale } from './lib/ui-scale';
 import './fonts';
 import './index.css';
@@ -88,6 +89,7 @@ async function bootstrap() {
 
   const [staticPort, proxyPort] = await invoke<[number, number]>('get_server_ports');
   setServerPorts(staticPort, proxyPort);
+  await bootThemes();
 
   // Вердикт транспорта (прямой / relay / воркеры) — до первого запроса,
   // иначе забаненный юзер платит таймаутом на логине.

@@ -6,7 +6,7 @@ const ASSETS_DIR = 'css-assets';
 export const CSS_ASSET_PREFIX = 'sc-assets/';
 export const CSS_ASSET_MAX_BYTES = 10 * 1024 * 1024;
 export const CSS_ASSET_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.svg,.avif';
-const ASSET_URL = /url\(\s*(['"]?)sc-assets\/([^'")\s]+)\1\s*\)/gi;
+const ASSET_URL = /url\(\s*(['"]?)(?:sc-)?assets\/([^'")\s]+)\1\s*\)/gi;
 
 export type CssAssetResult = 'ok' | 'type' | 'size' | 'failed';
 
