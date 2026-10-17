@@ -1395,6 +1395,7 @@
     "progressMb": "{{done}} / {{total}} MB",
     "progressMbUnknown": "{{done}} MB",
     "installFailed": "Güncelleme otomatik olarak yüklenemedi. Aşağıdan elle indirin.",
+    "stalled": "İndirme takıldı. Güncellemeyi aşağıdan elle indirebilirsiniz.",
     "openReleasePage": "Sürüm sayfası",
     "allDownloads": "Tüm indirmeler",
     "copyCommand": "Komutu kopyala",

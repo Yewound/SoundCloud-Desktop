@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { logError } from '../../lib/diagnostics';
 import { RotateCcw } from '../../lib/icons';
@@ -14,6 +14,8 @@ import { ManualUpdate } from './ManualUpdate';
 
 type Phase = 'idle' | 'downloading' | 'installing' | 'failed';
 
+const STALL_MS = 25_000;
+
 export function UpdateActions({
   release,
   onDismiss,
@@ -26,6 +28,8 @@ export function UpdateActions({
   const [phase, setPhase] = useState<Phase>('idle');
   const [downloaded, setDownloaded] = useState(0);
   const [total, setTotal] = useState<number | null>(null);
+  const [stalled, setStalled] = useState(false);
+  const lastProgressAt = useRef(0);
 
   useEffect(() => {
     getUpdaterInfo()
@@ -33,7 +37,16 @@ export function UpdateActions({
       .catch(() => setInfo(null));
   }, []);
 
+  useEffect(() => {
+    if (phase !== 'downloading') return;
+    const timer = setInterval(() => {
+      setStalled(Date.now() - lastProgressAt.current >= STALL_MS);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [phase]);
+
   const onProgress = (progress: Progress) => {
+    lastProgressAt.current = Date.now();
     if (progress.event === 'installing') {
       setPhase('installing');
       return;
@@ -43,6 +56,7 @@ export function UpdateActions({
   };
 
   const install = () => {
+    lastProgressAt.current = Date.now();
     setPhase('downloading');
     setDownloaded(0);
     setTotal(null);
@@ -54,7 +68,21 @@ export function UpdateActions({
 
   if (phase === 'downloading' || phase === 'installing') {
     return (
-      <InstallProgress downloaded={downloaded} total={total} installing={phase === 'installing'} />
+      <>
+        <InstallProgress
+          downloaded={downloaded}
+          total={total}
+          installing={phase === 'installing'}
+        />
+        {stalled && phase === 'downloading' && (
+          <ManualUpdate
+            release={release}
+            info={info ?? null}
+            notice="stalled"
+            onDismiss={onDismiss}
+          />
+        )}
+      </>
     );
   }
 
@@ -65,7 +93,7 @@ export function UpdateActions({
       <ManualUpdate
         release={release}
         info={info}
-        failed={phase === 'failed'}
+        notice={phase === 'failed' ? 'failed' : null}
         onDismiss={onDismiss}
       />
     );

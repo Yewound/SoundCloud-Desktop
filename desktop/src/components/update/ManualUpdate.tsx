@@ -17,12 +17,12 @@ const MB = 1024 * 1024;
 export function ManualUpdate({
   release,
   info,
-  failed,
+  notice,
   onDismiss,
 }: {
   release: GithubRelease;
   info: UpdaterInfo | null;
-  failed: boolean;
+  notice: 'failed' | 'stalled' | null;
   onDismiss: () => void;
 }) {
   const { t } = useTranslation();
@@ -32,11 +32,11 @@ export function ManualUpdate({
 
   return (
     <div className="px-5 pb-5">
-      {failed && (
+      {notice && (
         <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3.5 py-2.5">
           <AlertCircle size={14} className="mt-px shrink-0 text-red-300/90" />
           <p className="min-w-0 text-[11.5px] leading-snug text-white/65">
-            {t('update.installFailed')}
+            {t(notice === 'failed' ? 'update.installFailed' : 'update.stalled')}
           </p>
         </div>
       )}

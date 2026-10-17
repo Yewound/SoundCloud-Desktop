@@ -19,6 +19,8 @@ use install_kind::InstallKind;
 
 const PROGRESS_STEP_BYTES: u64 = 512 * 1024;
 const CHECK_TIMEOUT: Duration = Duration::from_secs(20);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 static SIGNED_UPDATES: AtomicBool = AtomicBool::new(false);
 
@@ -108,6 +110,11 @@ async fn download_and_install(
     let mut update = app
         .updater_builder()
         .timeout(CHECK_TIMEOUT)
+        .configure_client(|client| {
+            client
+                .connect_timeout(CONNECT_TIMEOUT)
+                .read_timeout(READ_TIMEOUT)
+        })
         .build()
         .map_err(|e| e.to_string())?
         .check()

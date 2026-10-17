@@ -1480,6 +1480,7 @@
     "progressMb": "{{done}} of {{total}} MB",
     "progressMbUnknown": "{{done}} MB",
     "installFailed": "Could not install the update automatically. Download it manually below.",
+    "stalled": "The download is stuck. You can download the update manually below.",
     "openReleasePage": "Release page",
     "allDownloads": "All downloads",
     "copyCommand": "Copy command",

@@ -1448,6 +1448,7 @@
     "progressMb": "{{done}} / {{total}} MB",
     "progressMbUnknown": "{{done}} MB",
     "installFailed": "업데이트를 자동으로 설치하지 못했어요. 아래에서 직접 다운로드하세요.",
+    "stalled": "다운로드가 멈췄어요. 아래에서 업데이트를 직접 다운로드할 수 있어요.",
     "openReleasePage": "릴리스 페이지",
     "allDownloads": "모든 다운로드",
     "copyCommand": "명령어 복사",
