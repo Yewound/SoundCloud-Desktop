@@ -96,7 +96,7 @@ async function buildCacheRequest(
     urn,
     urls: streamFallbackUrls(urn, quality),
     downloadUrls: downloadFallbackUrls(urn),
-    storageUrls: buildStorageUrls(urn, storageQuality),
+    storageUrls: buildStorageUrls(urn),
     sessionId: getSessionId(),
     quality,
     durationMs,
