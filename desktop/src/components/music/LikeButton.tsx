@@ -44,8 +44,8 @@ export const LikeButton = React.memo(function LikeButton({
         aria-label={label}
         aria-pressed={liked}
         title={title}
-        className={`cursor-pointer absolute ${position} w-8 h-8 rounded-full backdrop-blur-md flex items-center justify-center group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-200 ${
-          superliked || gesture.holding ? 'opacity-100' : 'opacity-0'
+        className={`cursor-pointer absolute ${position} w-8 h-8 rounded-full flex items-center justify-center group-hover:opacity-100 group-hover:backdrop-blur-md focus-visible:opacity-100 focus-visible:backdrop-blur-md transition-all duration-200 ${
+          superliked || gesture.holding ? 'opacity-100 backdrop-blur-md' : 'opacity-0'
         } ${
           superliked
             ? 'bg-black/60'
