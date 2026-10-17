@@ -13,6 +13,7 @@ const PREVIEW_MS = 30_000;
 const DURATION_SLACK_MS = 3_000;
 const SEARCH_LIMIT = 20;
 const SEARCH_TIMEOUT_MS = 8_000;
+const FAILED_SEARCH_PAUSE_MS = 60_000;
 const JOINERS = ['feat', 'ft', 'x', 'and', 'with', 'vs', 'the'];
 
 const altByOriginal = new Map<string, Track | null>();
@@ -85,6 +86,8 @@ async function searchAltUpload(track: Track): Promise<Track | null> {
       SEARCH_TIMEOUT_MS,
     );
   } catch {
+    altByOriginal.set(track.urn, null);
+    setTimeout(() => altByOriginal.delete(track.urn), FAILED_SEARCH_PAUSE_MS);
     return null;
   }
 

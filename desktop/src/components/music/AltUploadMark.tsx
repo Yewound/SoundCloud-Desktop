@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { usePlayingCopy } from '../../lib/alt-upload';
 import { Replace } from '../../lib/icons';
+import { useLyricsStore } from '../../stores/lyrics';
 
 export const AltUploadMark = React.memo(function AltUploadMark({
   urn,
@@ -23,6 +24,7 @@ export const AltUploadMark = React.memo(function AltUploadMark({
       aria-label={label}
       onClick={(e) => {
         e.stopPropagation();
+        useLyricsStore.getState().close();
         navigate(`/track/${encodeURIComponent(copy.urn)}`);
       }}
       className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full p-0.5 transition-colors duration-200 hover:bg-white/[0.08]"

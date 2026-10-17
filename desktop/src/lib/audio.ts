@@ -9,6 +9,7 @@ import {
   dropAltUpload,
   findAltUpload,
   knownAltUpload,
+  playingCopyOf,
   setPlayingCopy,
   wantsAltUpload,
 } from './alt-upload';
@@ -57,6 +58,7 @@ import {rememberTracks} from './offline-index';
 import {getUrnCluster, recordClusterFeedback} from './recsFeedback';
 import {isPreviewOnly} from './track-access';
 import {getArtistDisplay, getDisplayTitle} from './track-display';
+import {LATE_SKIP_SHARE} from './wave-feedback';
 
 const SKIP_THRESHOLD_SEC = 30;
 const SLOW_LOAD_HINT_MS = 60_000;
@@ -145,6 +147,8 @@ export function isTrackLoaded(): boolean {
 
 export function setStartGate(gate: ((urn: string) => Promise<number | null>) | null): void {
   startGate = gate;
+  const track = usePlayerStore.getState().currentTrack;
+  if (gate && track && playingCopyOf(track.urn)) void loadTrack(track);
 }
 
 export function setRoomCrossfade(enabled: boolean): void {
@@ -335,6 +339,11 @@ function commitTrackMetadata(track: Track) {
 
   if (currentUrn !== track.urn) return;
 
+  if (fileUrn !== track.urn) {
+    updateMetadata(track, cachedDuration);
+    return;
+  }
+
   if (track.duration <= 0) {
     updateMetadata(track);
     return;
@@ -482,8 +491,13 @@ async function loadTrack(track: Track, resumeAt = 0) {
 
     if (swapsToCopy(track)) {
       setDownloadProgress(0);
-      file = (await findAltUpload(track)) ?? track;
+      const copy = await findAltUpload(track);
       if (gen !== loadGen) return;
+      if (copy && startGate == null) {
+        file = copy;
+        fallbackDuration = copy.duration / 1000;
+        cachedDuration = fallbackDuration;
+      }
       setDownloadProgress(null);
     }
     setPlayingCopy(urn, file === track ? null : file);
@@ -714,10 +728,10 @@ async function hydrateTrackMetadata(track: Track, gen: number) {
   commitTrackMetadata(nextTrack);
 }
 
-function endedEarly(track: Track): boolean {
-  if (isPreviewOnly(track)) return false;
+function endedEarly(file: Track): boolean {
+  if (isPreviewOnly(file)) return false;
   if (Math.abs(cachedTime - API_PREVIEW_DURATION_MS / 1000) < 2) return false;
-  const expected = Math.max(cachedDuration, track.duration / 1000);
+  const expected = Math.max(cachedDuration, file.duration / 1000);
   if (expected < EARLY_END_MIN_EXPECTED_SEC) return false;
   const tolerance = Math.max(EARLY_END_TOLERANCE_SEC, expected * EARLY_END_TOLERANCE_RATIO);
   return cachedTime < expected - tolerance;
@@ -729,22 +743,23 @@ function maybeHealEarlyEnd(): boolean {
   const track = state.currentTrack;
   if (!track || track.urn !== currentUrn || state.abLoop || acceptedShortFile) return false;
   if (isLocalUrn(track.urn)) return false;
-  if (!endedEarly(track)) return false;
+  const file = playingCopyOf(track.urn) ?? track;
+  if (!endedEarly(file)) return false;
   const endedAt = cachedTime;
-  if (healedUrns.has(track.urn)) {
-    console.warn(`[Audio] ended early again at ${endedAt.toFixed(1)}s, skipping:`, track.urn);
+  if (healedUrns.has(file.urn)) {
+    console.warn(`[Audio] ended early again at ${endedAt.toFixed(1)}s, skipping:`, file.urn);
     notifyError(i18n.t('track.loadError'), {
       id: 'track-load-error',
       description: `${track.title}: ${i18n.t('track.fileDamaged')}`,
     });
     return false;
   }
-  healedUrns.add(track.urn);
+  healedUrns.add(file.urn);
   console.warn(
-    `[Audio] ended after ${endedAt.toFixed(1)}s of ${(track.duration / 1000).toFixed(0)}s — purging cache and refetching:`,
-    track.urn,
+    `[Audio] ended after ${endedAt.toFixed(1)}s of ${(file.duration / 1000).toFixed(0)}s — purging cache and refetching:`,
+    file.urn,
   );
-  void removeCachedTrack(track.urn)
+  void removeCachedTrack(file.urn)
     .catch(() => {})
     .then(() => {
       if (usePlayerStore.getState().currentTrack?.urn !== track.urn) return;
@@ -901,15 +916,14 @@ usePlayerStore.subscribe((state, prev) => {
     const previousTime = cachedTime;
     const previousHadTrack = hasTrack;
 
-    if (
-      previousUrn &&
-      previousHadTrack &&
-      previousTime < SKIP_THRESHOLD_SEC &&
-      previousUrn !== lastEndedUrn
-    ) {
+    if (previousUrn && previousHadTrack && previousUrn !== lastEndedUrn) {
       const previousDuration = cachedDuration > 0 ? cachedDuration : fallbackDuration;
       const positionPct = previousDuration > 0 ? previousTime / previousDuration : undefined;
-      recordEvent('skip', previousUrn, positionPct);
+      if (previousTime < SKIP_THRESHOLD_SEC || (positionPct ?? 0) < LATE_SKIP_SHARE) {
+        recordEvent('skip', previousUrn, positionPct);
+      } else {
+        recordFullPlay(previousUrn, false);
+      }
     }
     lastEndedUrn = null;
 

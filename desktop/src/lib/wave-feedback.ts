@@ -1,7 +1,7 @@
 import { api } from './api';
 import type { SoundWaveEvent } from './events';
 
-const LATE_SKIP_SHARE = 0.7;
+export const LATE_SKIP_SHARE = 0.7;
 
 let wave: Set<string> | null = null;
 let negatives = 0;
