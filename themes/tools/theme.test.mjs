@@ -67,19 +67,15 @@ test('changed files need a higher version', () => {
   assert.match(load('good-theme', { ...changed, version: '1.0.1' }).errors.join('\n'), /go up/);
 });
 
-test('a missing preview is a warning in a PR and an error when publishing', () => {
+test('a missing preview is an error', () => {
   const dir = join(mkdtempSync(join(tmpdir(), 'themes-')), 'no-preview');
   cpSync(join(fixtures, 'good-theme'), dir, { recursive: true });
   rmSync(join(dir, 'preview.png'));
   const meta = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
   writeFileSync(join(dir, 'theme.json'), JSON.stringify({ ...meta, id: 'no-preview' }));
-  const publish = loadTheme(dir, null);
-  assert.equal(publish.entry, null);
-  assert.match(publish.errors.join('\n'), /needs exactly one preview/);
-  const pr = loadTheme(dir, null, undefined, { previewOptional: true });
-  assert.deepEqual(pr.errors, []);
-  assert.equal(pr.entry.preview, null);
-  assert.match(pr.warnings.join('\n'), /no preview, CI renders one/);
+  const result = loadTheme(dir, null);
+  assert.equal(result.entry, null);
+  assert.match(result.errors.join('\n'), /needs exactly one preview/);
 });
 
 test('theme.schema.json matches rules.ts', () => {

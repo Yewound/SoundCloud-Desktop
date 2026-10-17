@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { git, previousIndex, repoRoot } from './git.mjs';
-import { kib, table, writeSummary } from './summary.mjs';
+import { kib, print, table, writeSummary } from './summary.mjs';
 import { listThemes, loadTheme, readRevoked } from './theme.mjs';
 
 const MAINTAINERS = ['zxcloli666', 'github-actions[bot]'];
@@ -57,7 +57,7 @@ let failures = 0;
 
 if (!readRevoked(root)) {
   failures++;
-  console.log('error: themes/revoked.json must be a list of {id, hash, reason}');
+  print('error: themes/revoked.json must be a list of {id, hash, reason}');
   rows.push(['revoked.json', '-', 'invalid', '-', '-', '-', ['must be a list of {id, hash, reason}'], []]);
 }
 
@@ -65,21 +65,19 @@ for (const id of ids) {
   const old = before.get(id);
   if (!present.includes(id)) {
     if (old) {
-      console.log(`warning: themes/${id}: removed`);
+      print(`warning: themes/${id}: removed`);
       rows.push([id, old.version, 'removed', '-', '-', '-', [], ['removed']]);
     } else {
       failures++;
-      console.log(`error: themes/${id}: no such theme`);
+      print(`error: themes/${id}: no such theme`);
       rows.push([id, '-', '-', '-', '-', '-', ['no such theme'], []]);
     }
     continue;
   }
-  const { entry, errors, warnings } = loadTheme(join(root, 'themes', id), buildRev, old, {
-    previewOptional: true,
-  });
+  const { entry, errors, warnings } = loadTheme(join(root, 'themes', id), buildRev, old);
   if (entry) warnings.push(...reviewWarnings(entry, old));
-  for (const line of errors) console.log(`error: ${line}`);
-  for (const line of warnings) console.log(`warning: ${line}`);
+  for (const line of errors) print(`error: ${line}`);
+  for (const line of warnings) print(`warning: ${line}`);
   if (errors.length > 0) failures++;
   rows.push([
     id,
@@ -87,7 +85,7 @@ for (const id of ids) {
     entry ? describeChange(entry, old) : 'failed',
     entry ? kib(entry.css.size) : '-',
     entry ? kib(entry.size - entry.css.size) : '-',
-    entry?.preview ? kib(entry.preview.size) : '-',
+    entry ? kib(entry.preview.size) : '-',
     errors,
     warnings,
   ]);

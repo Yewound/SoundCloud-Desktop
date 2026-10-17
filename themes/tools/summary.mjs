@@ -19,6 +19,10 @@ export function table(head, rows) {
   return [line(head), `|${head.map(() => ' --- |').join('')}`, ...rows.map(line)].join('\n');
 }
 
+export function print(line) {
+  console.log(String(line).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' '));
+}
+
 export function writeSummary(markdown) {
   const file = process.env.GITHUB_STEP_SUMMARY;
   if (file) appendFileSync(file, `${markdown}\n\n`);
