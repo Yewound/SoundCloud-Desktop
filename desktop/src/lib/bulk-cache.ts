@@ -79,7 +79,7 @@ async function buildEntries(tracks: Track[]): Promise<BulkCacheEntry[]> {
       urn: track.urn,
       urls: streamFallbackUrls(track.urn, quality),
       downloadUrls: downloadFallbackUrls(track.urn),
-      storageUrls: buildStorageUrls(track.urn),
+      storageUrls: buildStorageUrls(track.urn, track._scd_meta?.storage_quality),
       sessionId,
       quality,
       durationMs: expectedDurationMs(track),

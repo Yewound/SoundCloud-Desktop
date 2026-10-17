@@ -113,7 +113,8 @@ function buildStreamUrl(base: string, trackUrn: string, quality: PlaybackQuality
  * Не-премиуму star отдаёт 403 (`PREMIUM_ONLY`), так что второй адрес ему только
  * стоил бы лишнего запроса — у него список из одного main.
  */
-export function buildStorageUrls(trackUrn: string): string[] {
+export function buildStorageUrls(trackUrn: string, storageQuality?: PlaybackQuality): string[] {
+  if (storageQuality === 'uq' && !getIsPremium()) return [];
   const file = `${trackUrn.replace(/:/g, '_')}.m4a`;
   const bases = getIsPremium() ? [STORAGE_PREMIUM_BASE, STORAGE_BASE] : [STORAGE_BASE];
   return [...new Set(bases)].map((base) => `${base}/${file}`);

@@ -1018,7 +1018,7 @@ function preloadEntry(track: Track) {
     urn: track.urn,
     urls: streamFallbackUrls(track.urn, quality),
     downloadUrls: downloadFallbackUrls(track.urn),
-    storageUrls: buildStorageUrls(track.urn),
+    storageUrls: buildStorageUrls(track.urn, track._scd_meta?.storage_quality),
     sessionId: getSessionId(),
     quality,
     durationMs: expectedDurationMs(track),
