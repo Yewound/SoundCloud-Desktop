@@ -80,14 +80,21 @@ export function WallpaperCard() {
     }, [setRotation, setBackgroundImage]);
 
     const toggleDesktop = useCallback(async () => {
-        if (isDesktopWallpaper(useSettingsStore.getState().backgroundImage)) {
+        const before = useSettingsStore.getState();
+        if (isDesktopWallpaper(before.backgroundImage)) {
             setBackgroundImage('');
             return;
         }
         setDesktopFound(undefined);
         const name = await syncDesktopWallpaper();
         setDesktopFound(name !== null);
-        if (!name) return;
+        const now = useSettingsStore.getState();
+        if (
+            !name ||
+            now.backgroundImage !== before.backgroundImage ||
+            now.wallpaperRotation !== before.wallpaperRotation
+        )
+            return;
         setRotation(false);
         setBackgroundImage(name);
     }, [setRotation, setBackgroundImage]);
