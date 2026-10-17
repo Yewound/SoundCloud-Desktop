@@ -1,6 +1,7 @@
 import { useAuthStore } from '../stores/auth';
 import { api } from './api';
 import { isLocalUrn } from './local-library';
+import { noteWaveOutcome } from './wave-feedback';
 
 export type SoundWaveEvent =
   | 'like'
@@ -9,6 +10,9 @@ export type SoundWaveEvent =
   | 'full_play'
   | 'skip'
   | 'dislike';
+
+const LANDING_WAIT_MS = 2000;
+const inFlight = new Set<Promise<unknown>>();
 
 /**
  * Fire-and-forget event recorder for SoundWave taste model.
@@ -25,12 +29,25 @@ export function recordEvent(
   if (!scUserId) return;
 
   const body: Record<string, unknown> = { scUserId, scTrackId, eventType };
-  if (positionPct != null && Number.isFinite(positionPct)) {
-    body.positionPct = Math.max(0, Math.min(1, positionPct));
-  }
+  const position =
+    positionPct != null && Number.isFinite(positionPct)
+      ? Math.max(0, Math.min(1, positionPct))
+      : undefined;
+  if (position !== undefined) body.positionPct = position;
+  noteWaveOutcome(eventType, scTrackId, position);
 
-  api('/events', {
+  const request = api('/events', {
     method: 'POST',
     body: JSON.stringify(body),
   }).catch(() => {});
+  inFlight.add(request);
+  void request.finally(() => inFlight.delete(request));
+}
+
+export async function eventsLanded(): Promise<void> {
+  if (inFlight.size === 0) return;
+  await Promise.race([
+    Promise.all(inFlight),
+    new Promise((resolve) => setTimeout(resolve, LANDING_WAIT_MS)),
+  ]);
 }

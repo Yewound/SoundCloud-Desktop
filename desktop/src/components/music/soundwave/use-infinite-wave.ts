@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { fetchSmartWave, type SmartWaveSeedKind, sendWaveFeedback } from '../../../lib/soundwave';
+import { fetchSmartWave, type SmartWaveSeedKind } from '../../../lib/soundwave';
+import { followWave, leaveWave, sendWaveFeedback } from '../../../lib/wave-feedback';
 import type { Track } from '../../../stores/player';
 import { usePlayerStore } from '../../../stores/player';
 
@@ -12,8 +13,6 @@ import { usePlayerStore } from '../../../stores/player';
  * 2. Refill срабатывает только если играет наш трек и в очереди осталось
  *    меньше `minTail` хвоста. `ownedRef` — Set urn'ов, которые мы положили;
  *    чужие очереди (плейлисты, лайки) не триггерят refill.
- * 3. Feedback (dis/pos) накапливается между refill'ами; перед следующим
- *    fetch шлём батч, сервер пересчитает веса arm'ов.
  */
 export function useInfiniteWave(opts: {
   enabled: boolean;
@@ -43,8 +42,6 @@ export function useInfiniteWave(opts: {
   const ownedRef = useRef<Set<string>>(new Set());
   const cursorRef = useRef<string>(initialCursor ?? '');
   const fetchingRef = useRef(false);
-  const negCountRef = useRef(0);
-  const posCountRef = useRef(0);
   const languagesRef = useRef(languages);
   const filterRef = useRef(filterTrack);
   const hideListenedRef = useRef(hideListened);
@@ -66,6 +63,13 @@ export function useInfiniteWave(opts: {
   useEffect(() => {
     for (const t of initialTracks) ownedRef.current.add(t.urn);
   }, [initialTracks]);
+
+  useEffect(() => {
+    if (!enabled || seedKind !== 'user') return;
+    const owned = ownedRef.current;
+    followWave(owned);
+    return () => leaveWave(owned);
+  }, [enabled, seedKind]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -92,14 +96,8 @@ export function useInfiniteWave(opts: {
       fetchingRef.current = true;
       (async () => {
         try {
-          if (cursorRef.current && (negCountRef.current > 0 || posCountRef.current > 0)) {
-            const updated = await sendWaveFeedback({
-              cursor: cursorRef.current,
-              negatives: negCountRef.current,
-              positives: posCountRef.current,
-            });
-            negCountRef.current = 0;
-            posCountRef.current = 0;
+          if (seedKind === 'user') {
+            const updated = await sendWaveFeedback(cursorRef.current);
             if (updated) cursorRef.current = updated;
           }
           const batch = await fetchSmartWave({
@@ -128,14 +126,4 @@ export function useInfiniteWave(opts: {
       })();
     });
   }, [enabled, seedKind, seedId, minTail, batchLimit]);
-
-  return {
-    recordNegative: () => {
-      negCountRef.current += 1;
-    },
-    recordPositive: () => {
-      posCountRef.current += 1;
-    },
-    isOwned: (urn: string) => ownedRef.current.has(urn),
-  };
 }

@@ -17,6 +17,7 @@ import {
   type SuperlikeQuota,
   setSuperlikedUrn,
 } from './superlikes';
+import { noteWaveOutcome } from './wave-feedback';
 
 export type { SuperlikeTarget };
 
@@ -54,6 +55,7 @@ async function superlike(target: SuperlikeTarget): Promise<boolean> {
       silentStatuses: [402],
     });
     rememberQuota(answer);
+    noteWaveOutcome('superlike', target.urn);
     if (!wasLiked) void rememberLikedUrn(target.urn, isFullTrack(target) ? target : undefined);
     void queryClient.invalidateQueries({ queryKey: SUPERLIKES_LIST_KEY });
     return true;
