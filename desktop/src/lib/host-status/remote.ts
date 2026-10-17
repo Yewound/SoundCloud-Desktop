@@ -4,33 +4,41 @@ import type { RemoteVerdict } from './store';
 
 const REMOTE_CACHE_MS = 30_000;
 
-interface VerdictPayload {
-  roles?: Record<string, unknown>;
-}
+type Roles = Record<string, unknown>;
 
-let cached: { verdict: RemoteVerdict; at: number } | null = null;
+let cached: { roles: Roles | null; at: number } | null = null;
 
-export function parseRemoteVerdict(payload: unknown): RemoteVerdict {
-  if (typeof payload !== 'object' || payload === null) return 'unknown';
-  const main = (payload as VerdictPayload).roles?.main;
-  if (main === 'operational' || main === 'degraded') return 'up';
-  if (main === 'down') return 'down';
+function verdictOf(role: unknown): RemoteVerdict {
+  if (role === 'operational' || role === 'degraded') return 'up';
+  if (role === 'down') return 'down';
   return 'unknown';
 }
 
-async function load(): Promise<RemoteVerdict> {
+async function load(): Promise<Roles | null> {
   try {
     const res = await fetchExternal(`${STATUS_PAGE_URL}/api/verdict`);
-    if (!res.ok) return 'unknown';
-    return parseRemoteVerdict(await res.json());
+    if (!res.ok) return null;
+    const payload = (await res.json()) as { roles?: unknown } | null;
+    const roles = payload?.roles;
+    return typeof roles === 'object' && roles !== null ? (roles as Roles) : null;
   } catch {
-    return 'unknown';
+    return null;
   }
 }
 
+async function fetchRoles(): Promise<Roles | null> {
+  if (cached && Date.now() - cached.at < REMOTE_CACHE_MS) return cached.roles;
+  const roles = await load();
+  cached = { roles, at: Date.now() };
+  return roles;
+}
+
 export async function fetchRemoteVerdict(): Promise<RemoteVerdict> {
-  if (cached && Date.now() - cached.at < REMOTE_CACHE_MS) return cached.verdict;
-  const verdict = await load();
-  cached = { verdict, at: Date.now() };
-  return verdict;
+  return verdictOf((await fetchRoles())?.main);
+}
+
+export async function playbackServersDown(): Promise<boolean> {
+  const roles = await fetchRoles();
+  const playback = roles?.playback;
+  return playback === 'degraded' || playback === 'down' || verdictOf(roles?.main) === 'down';
 }

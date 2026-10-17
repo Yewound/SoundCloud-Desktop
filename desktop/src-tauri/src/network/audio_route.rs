@@ -2,12 +2,13 @@ use std::time::{Duration, Instant};
 
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use wreq::redirect::Policy;
-use wreq::{Client, RequestBuilder, Response};
+use wreq::{Client, RequestBuilder, Response, StatusCode};
 
 use super::edge::{self, Hop};
 use super::fail;
 use super::netcheck::model::Role;
 use super::netcheck::paths;
+use crate::app::diagnostics;
 
 const HEDGE_DELAY: Duration = Duration::from_millis(300);
 const ROUTE_SILENCE: Duration = Duration::from_secs(15);
@@ -75,7 +76,7 @@ async fn get_from_hops(
         }
         tokio::select! {
             Some((at, attempt, result)) = attempts.next() => {
-                if let Some(response) = settle(&hops[at], attempt, result, &mut errors) {
+                if let Some(response) = settle(&hops[at], attempt, result, session_id, &mut errors) {
                     return Ok((response, at));
                 }
             }
@@ -105,6 +106,7 @@ fn settle(
     hop: &Hop,
     attempt: Attempt,
     result: Result<Response, wreq::Error>,
+    session_id: Option<&str>,
     errors: &mut Vec<String>,
 ) -> Option<Response> {
     let outcome = match &result {
@@ -115,6 +117,21 @@ fn settle(
     match result {
         Ok(response) if edge::hop_ok(hop, &response) => {
             hop.note(true);
+            if response.status() == StatusCode::UNAUTHORIZED {
+                let sent = match session_id {
+                    Some(id) => format!(
+                        "{} chars, uuid {}",
+                        id.len(),
+                        uuid::Uuid::parse_str(id).is_ok()
+                    ),
+                    None => "none".to_string(),
+                };
+                diagnostics::warn(format!(
+                    "[audio] 401 from {} via {}, session id sent: {sent}",
+                    hop.origin,
+                    hop.tier_label()
+                ));
+            }
             Some(response)
         }
         Ok(response) => {

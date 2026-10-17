@@ -20,6 +20,7 @@ export {
   noteUnreachable,
   requestProbe,
 } from './probe';
+export { playbackServersDown } from './remote';
 export {
   type FailoverUi,
   getHostVerdict,

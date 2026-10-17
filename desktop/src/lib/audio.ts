@@ -1,4 +1,5 @@
 import {listen} from '@tauri-apps/api/event';
+import {openUrl} from '@tauri-apps/plugin-opener';
 import {toast} from 'sonner';
 import i18n from '../i18n';
 import {useBlockedArtistsStore} from '../stores/blocked-artists';
@@ -28,12 +29,14 @@ import {
   upgradeCachedTrack,
 } from './cache';
 import {isTrackBlocked} from './blocked-artists';
+import {STATUS_PAGE_URL} from './constants';
 import {trackedInvoke as invoke} from './diagnostics';
 import {isBelow} from './playback-quality';
 import {offerUndislike} from './dislike-actions';
 import {isUrnDisliked} from './dislikes';
 import {recordEvent} from './events';
 import {art} from './formatters';
+import {playbackServersDown} from './host-status';
 import {trackUrn} from './ids';
 import {
   bumpLoadWatch,
@@ -604,8 +607,24 @@ function skipUnloadable(track: Track, stuck: boolean): boolean {
   if (!player.isPlaying || player.currentTrack?.urn !== track.urn) return false;
   if (!skipUnloadableEnabled() || !playbackAllowed('skip')) return false;
   if (!takeSkipAttempt()) {
-    toast.warning(i18n.t('track.skipHalted'), { description: i18n.t('track.skipHaltedHint') });
+    const halted = toast.warning(i18n.t('track.skipHalted'), {
+      description: i18n.t('track.skipHaltedHint'),
+    });
     player.pause();
+    void playbackServersDown().then((down) => {
+      const latest = usePlayerStore.getState();
+      if (!down || latest.isPlaying || latest.currentTrack?.urn !== track.urn) return;
+      toast.dismiss(halted);
+      toast.dismiss('track-load-error');
+      toast.error(i18n.t('track.serversDown'), {
+        id: 'playback-servers-down',
+        duration: 10000,
+        action: {
+          label: i18n.t('hostStatus.actions.statusPage'),
+          onClick: () => void openUrl(STATUS_PAGE_URL).catch(() => undefined),
+        },
+      });
+    });
     return true;
   }
   if (stuck) {

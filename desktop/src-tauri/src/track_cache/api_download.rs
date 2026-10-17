@@ -13,6 +13,8 @@ use crate::app::diagnostics;
 use crate::network::audio_route;
 use crate::network::edge::{self, Hop};
 
+const SESSION_NOT_SEEN: &str = "Missing or malformed x-session-id";
+
 pub(super) struct StreamJob<'a> {
     pub client: &'a Client,
     pub target_dir: &'a Path,
@@ -26,7 +28,20 @@ pub(super) async fn download_api(
     job: &StreamJob<'_>,
     url: &str,
 ) -> Result<DownloadResult, DownloadError> {
-    let stream_url = open_stream(job.client, url, job.session_id).await?;
+    let stream_url = match open_stream(job.client, url, job.session_id).await {
+        Err(DownloadError::Fatal(err)) if err.contains(SESSION_NOT_SEEN) => {
+            let session = crate::auth::session_token(job.app_handle).await;
+            let Some(session) = session.as_deref().or(job.session_id) else {
+                return Err(DownloadError::Fatal(err));
+            };
+            diagnostics::warn(format!(
+                "[TrackCache] {} api did not see the session, asking once more",
+                job.urn
+            ));
+            open_stream(job.client, url, Some(session)).await?
+        }
+        opened => opened?,
+    };
     let hops = edge::audio_plan(&stream_url);
     download_over(job, &hops, quality_from_url(url)).await
 }
@@ -269,13 +284,14 @@ fn format_reqwest_error(err: wreq::Error) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
-    use warp::Filter;
+    use warp::{Filter, Reply};
 
-    use super::{StreamJob, download_over};
+    use super::{StreamJob, download_api, download_over};
     use crate::network::edge::{Hop, Tier};
     use crate::track_cache::state::{DownloadError, PlaybackQuality};
 
@@ -364,6 +380,43 @@ mod tests {
             fetch_over(&hops).await,
             Err(DownloadError::Retryable(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn a_session_the_api_did_not_see_is_sent_once_more() {
+        let asked = Arc::new(AtomicUsize::new(0));
+        let counted = asked.clone();
+        let ticket = warp::path("ticket").map(move || {
+            if counted.fetch_add(1, Ordering::SeqCst) == 0 {
+                let refusal = warp::reply::json(&serde_json::json!({
+                    "message": "Missing or malformed x-session-id header"
+                }));
+                return warp::reply::with_status(refusal, warp::http::StatusCode::UNAUTHORIZED)
+                    .into_response();
+            }
+            warp::redirect::temporary(warp::http::Uri::from_static("/stream")).into_response()
+        });
+        let stream = warp::path("stream").map(|| audio(FULL));
+        let (addr, server) = warp::serve(ticket.or(stream)).bind_ephemeral(([127, 0, 0, 1], 0));
+        tokio::spawn(server);
+
+        let dir = std::env::temp_dir().join(format!("sc-session-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let client = wreq::Client::new();
+        let receiving = AtomicBool::new(false);
+        let job = StreamJob {
+            client: &client,
+            target_dir: &dir,
+            urn: "soundcloud:tracks:1",
+            session_id: Some("5b0c3a4e-3f0e-4a8e-9f3e-0c1d2e3f4a5b"),
+            app_handle: None,
+            receiving: &receiving,
+        };
+        let done = download_api(&job, &format!("http://{addr}/ticket")).await;
+        std::fs::remove_dir_all(dir).unwrap();
+
+        assert!(done.is_ok());
+        assert_eq!(asked.load(Ordering::SeqCst), 2);
     }
 
     #[test]

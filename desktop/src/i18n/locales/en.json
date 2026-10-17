@@ -286,6 +286,7 @@
     "skippedStuck": "Track did not load in time, playing the next one",
     "skipHalted": "Several tracks in a row failed to load",
     "skipHaltedHint": "Playback is paused. Check your connection and press play to try again.",
+    "serversDown": "Playback servers are down, we are fixing it",
     "dislike": "Don't recommend",
     "removeDislike": "Remove dislike",
     "like": "Like",
