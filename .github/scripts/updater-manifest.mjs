@@ -3,10 +3,11 @@ import { join } from 'node:path';
 
 const repository = process.env.GITHUB_REPOSITORY || 'zxcloli666/SoundCloud-Desktop';
 const downloadBase = `https://github.com/${repository}/releases/latest/download`;
-const mirrorBase = process.env.UPDATER_MIRROR_BASE || 'https://images.scnative.space';
+const manifestMirror = process.env.UPDATER_MIRROR_BASE || 'https://images.scnative.space';
+const appMirror = 'https://images.scnative.dev';
 
-function mirrored(url) {
-  return `${mirrorBase}/x-target/${Buffer.from(url).toString('base64')}`;
+function mirrored(base, url) {
+  return `${base}/x-target/${Buffer.from(url).toString('base64')}`;
 }
 
 const TARGETS = [
@@ -24,7 +25,7 @@ function writeConfig(out) {
   const manifestUrl = `${downloadBase}/latest.json`;
   const config = {
     bundle: { createUpdaterArtifacts: true },
-    plugins: { updater: { pubkey, endpoints: [manifestUrl, mirrored(manifestUrl)] } },
+    plugins: { updater: { pubkey, endpoints: [manifestUrl, mirrored(appMirror, manifestUrl)] } },
   };
   writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`);
 }
@@ -38,7 +39,7 @@ function writeManifest(dir, version) {
     if (!target || !existsSync(sigPath)) continue;
     const entry = {
       signature: readFileSync(sigPath, 'utf8').trim(),
-      url: mirrored(`${downloadBase}/${encodeURIComponent(file)}`),
+      url: mirrored(manifestMirror, `${downloadBase}/${encodeURIComponent(file)}`),
     };
     for (const key of target.keys) platforms[key] = entry;
   }
