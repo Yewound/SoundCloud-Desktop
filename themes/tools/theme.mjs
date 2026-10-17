@@ -92,11 +92,14 @@ export function loadTheme(dir, buildRev, previousEntry) {
     const stat = lstatSync(join(dir, name));
     if (name === 'assets' && stat.isDirectory()) {
       for (const asset of listFiles(join(dir, name))) {
-        const file = lstatSync(join(dir, name, asset));
-        if (!file.isFile())
-          errors.push(`${at}/assets/${asset}: assets/ must hold only plain files`);
-        else if (!THEME_ASSET_NAME.test(asset)) errors.push(`${at}/assets/${asset}: bad file name`);
-        else assetNames.push(asset);
+        const where = `${at}/assets/${asset}`;
+        if (!lstatSync(join(dir, name, asset)).isFile()) {
+          errors.push(`${where}: assets/ must hold only plain files`);
+        } else if (!THEME_ASSET_NAME.test(asset)) {
+          errors.push(`${where}: bad file name`);
+        } else {
+          assetNames.push(asset);
+        }
       }
     } else if (!stat.isFile()) {
       errors.push(`${at}/${name}: only plain files and a flat assets/ are allowed`);

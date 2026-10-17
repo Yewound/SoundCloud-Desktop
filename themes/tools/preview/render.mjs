@@ -225,8 +225,9 @@ try {
       await waitReady();
       await sleep(SETTLE_MS);
       const calls = await evaluate(browser, sessionId, FINISH);
-      if (values.verbose)
+      if (values.verbose) {
         console.log(`${id}: unanswered commands and api calls\n${calls.join('\n')}`);
+      }
 
       let bytes = null;
       for (const quality of QUALITIES) {
