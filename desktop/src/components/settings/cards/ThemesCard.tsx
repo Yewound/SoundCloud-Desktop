@@ -54,14 +54,6 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-function matchesQuery(item: ThemeItem, query: string): boolean {
-  const text = [item.entry?.name ?? item.installed?.name, item.entry?.author.name]
-    .concat(Object.values(item.entry?.description ?? {}))
-    .join(' ')
-    .toLowerCase();
-  return text.includes(query);
-}
-
 export function ThemesCard() {
   const { t, i18n } = useTranslation();
   const catalog = useThemesStore((s) => s.catalog);
@@ -96,7 +88,15 @@ export function ThemesCard() {
   }, [catalog, installed, activeId]);
 
   const needle = query.trim().toLowerCase();
-  const shown = needle ? items.filter((item) => matchesQuery(item, needle)) : items;
+  const shown = needle
+    ? items.filter((item) =>
+        [item.entry?.name ?? item.installed?.name, item.entry?.author.name]
+          .concat(Object.values(item.entry?.description ?? {}))
+          .join(' ')
+          .toLowerCase()
+          .includes(needle),
+      )
+    : items;
   const openItem = items.find((item) => item.id === openId) ?? null;
   const loading = status === 'loading' && !catalog;
   const guide = `${THEMES_GUIDE_URL}/${i18n.language.startsWith('ru') ? 'README.ru.md' : 'README.md'}`;

@@ -1,4 +1,3 @@
-import type { TFunction } from 'i18next';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -23,30 +22,6 @@ const TOAST_KEYS: Record<ThemeNotice['kind'], string> = {
 
 let bootVerified = false;
 
-async function repairInstalled() {
-  for (const [id, theme] of Object.entries(useThemesStore.getState().installed)) {
-    for (const version of theme.previous ? [theme, theme.previous] : [theme]) {
-      if (await missingFiles(version)) await repair(id, version).catch(() => undefined);
-    }
-  }
-  await syncThemeCss(activeLook(useThemesStore.getState()));
-}
-
-function showNotice(t: TFunction, notice: ThemeNotice) {
-  const { rollback, setEnabled } = useThemesStore.getState();
-  const action =
-    notice.kind === 'updated'
-      ? { label: t('settings.themesRollback'), onClick: () => rollback(notice.id) }
-      : notice.kind === 'crashOff'
-        ? { label: t('settings.themesEnable'), onClick: () => void setEnabled(true) }
-        : undefined;
-  toast(t(TOAST_KEYS[notice.kind], { name: notice.name }), {
-    id: `theme:${notice.kind}:${notice.id}`,
-    action,
-    duration: action ? 10_000 : undefined,
-  });
-}
-
 export function useThemes() {
   const { t } = useTranslation();
   const look = useThemesStore(activeLook);
@@ -58,7 +33,20 @@ export function useThemes() {
 
   useEffect(() => {
     if (!notices.length) return;
-    for (const notice of notices) showNotice(t, notice);
+    const { rollback, setEnabled } = useThemesStore.getState();
+    for (const notice of notices) {
+      const action =
+        notice.kind === 'updated'
+          ? { label: t('settings.themesRollback'), onClick: () => rollback(notice.id) }
+          : notice.kind === 'crashOff'
+            ? { label: t('settings.themesEnable'), onClick: () => void setEnabled(true) }
+            : undefined;
+      toast(t(TOAST_KEYS[notice.kind], { name: notice.name }), {
+        id: `theme:${notice.kind}:${notice.id}`,
+        action,
+        duration: action ? 10_000 : undefined,
+      });
+    }
     useThemesStore.setState({ notices: [] });
   }, [notices, t]);
 
@@ -73,10 +61,15 @@ export function useThemes() {
       const { installed, refresh } = useThemesStore.getState();
       if (Object.keys(installed).length) void refresh(false);
     };
-    const stopIdle = onIdle(STARTUP_IDLE_MS, () => {
+    const stopIdle = onIdle(STARTUP_IDLE_MS, async () => {
       stopIdle();
       check();
-      void repairInstalled();
+      for (const [id, theme] of Object.entries(useThemesStore.getState().installed)) {
+        for (const version of theme.previous ? [theme, theme.previous] : [theme]) {
+          if (await missingFiles(version)) await repair(id, version).catch(() => undefined);
+        }
+      }
+      await syncThemeCss(activeLook(useThemesStore.getState()));
     });
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
