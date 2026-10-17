@@ -52,7 +52,10 @@ pub async fn lastfm_auth_start(state: Scrobbler<'_>) -> Result<String, String> {
     let creds = lastfm::credentials().ok_or("unavailable")?;
     let token = lastfm::request_token(&state.http, creds)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| match e {
+            ApiError::Retry(detail) => format!("network: {detail}"),
+            other => format!("refused: {other}"),
+        })?;
     let url = lastfm::auth_url(creds, &token);
     state.set_lastfm_token(Some(token)).await;
     Ok(url)

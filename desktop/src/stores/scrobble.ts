@@ -30,22 +30,28 @@ export interface LiveScrobble {
   threshold: number;
 }
 
-export type LastfmAuthPhase = 'idle' | 'waiting' | 'error';
+export type LastfmAuthFailure = 'network' | 'refused' | 'failed';
+
+export type LastfmAuth =
+  | { phase: 'idle' | 'connecting' | 'waiting' }
+  | { phase: 'manual'; url: string }
+  | { phase: 'error'; failure: LastfmAuthFailure };
 
 interface ScrobbleStore {
   status: ScrobbleStatus | null;
   live: LiveScrobble;
   sent: number;
-  lastfmAuth: LastfmAuthPhase;
+  lastfmAuth: LastfmAuth;
 }
 
 export const IDLE_LIVE: LiveScrobble = { urn: null, phase: 'idle', played: 0, threshold: 0 };
+export const IDLE_AUTH: LastfmAuth = { phase: 'idle' };
 
 export const useScrobbleStore = create<ScrobbleStore>(() => ({
   status: null,
   live: IDLE_LIVE,
   sent: 0,
-  lastfmAuth: 'idle',
+  lastfmAuth: IDLE_AUTH,
 }));
 
 export function hasScrobbleAccount(status: ScrobbleStatus | null): boolean {
