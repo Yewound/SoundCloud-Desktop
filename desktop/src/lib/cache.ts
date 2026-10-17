@@ -114,6 +114,7 @@ export async function ensureTrackCached(
   quality: PlaybackQuality = requestedQuality(),
   durationMs?: number,
   storageQuality?: StorageQuality,
+  background = false,
 ): Promise<TrackCacheInfo> {
   const cached = await getCacheInfo(urn);
   if (cached) {
@@ -121,7 +122,7 @@ export async function ensureTrackCached(
   }
 
   const request = await buildCacheRequest(urn, quality, durationMs, storageQuality);
-  return invoke<TrackCacheInfo>('track_ensure_cached', { request });
+  return invoke<TrackCacheInfo>('track_ensure_cached', { request: { ...request, background } });
 }
 
 export async function saveTrackOffline(

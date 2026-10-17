@@ -56,6 +56,10 @@ impl SessionStore {
             rt,
         })
     }
+
+    pub async fn premium(&self) -> bool {
+        self.state.read().await.premium
+    }
 }
 
 fn is_usable(token: &str) -> bool {
@@ -167,6 +171,7 @@ pub async fn auth_set_premium(
         log_native(&app, "ERROR", format!("[auth] premium persist failed: {e}"));
     }
     app.emit(EVENT, guard.clone()).ok();
+    crate::track_cache::premium_changed(&app);
     Ok(())
 }
 

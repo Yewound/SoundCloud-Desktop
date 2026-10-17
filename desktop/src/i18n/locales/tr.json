@@ -1101,11 +1101,11 @@
     "streamQualitySq": "Tasarruf · SQ",
     "streamQualityHq": "HQ",
     "streamQualityUq": "Maksimum · UQ",
-    "streamQualityAutoDesc": "Star ile parcanin verdigi en iyi kalite, UQ ya da HQ; kayitli parcalar oldugu gibi kalir",
+    "streamQualityAutoDesc": "Parcanin verdigi en iyi kalite: HQ, Star ile UQ; kayitli parcalar oldugu gibi kalir",
     "streamQualitySqDesc": "Standart kalite: daha hizli yukleme, daha az trafik ve disk alani",
     "streamQualityHqDesc": "Yalnizca HQ: SQ olarak kayitli parcalar calindiginda arka planda HQ olarak yeniden indirilir",
     "streamQualityUqDesc": "Varsa UQ, yoksa HQ: daha dusuk kalitede kayitli parcalar calindiginda arka planda yeniden indirilir",
-    "streamQualityLocked": "HQ ve UQ, Star aboneligi ile gelir. Onsuz parcalar standart kalitede (SQ) calar.",
+    "streamQualityLocked": "UQ, Star aboneligi ile gelir. Onsuz en iyi kalite HQ olur.",
     "streamQualityNow": "Simdi calan",
     "bypassWhitelist": "Beyaz listeleri atla",
     "bypassWhitelistDesc": "Ag kisitlamalari ve kesintilerde alternatif yonlendirme (Russia)",
@@ -1519,7 +1519,6 @@
     "modalSub": "Projeyi destekle — bonuslar kazan",
     "perkGoPlus": "GO+ parcalarina erisim",
     "perkServer": "Ozel streaming sunucusu",
-    "perkHQ": "Daha fazla HQ parca",
     "bypassWhitelist": "Beyaz listeleri atla (in Russia)",
     "perkSupport": "Ya da sadece projeyi kucuk bir bagisla destekle.\nDaha fazla bonus yakinda!",
     "howTo": "Nasil alinir",
@@ -1555,7 +1554,7 @@
     "eyebrow": "Uyelik pasosu · seri 2026",
     "heroTitle1": "Abonelik degil.",
     "heroTitle2": "Sese bir paso.",
-    "heroLead": "STAR, kendi seri numarasi olan kisisel bir pasodur. Ozel sunucuyu, HQ parcalari ve SoundWave'i acar. Satin al — karti al; aktif et — canlanir.",
+    "heroLead": "STAR, kendi seri numarasi olan kisisel bir pasodur. Ozel sunucuyu, UQ sesi ve SoundWave'i acar. Satin al — karti al; aktif et — canlanir.",
     "choosePass": "Paso sec",
     "haveCode": "Kodum var",
     "plan": {
@@ -1570,11 +1569,11 @@
       },
       "server": {
         "title": "Ozel sunucu",
-        "body": "Ayri streaming dugumu: daha hizli baslangic, kuyruksuz stabil HQ."
+        "body": "Ayri streaming dugumu: daha hizli baslangic, kuyruksuz stabil akis."
       },
-      "hq": {
-        "title": "Daha fazla HQ parca",
-        "body": "Eskiden sikistirma alinan yerde yuksek kalite."
+      "uq": {
+        "title": "UQ ses",
+        "body": "Parcanin sundugu en yuksek kalite."
       },
       "whitelist": {
         "title": "RF beyaz listelerini atla",
@@ -1651,7 +1650,7 @@
     "successTitle": "Paso aktif edildi",
     "successSub": "Kart damgasini aldi ve folyoyla parliyor. Muzige donebilirsin.",
     "welcome": "STAR'a hos geldin, {{handle}}.",
-    "welcomeBody": "Paso {{date}} tarihine kadar gecerli. Ozel sunucu, HQ ve SoundWave zaten acik — bir sey yeniden yuklemen gerekmiyor.",
+    "welcomeBody": "Paso {{date}} tarihine kadar gecerli. Ozel sunucu, UQ ve SoundWave zaten acik — bir sey yeniden yuklemen gerekmiyor.",
     "until": "kadar",
     "backToMusic": "Muzige don",
     "managePass": "Pasoyu yonet",

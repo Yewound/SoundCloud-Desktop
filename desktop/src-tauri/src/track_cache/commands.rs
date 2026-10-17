@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::app::diagnostics;
 use crate::shared::blocking::run_blocking;
@@ -32,6 +32,8 @@ pub struct EnsureCachedRequest {
     pub duration_ms: Option<u64>,
     #[serde(default)]
     pub storage_quality: Option<String>,
+    #[serde(default)]
+    pub background: bool,
 }
 
 fn require_track_urn(urn: &str) -> Result<String, String> {
@@ -89,6 +91,7 @@ pub async fn track_ensure_cached(
             storage_quality: request.storage_quality.as_deref(),
             liked: false,
             expected_duration_ms: request.duration_ms,
+            background: request.background,
         })
         .await
 }
@@ -125,6 +128,7 @@ impl ResolvedRequest {
             storage_quality: self.request.storage_quality.as_deref(),
             liked,
             expected_duration_ms: self.request.duration_ms,
+            background: false,
         }
     }
 }
@@ -149,6 +153,7 @@ pub async fn track_upgrade_cached(
             storage_quality: request.storage_quality.as_deref(),
             liked: false,
             expected_duration_ms: request.duration_ms,
+            background: true,
         })
         .await)
 }
@@ -220,6 +225,12 @@ pub fn track_pinned_urns(urns: Vec<String>, state: State<'_, TrackCacheState>) -
     urns.into_iter()
         .filter(|urn| canonical_track_urn(urn).is_some_and(|urn| state.is_pinned(&urn)))
         .collect()
+}
+
+pub fn premium_changed(app: &crate::rt::AppHandle) {
+    if let Some(state) = app.try_state::<TrackCacheState>() {
+        state.forget_refusal();
+    }
 }
 
 #[tauri::command]
@@ -298,6 +309,7 @@ pub async fn track_preload(
                     storage_quality: storage_quality.as_deref(),
                     liked: false,
                     expected_duration_ms: duration_ms,
+                    background: true,
                 })
                 .await
             {

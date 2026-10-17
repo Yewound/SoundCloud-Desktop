@@ -8,6 +8,7 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use base64::Engine as _;
 use bytes::Bytes;
@@ -16,8 +17,9 @@ use wreq::Client;
 
 use crate::app::diagnostics;
 
+use super::api_download::{http_failure, refused_by_both, refused_for};
 use super::sc_anon::hls::{download_hls_full, download_progressive};
-use super::state::PlaybackQuality;
+use super::state::{DownloadError, Miss, PlaybackQuality};
 
 #[derive(serde::Deserialize)]
 pub struct DownloadResponse {
@@ -99,44 +101,53 @@ pub struct DirectResult {
     pub quality: PlaybackQuality,
 }
 
+type CandidatesFut = Pin<Box<dyn Future<Output = Result<Vec<Candidate>, String>> + Send>>;
+
 pub async fn fetch_candidates(
     client: &Client,
     download_urls: &[String],
     session_id: Option<&str>,
-) -> Option<Vec<Candidate>> {
-    let mut futures: Vec<Pin<Box<dyn Future<Output = Option<Vec<Candidate>>> + Send>>> =
-        download_urls
-            .iter()
-            .map(|url| {
-                let client = client.clone();
-                let endpoint = url.clone();
-                let session_id = session_id.map(str::to_string);
-                Box::pin(
-                    async move { fetch_usable(&client, &endpoint, session_id.as_deref()).await },
-                ) as Pin<Box<dyn Future<Output = Option<Vec<Candidate>>> + Send>>
-            })
-            .collect();
+) -> Result<Vec<Candidate>, Miss> {
+    let mut futures: Vec<CandidatesFut> = download_urls
+        .iter()
+        .map(|url| {
+            let client = client.clone();
+            let endpoint = url.clone();
+            let session_id = session_id.map(str::to_string);
+            Box::pin(async move { fetch_usable(&client, &endpoint, session_id.as_deref()).await })
+                as CandidatesFut
+        })
+        .collect();
 
+    let mut last_err = String::from("no /download URLs");
+    let mut refused = Some(Duration::ZERO);
     while !futures.is_empty() {
         let (result, _idx, remaining) = select_all(futures).await;
-        if result.is_some() {
-            return result;
+        match result {
+            Ok(candidates) => return Ok(candidates),
+            Err(err) => {
+                refused = refused_by_both(refused, refused_for(&err));
+                last_err = err;
+            }
         }
         futures = remaining;
     }
-    None
+    Err(Miss {
+        err: last_err,
+        refused,
+    })
 }
 
 async fn fetch_usable(
     client: &Client,
     endpoint: &str,
     session_id: Option<&str>,
-) -> Option<Vec<Candidate>> {
+) -> Result<Vec<Candidate>, String> {
     let resp = match fetch_download(client, endpoint, session_id).await {
         Ok(r) => r,
         Err(e) => {
             diagnostics::warn(format!("[direct] {endpoint} failed: {e}"));
-            return None;
+            return Err(e);
         }
     };
     let usable: Vec<Candidate> = resp
@@ -146,7 +157,7 @@ async fn fetch_usable(
         .collect();
     if usable.is_empty() {
         println!("[direct] {endpoint} returned no usable candidates");
-        return None;
+        return Err("no usable candidates".into());
     }
     let listing = usable
         .iter()
@@ -154,7 +165,7 @@ async fn fetch_usable(
         .collect::<Vec<_>>()
         .join(", ");
     println!("[direct] {endpoint} candidates: [{listing}]");
-    Some(usable)
+    Ok(usable)
 }
 
 pub async fn consume_at(
@@ -206,7 +217,9 @@ async fn fetch_download(
         .map_err(|e| format!("request: {e}"))?;
     let status = resp.status();
     if !status.is_success() {
-        return Err(format!("HTTP {status}"));
+        let (DownloadError::Fatal(err) | DownloadError::Retryable(err)) =
+            http_failure(status, resp).await;
+        return Err(err);
     }
     println!("[direct] endpoint via {}", hop.tier_label());
     resp.json::<DownloadResponse>()
@@ -300,6 +313,39 @@ mod tests {
 
     fn presets(picked: Vec<&Candidate>) -> Vec<&str> {
         picked.into_iter().map(Candidate::preset).collect()
+    }
+
+    fn download_answering(status: warp::http::StatusCode) -> String {
+        use warp::Filter;
+        let route = warp::path("download").map(move || {
+            let reply = warp::reply::with_status("free hq busy", status);
+            warp::reply::with_header(reply, "retry-after", "30")
+        });
+        let (addr, server) = warp::serve(route).bind_ephemeral(([127, 0, 0, 1], 0));
+        tokio::spawn(server);
+        format!("http://{addr}/download")
+    }
+
+    #[tokio::test]
+    async fn a_busy_download_refuses_the_tier_only_when_every_endpoint_is_busy() {
+        use warp::http::StatusCode;
+        let client = Client::new();
+        let busy = [
+            download_answering(StatusCode::TOO_MANY_REQUESTS),
+            download_answering(StatusCode::TOO_MANY_REQUESTS),
+        ];
+        let refused = fetch_candidates(&client, &busy, None).await.err();
+        assert_eq!(
+            refused.and_then(|miss| miss.refused),
+            Some(Duration::from_secs(30))
+        );
+
+        let mixed = [
+            download_answering(StatusCode::TOO_MANY_REQUESTS),
+            download_answering(StatusCode::BAD_GATEWAY),
+        ];
+        let failed = fetch_candidates(&client, &mixed, None).await.err();
+        assert!(failed.is_some_and(|miss| miss.refused.is_none()));
     }
 
     #[test]

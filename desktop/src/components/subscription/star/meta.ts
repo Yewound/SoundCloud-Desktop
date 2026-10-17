@@ -9,7 +9,7 @@ export type Step = 'overview' | 'method' | 'pay' | 'success' | 'redeem' | 'manag
 export const PERKS = [
   { key: 'goPlus', Icon: Music },
   { key: 'server', Icon: Database },
-  { key: 'hq', Icon: AudioLines },
+  { key: 'uq', Icon: AudioLines },
   { key: 'whitelist', Icon: Globe },
   { key: 'soundwave', Icon: Sparkles },
   { key: 'superlikes', Icon: SuperHeart },

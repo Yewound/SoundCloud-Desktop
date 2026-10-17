@@ -1194,11 +1194,11 @@
     "streamQualitySq": "Saver · SQ",
     "streamQualityHq": "HQ",
     "streamQualityUq": "Max · UQ",
-    "streamQualityAutoDesc": "The best the track has with Star, UQ or HQ; tracks already saved stay as they are",
+    "streamQualityAutoDesc": "The best the track has: HQ, or UQ with Star; tracks already saved stay as they are",
     "streamQualitySqDesc": "Standard quality: faster loading, less traffic and disk space",
     "streamQualityHqDesc": "HQ: tracks saved in SQ are quietly re-downloaded in HQ when you play them",
     "streamQualityUqDesc": "UQ when there is one, else HQ: tracks saved lower are quietly re-downloaded when you play them",
-    "streamQualityLocked": "HQ and UQ come with Star. Without it tracks play in standard quality (SQ).",
+    "streamQualityLocked": "UQ comes with Star. Without it the best is HQ.",
     "streamQualityNow": "Now playing",
     "catGeneral": "General",
     "catAppearance": "Appearance",
@@ -1609,7 +1609,6 @@
     "modalSub": "Support the project — get perks",
     "perkGoPlus": "Access to GO+ tracks",
     "perkServer": "Dedicated streaming server",
-    "perkHQ": "More HQ tracks",
     "bypassWhitelist": "Bypass whitelists (in Russia)",
     "perkSupport": "And just support the project with a small donation.\nMore perks coming soon!",
     "howTo": "How to get",
@@ -1645,7 +1644,7 @@
     "eyebrow": "Member pass",
     "heroTitle1": "Not a subscription.",
     "heroTitle2": "A pass into sound.",
-    "heroLead": "A personal pass: dedicated server, HQ and the full catalog — no compromises.",
+    "heroLead": "A personal pass: dedicated server, UQ and the full catalog — no compromises.",
     "choosePass": "Choose a pass",
     "haveCode": "I have a code",
     "plan": {
@@ -1667,9 +1666,9 @@
         "title": "Fast server",
         "tag": "No queues"
       },
-      "hq": {
-        "title": "HQ sound",
-        "tag": "High quality"
+      "uq": {
+        "title": "UQ sound",
+        "tag": "Max quality"
       },
       "whitelist": {
         "title": "No RU blocks",
@@ -1746,7 +1745,7 @@
     "successTitle": "Pass activated",
     "successSub": "Everything's on. Back to the music.",
     "welcome": "Welcome to STAR, {{handle}}.",
-    "welcomeBody": "Valid until {{date}}. Server, HQ and SoundWave are already on.",
+    "welcomeBody": "Valid until {{date}}. Server, UQ and SoundWave are already on.",
     "until": "until",
     "backToMusic": "To music",
     "managePass": "Manage",

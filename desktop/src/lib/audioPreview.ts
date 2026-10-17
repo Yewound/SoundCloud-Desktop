@@ -64,6 +64,7 @@ export function startHoverPreview(track: Track): void {
                       undefined,
                       expectedDurationMs(track),
                       track._scd_meta?.storage_quality,
+                      true,
                   )
                 : await getCacheInfo(urn);
             // Superseded by a newer hover, or no longer allowed.
