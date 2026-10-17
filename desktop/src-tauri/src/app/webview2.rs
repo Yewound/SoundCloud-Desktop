@@ -5,7 +5,9 @@ use tauri::Manager;
 
 use crate::rt::App;
 
-const DOWNLOAD_PAGE: &str = "https://developer.microsoft.com/microsoft-edge/webview2/";
+const GUIDE_RU: &str = "https://docs.getsoundcloud.app/webview2";
+const GUIDE_EN: &str = "https://docs.getsoundcloud.app/en/webview2";
+const LANG_RUSSIAN: u16 = 0x19;
 
 const CAPTION: &str = "SoundCloud Desktop";
 
@@ -17,7 +19,7 @@ Microsoft Edge WebView2 Runtime is missing or broken, SoundCloud Desktop cannot 
 
 Download the Evergreen Standalone Installer from the Microsoft page and run it as administrator, Edge itself is not needed. If the installer says the Runtime is already installed, delete the Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5} registry keys in HKLM\SOFTWARE\WOW6432Node, HKLM\SOFTWARE and HKCU\Software and install again.
 
-Открыть страницу загрузки? / Open the download page?";
+Открыть инструкцию? / Open the guide?";
 
 const MB_YESNO: u32 = 0x04;
 const MB_ICONERROR: u32 = 0x10;
@@ -26,6 +28,11 @@ const IDYES: i32 = 6;
 #[link(name = "user32")]
 unsafe extern "system" {
     fn MessageBoxW(hwnd: *mut c_void, text: *const u16, caption: *const u16, kind: u32) -> i32;
+}
+
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn GetUserDefaultUILanguage() -> u16;
 }
 
 pub fn exit_if_runtime_missing() {
@@ -56,9 +63,18 @@ fn exit_with_runtime_error() -> ! {
         )
     };
     if answer == IDYES {
-        let _ = tauri_plugin_opener::open_url(DOWNLOAD_PAGE, None::<&str>);
+        let _ = tauri_plugin_opener::open_url(guide(), None::<&str>);
     }
     std::process::exit(1);
+}
+
+fn guide() -> &'static str {
+    let language = unsafe { GetUserDefaultUILanguage() };
+    if language & 0x3ff == LANG_RUSSIAN {
+        GUIDE_RU
+    } else {
+        GUIDE_EN
+    }
 }
 
 fn wide(text: &str) -> Vec<u16> {
