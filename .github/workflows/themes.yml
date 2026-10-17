@@ -1,0 +1,57 @@
+name: Themes
+on:
+  pull_request:
+    paths: ['themes/**', 'desktop/src/lib/themes/**', '.github/workflows/themes.yml']
+  push:
+    branches: [main]
+    paths: ['themes/**', 'desktop/src/lib/themes/**', '.github/workflows/themes.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: git fetch origin refs/heads/themes-dist:refs/remotes/origin/themes-dist || true
+      - run: node --experimental-strip-types --test 'themes/tools/*.test.mjs'
+      - run: node --experimental-strip-types themes/tools/check.mjs --previous origin/themes-dist --pr-author "$PR_AUTHOR"
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: themes-publish
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: git fetch origin refs/heads/themes-dist:refs/remotes/origin/themes-dist || true
+      - id: build
+        run: |
+          set +e
+          node --experimental-strip-types themes/tools/build.mjs --rev "$GITHUB_SHA" --previous origin/themes-dist --out "$RUNNER_TEMP/dist"
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+      - if: steps.build.outputs.code == '0' || steps.build.outputs.code == '3'
+        working-directory: ${{ runner.temp }}/dist
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git init -q -b themes-dist
+          git add -A
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -q -m "themes ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" themes-dist
+      - if: steps.build.outputs.code != '0'
+        run: exit 1
