@@ -142,7 +142,8 @@
     "scanQr": "Sign in with QR",
     "transferSession": "Transfer session to another device",
     "noPhoneApp": "No app on your phone?",
-    "getAndroid": "Get the Android app"
+    "getAndroid": "Android",
+    "getIos": "iPhone"
   },
   "search": {
     "globalPlaceholder": "What do you want to hear?",
@@ -1075,7 +1076,10 @@
     "androidSourceDesc": "okeydw/SoundCloud-Android, open source",
     "androidNote": "The official Android app, developed alongside the desktop app. It syncs likes and signs in by QR code.",
     "ios": "iOS app",
-    "iosDev": "In development",
+    "iosDownload": "Download IPA",
+    "iosDownloadDesc": "Latest release on GitHub",
+    "iosInstall": "How to install",
+    "iosInstallDesc": "Install with SideStore, step by step",
     "support": "Support the project",
     "supportDesc": "The app is free and runs on donations. Thank you for helping",
     "supportDonate": "Donate on Boosty",

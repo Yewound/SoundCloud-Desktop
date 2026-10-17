@@ -2,6 +2,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ANDROID_CLIENT_URL } from '../../lib/constants';
+import { helpUrl } from '../../lib/help-url';
 import { Check, ExternalLink, RefreshCw, Smartphone, X } from '../../lib/icons';
 import { encodeQrPayload } from '../../lib/qr-link';
 import { Modal, ModalClose, ModalContent, ModalTitle } from '../ui/Modal';
@@ -17,7 +18,7 @@ interface QrLinkSheetProps {
 
 export const QrLinkSheet = React.memo(
   ({ open, onOpenChange, mode, onSuccess }: QrLinkSheetProps) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { state, start, reset } = useQrLink(mode, onSuccess);
     const [now, setNow] = useState(Date.now());
 
@@ -136,17 +137,26 @@ export const QrLinkSheet = React.memo(
             )}
 
             {state.status !== 'claimed' && (
-              <button
-                type="button"
-                onClick={() => openUrl(ANDROID_CLIENT_URL)}
-                className="group/android mt-5 mx-auto flex items-center gap-1.5 text-[11.5px] text-white/35 hover:text-white/70 transition-colors cursor-pointer"
-              >
+              <div className="mt-5 mx-auto flex items-center justify-center gap-1.5 text-[11.5px] text-white/35">
                 <span>{t('qrLink.noPhoneApp')}</span>
-                <span className="text-[var(--color-accent)] opacity-80 group-hover/android:opacity-100 transition-opacity">
+                <button
+                  type="button"
+                  onClick={() => openUrl(ANDROID_CLIENT_URL)}
+                  className="flex items-center gap-1 text-[var(--color-accent)] opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                >
                   {t('qrLink.getAndroid')}
-                </span>
-                <ExternalLink size={11} className="opacity-60" />
-              </button>
+                  <ExternalLink size={11} className="opacity-60" />
+                </button>
+                <span className="text-white/20">·</span>
+                <button
+                  type="button"
+                  onClick={() => openUrl(helpUrl('install/ios', i18n.language))}
+                  className="flex items-center gap-1 text-[var(--color-accent)] opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  {t('qrLink.getIos')}
+                  <ExternalLink size={11} className="opacity-60" />
+                </button>
+              </div>
             )}
           </div>
         </ModalContent>

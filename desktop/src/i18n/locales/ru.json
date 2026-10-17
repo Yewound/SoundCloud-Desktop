@@ -142,7 +142,8 @@
     "scanQr": "Войти по QR",
     "transferSession": "Передать сессию на другое устройство",
     "noPhoneApp": "Нет приложения на телефоне?",
-    "getAndroid": "Скачайте Android-приложение"
+    "getAndroid": "Android",
+    "getIos": "iPhone"
   },
   "search": {
     "globalPlaceholder": "Что хочешь послушать?",
@@ -1099,7 +1100,10 @@
     "androidSourceDesc": "okeydw/SoundCloud-Android, открытый код",
     "androidNote": "Официальное Android-приложение, развивается вместе с десктопом. Синхронизирует лайки и входит по QR-коду.",
     "ios": "Приложение для iOS",
-    "iosDev": "В разработке",
+    "iosDownload": "Скачать IPA",
+    "iosDownloadDesc": "Последний релиз на GitHub",
+    "iosInstall": "Как установить",
+    "iosInstallDesc": "Установка через SideStore, по шагам",
     "support": "Поддержать проект",
     "supportDesc": "Приложение бесплатное и живёт на донатах. Спасибо, что помогаете",
     "supportDonate": "Донат на Boosty",

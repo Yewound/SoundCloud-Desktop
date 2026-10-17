@@ -142,7 +142,8 @@
     "scanQr": "QR로 로그인",
     "transferSession": "다른 기기로 세션 옮기기",
     "noPhoneApp": "휴대폰에 앱이 없나요?",
-    "getAndroid": "Android 앱 받기"
+    "getAndroid": "Android",
+    "getIos": "iPhone"
   },
   "search": {
     "globalPlaceholder": "무엇을 듣고 싶으세요?",
@@ -1044,7 +1045,10 @@
     "androidSourceDesc": "okeydw/SoundCloud-Android, 오픈 소스",
     "androidNote": "공식 Android 앱이에요. 데스크톱 앱과 함께 개발되며 좋아요를 동기화하고 QR 코드로 로그인해요.",
     "ios": "iOS 앱",
-    "iosDev": "개발 중",
+    "iosDownload": "IPA 다운로드",
+    "iosDownloadDesc": "GitHub 최신 릴리스",
+    "iosInstall": "설치 방법",
+    "iosInstallDesc": "SideStore로 설치, 단계별 안내",
     "support": "프로젝트 후원",
     "supportDesc": "앱은 무료이며 후원으로 운영돼요. 도와주셔서 감사해요",
     "supportDonate": "Boosty에서 후원하기",
