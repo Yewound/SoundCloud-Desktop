@@ -17,6 +17,7 @@ import './tray.css';
 import {MiniPlayer} from './MiniPlayer';
 
 let brokenHash: string | null = null;
+let passedHash: string | null = null;
 
 function applyCardOpacity(opacity: number | null) {
     const stock = miniPlayerStockOpacity(useSettingsStore.getState().perfMode);
@@ -36,8 +37,12 @@ async function applyTheme(safe = false) {
         applyThemeCss('');
         return;
     }
+    if (safe || hash === passedHash) return;
     void probeTheme('tray').then((failed) => {
-        if (!failed.length) return;
+        if (!failed.length) {
+            passedHash = hash;
+            return;
+        }
         brokenHash = hash;
         applyThemeCss('');
     });

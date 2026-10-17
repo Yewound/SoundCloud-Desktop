@@ -158,9 +158,10 @@ pub fn theme_alive(alive: bool) {
 }
 
 pub fn clear_applying(app: &AppHandle) {
+    let hidden = crate::app::visibility::pages_hidden();
     let alive = ALIVE_AT
         .lock()
-        .is_ok_and(|at| at.is_some_and(|at| at.elapsed() < ALIVE_FRESH));
+        .is_ok_and(|at| at.is_some_and(|at| hidden || at.elapsed() < ALIVE_FRESH));
     if let (true, Ok(dir)) = (alive, app.path().app_data_dir()) {
         let _ = std::fs::remove_file(dir.join("themes").join("applying"));
     }
