@@ -18,8 +18,12 @@ const FLAGS = [
   '--remote-debugging-port=0',
 ];
 
-function waitForEndpoint(child) {
-  return new Promise((resolve, reject) => {
+export async function launchChrome(binary) {
+  const profile = mkdtempSync(join(tmpdir(), 'theme-preview-'));
+  const child = spawn(binary, [...FLAGS, `--user-data-dir=${profile}`, 'about:blank'], {
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  const endpoint = await new Promise((resolve, reject) => {
     let log = '';
     child.stderr.on('data', (chunk) => {
       log += chunk;
@@ -28,14 +32,7 @@ function waitForEndpoint(child) {
     });
     child.on('exit', (code) => reject(new Error(`chrome exited with ${code}\n${log}`)));
   });
-}
-
-export async function launchChrome(binary) {
-  const profile = mkdtempSync(join(tmpdir(), 'theme-preview-'));
-  const child = spawn(binary, [...FLAGS, `--user-data-dir=${profile}`, 'about:blank'], {
-    stdio: ['ignore', 'ignore', 'pipe'],
-  });
-  const socket = new WebSocket(await waitForEndpoint(child));
+  const socket = new WebSocket(endpoint);
   await new Promise((resolve, reject) => {
     socket.onopen = resolve;
     socket.onerror = reject;

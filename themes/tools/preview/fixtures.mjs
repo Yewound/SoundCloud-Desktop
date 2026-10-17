@@ -58,7 +58,12 @@ export const tracks = TITLES.map((title, index) => ({
   user: user(index % ARTISTS.length),
 }));
 
-const page = (collection) => ({ collection, page: 0, page_size: collection.length, has_more: false });
+const page = (collection) => ({
+  collection,
+  page: 0,
+  page_size: collection.length,
+  has_more: false,
+});
 const cluster = (id, from, to) => {
   const picked = tracks.slice(from, to);
   return { id, track_ids: picked.map((track) => String(track.id)), tracks: picked };

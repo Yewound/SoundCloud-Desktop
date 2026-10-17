@@ -1,7 +1,10 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { inspectThemeCss, rewriteThemeAssetUrls } from '../../../desktop/src/lib/themes/css-guard.ts';
+import {
+  inspectThemeCss,
+  rewriteThemeAssetUrls,
+} from '../../../desktop/src/lib/themes/css-guard.ts';
 import { THEME_LIMITS } from '../../../desktop/src/lib/themes/rules.ts';
 import { git } from '../git.mjs';
 import { print } from '../summary.mjs';
@@ -66,47 +69,14 @@ const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
 const root = resolve(import.meta.dirname, '..', '..', '..');
 const desktop = join(root, 'desktop');
-const appVersion = JSON.parse(readFileSync(join(desktop, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
+const appVersion = JSON.parse(
+  readFileSync(join(desktop, 'src-tauri', 'tauri.conf.json'), 'utf8'),
+).version;
 const constants = readFileSync(join(desktop, 'src', 'lib', 'constants.ts'), 'utf8');
 const news = constants.slice(constants.indexOf('export const NEWS'));
-const newsIds = [...news.slice(0, news.indexOf('];')).matchAll(/\bid: '([^']+)'/g)].map((match) => match[1]);
-
-function themePayload(dir) {
-  const meta = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
-  const assetsDir = join(dir, 'assets');
-  const assets = existsSync(assetsDir) ? readdirSync(assetsDir) : [];
-  const source = readFileSync(join(dir, 'theme.css'), 'utf8');
-  const report = inspectThemeCss(source, assets);
-  if (report.errors.length > 0) {
-    const first = report.errors[0];
-    throw new Error(`theme.css:${first.line}:${first.column} ${first.code} ${first.message}`);
-  }
-  const css = rewriteThemeAssetUrls(source, (name) => {
-    const type = MIME[name.slice(name.lastIndexOf('.') + 1)];
-    return `data:${type};base64,${readFileSync(join(assetsDir, name)).toString('base64')}`;
-  });
-  const settings = {
-    accentColor: meta.accent ?? '#ff5500',
-    bgPrimary: meta.background ?? '#08080a',
-    interfaceFont: meta.font ?? 'inter',
-    themePreset: 'custom',
-    startupPage: 'home',
-    language: 'en',
-    perfMode: 'beauty',
-    perfModeUserSet: true,
-    perfProbed: true,
-  };
-  return {
-    css,
-    api,
-    appVersion,
-    files: {
-      'sc-settings.json': JSON.stringify({ state: settings, version: 0 }),
-      'sc-player.json': JSON.stringify(player),
-      'news.json': JSON.stringify({ state: { dismissed: newsIds }, version: 1 }),
-    },
-  };
-}
+const newsIds = [...news.slice(0, news.indexOf('];')).matchAll(/\bid: '([^']+)'/g)].map(
+  (match) => match[1],
+);
 
 async function evaluate(browser, sessionId, expression) {
   const result = await browser.send(
@@ -116,77 +86,6 @@ async function evaluate(browser, sessionId, expression) {
   );
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
   return result.result.value;
-}
-
-async function openPage(browser, port) {
-  const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
-  const { sessionId } = await browser.send('Target.attachToTarget', { targetId, flatten: true });
-  browser.listeners.add((message) => {
-    if (message.sessionId !== sessionId || message.method !== 'Fetch.requestPaused') return;
-    const { requestId, request } = message.params;
-    const url = new URL(request.url);
-    const local =
-      url.protocol === 'data:' ||
-      url.protocol === 'blob:' ||
-      (url.protocol === 'http:' &&
-        url.port === port &&
-        (url.hostname === '127.0.0.1' || /^scproxy-\d+\.localhost$/.test(url.hostname)));
-    const method = local ? 'Fetch.continueRequest' : 'Fetch.failRequest';
-    const params = local ? { requestId } : { requestId, errorReason: 'BlockedByClient' };
-    browser.send(method, params, sessionId).catch(() => {});
-  });
-  await browser.send('Fetch.enable', { patterns: [{ urlPattern: '*' }] }, sessionId);
-  await browser.send(
-    'Emulation.setDeviceMetricsOverride',
-    { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false },
-    sessionId,
-  );
-  await browser.send(
-    'Emulation.setUserAgentOverride',
-    { userAgent: USER_AGENT, platform: 'Linux x86_64' },
-    sessionId,
-  );
-  await browser.send('Page.enable', {}, sessionId);
-  return { targetId, sessionId };
-}
-
-async function capture(browser, sessionId) {
-  for (const quality of QUALITIES) {
-    const shot = await browser.send(
-      'Page.captureScreenshot',
-      { format: 'webp', quality, captureBeyondViewport: false },
-      sessionId,
-    );
-    const bytes = Buffer.from(shot.data, 'base64');
-    if (bytes.length <= THEME_LIMITS.previewBytes) return bytes;
-  }
-  throw new Error('preview stays over 256 KiB');
-}
-
-async function renderTheme(browser, origin, id) {
-  const { targetId, sessionId } = await openPage(browser, new URL(origin).port);
-  try {
-    await browser.send('Page.navigate', { url: `${origin}/home?theme=${id}` }, sessionId);
-    const deadline = Date.now() + READY_TIMEOUT_MS;
-    const waitReady = async () => {
-      while (!(await evaluate(browser, sessionId, READY).catch(() => false))) {
-        if (Date.now() > deadline) {
-          const state = await evaluate(browser, sessionId, STATE);
-          throw new Error(`the app did not render the home page: ${JSON.stringify(state)}`);
-        }
-        await sleep(250);
-      }
-    };
-    await waitReady();
-    await evaluate(browser, sessionId, SCROLL);
-    await waitReady();
-    await sleep(SETTLE_MS);
-    const calls = await evaluate(browser, sessionId, FINISH);
-    if (values.verbose) console.log(`${id}: unanswered commands and api calls\n${calls.join('\n')}`);
-    return await capture(browser, sessionId);
-  } finally {
-    await browser.send('Target.closeTarget', { targetId }).catch(() => {});
-  }
 }
 
 const changed = values.since
@@ -217,11 +116,45 @@ if (!values.dist) {
 const payloads = new Map();
 let failed = 0;
 for (const dir of dirs) {
+  const id = basename(dir);
   try {
-    payloads.set(basename(dir), themePayload(dir));
+    const meta = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
+    const assetsDir = join(dir, 'assets');
+    const assets = existsSync(assetsDir) ? readdirSync(assetsDir) : [];
+    const source = readFileSync(join(dir, 'theme.css'), 'utf8');
+    const report = inspectThemeCss(source, assets);
+    if (report.errors.length > 0) {
+      const first = report.errors[0];
+      throw new Error(`theme.css:${first.line}:${first.column} ${first.code} ${first.message}`);
+    }
+    const css = rewriteThemeAssetUrls(source, (name) => {
+      const type = MIME[name.slice(name.lastIndexOf('.') + 1)];
+      return `data:${type};base64,${readFileSync(join(assetsDir, name)).toString('base64')}`;
+    });
+    const settings = {
+      accentColor: meta.accent ?? '#ff5500',
+      bgPrimary: meta.background ?? '#08080a',
+      interfaceFont: meta.font ?? 'inter',
+      themePreset: 'custom',
+      startupPage: 'home',
+      language: 'en',
+      perfMode: 'beauty',
+      perfModeUserSet: true,
+      perfProbed: true,
+    };
+    payloads.set(id, {
+      css,
+      api,
+      appVersion,
+      files: {
+        'sc-settings.json': JSON.stringify({ state: settings, version: 0 }),
+        'sc-player.json': JSON.stringify(player),
+        'news.json': JSON.stringify({ state: { dismissed: newsIds }, version: 1 }),
+      },
+    });
   } catch (error) {
     failed++;
-    print(`${basename(dir)}: ${error.message}`);
+    print(`${id}: ${error.message}`);
   }
 }
 
@@ -237,12 +170,76 @@ const browser = await launchChrome(
     process.env.CHROME_BIN ??
     (playwright ? `/ms-playwright/${playwright}/chrome-linux/chrome` : 'google-chrome'),
 );
+
 try {
   for (const dir of dirs) {
     const id = basename(dir);
     if (!payloads.has(id)) continue;
+    let targetId;
     try {
-      const bytes = await renderTheme(browser, origin, id);
+      ({ targetId } = await browser.send('Target.createTarget', { url: 'about:blank' }));
+      const { sessionId } = await browser.send('Target.attachToTarget', {
+        targetId,
+        flatten: true,
+      });
+      browser.listeners.add((message) => {
+        if (message.sessionId !== sessionId || message.method !== 'Fetch.requestPaused') return;
+        const { requestId, request } = message.params;
+        const url = new URL(request.url);
+        const local =
+          url.protocol === 'data:' ||
+          url.protocol === 'blob:' ||
+          (url.protocol === 'http:' &&
+            url.port === String(port) &&
+            (url.hostname === '127.0.0.1' || /^scproxy-\d+\.localhost$/.test(url.hostname)));
+        const method = local ? 'Fetch.continueRequest' : 'Fetch.failRequest';
+        const params = local ? { requestId } : { requestId, errorReason: 'BlockedByClient' };
+        browser.send(method, params, sessionId).catch(() => {});
+      });
+      await browser.send('Fetch.enable', { patterns: [{ urlPattern: '*' }] }, sessionId);
+      await browser.send(
+        'Emulation.setDeviceMetricsOverride',
+        { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false },
+        sessionId,
+      );
+      await browser.send(
+        'Emulation.setUserAgentOverride',
+        { userAgent: USER_AGENT, platform: 'Linux x86_64' },
+        sessionId,
+      );
+      await browser.send('Page.enable', {}, sessionId);
+      await browser.send('Page.navigate', { url: `${origin}/home?theme=${id}` }, sessionId);
+
+      const deadline = Date.now() + READY_TIMEOUT_MS;
+      const waitReady = async () => {
+        while (!(await evaluate(browser, sessionId, READY).catch(() => false))) {
+          if (Date.now() > deadline) {
+            const state = await evaluate(browser, sessionId, STATE);
+            throw new Error(`the app did not render the home page: ${JSON.stringify(state)}`);
+          }
+          await sleep(250);
+        }
+      };
+      await waitReady();
+      await evaluate(browser, sessionId, SCROLL);
+      await waitReady();
+      await sleep(SETTLE_MS);
+      const calls = await evaluate(browser, sessionId, FINISH);
+      if (values.verbose)
+        console.log(`${id}: unanswered commands and api calls\n${calls.join('\n')}`);
+
+      let bytes = null;
+      for (const quality of QUALITIES) {
+        const shot = await browser.send(
+          'Page.captureScreenshot',
+          { format: 'webp', quality, captureBeyondViewport: false },
+          sessionId,
+        );
+        bytes = Buffer.from(shot.data, 'base64');
+        if (bytes.length <= THEME_LIMITS.previewBytes) break;
+      }
+      if (bytes.length > THEME_LIMITS.previewBytes) throw new Error('preview stays over 256 KiB');
+
       const folder = values.out ? join(resolve(values.out), id) : dir;
       mkdirSync(folder, { recursive: true });
       const target = join(folder, 'preview.webp');
@@ -251,6 +248,8 @@ try {
     } catch (error) {
       failed++;
       print(`${id}: ${error.message}`);
+    } finally {
+      if (targetId) await browser.send('Target.closeTarget', { targetId }).catch(() => {});
     }
   }
 } finally {
