@@ -7,7 +7,7 @@ use crate::shared::blocking::run_blocking;
 use crate::shared::urn::canonical_track_urn;
 use crate::track_cache::state::{
     BulkCacheEntry, BulkCacheStatus, CacheInventoryEntry, CacheRequest, ExportOutcome,
-    PlaybackQuality, TrackCacheEntry, TrackCacheState, TranscodeStatus,
+    PlaybackQuality, Priority, TrackCacheEntry, TrackCacheState, TranscodeStatus,
 };
 use crate::track_cache::transcode::{ExportFormat, ExportTags};
 
@@ -91,7 +91,11 @@ pub async fn track_ensure_cached(
             storage_quality: request.storage_quality.as_deref(),
             liked: false,
             expected_duration_ms: request.duration_ms,
-            background: request.background,
+            priority: if request.background {
+                Priority::Background
+            } else {
+                Priority::Playback
+            },
         })
         .await
 }
@@ -128,7 +132,7 @@ impl ResolvedRequest {
             storage_quality: self.request.storage_quality.as_deref(),
             liked,
             expected_duration_ms: self.request.duration_ms,
-            background: false,
+            priority: Priority::Playback,
         }
     }
 }
@@ -153,7 +157,7 @@ pub async fn track_upgrade_cached(
             storage_quality: request.storage_quality.as_deref(),
             liked: false,
             expected_duration_ms: request.duration_ms,
-            background: true,
+            priority: Priority::Background,
         })
         .await)
 }
@@ -309,7 +313,7 @@ pub async fn track_preload(
                     storage_quality: storage_quality.as_deref(),
                     liked: false,
                     expected_duration_ms: duration_ms,
-                    background: true,
+                    priority: Priority::Background,
                 })
                 .await
             {

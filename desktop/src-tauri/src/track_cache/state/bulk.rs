@@ -2,7 +2,7 @@ use std::sync::atomic::Ordering;
 
 use tauri::Emitter;
 
-use super::{CacheRequest, PlaybackQuality, TrackCacheState};
+use super::{CacheRequest, PlaybackQuality, Priority, TrackCacheState};
 
 const PROGRESS_EVENT: &str = "track:bulk-cache-progress";
 
@@ -131,7 +131,7 @@ impl TrackCacheState {
             storage_quality: entry.storage_quality.as_deref(),
             liked: true,
             expected_duration_ms: entry.duration_ms,
-            background: true,
+            priority: Priority::Bulk,
         })
         .await
         .map(|_| ())

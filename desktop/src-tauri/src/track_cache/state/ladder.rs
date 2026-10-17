@@ -22,6 +22,7 @@ pub(super) struct Ladder<'a> {
     pub stored: PlaybackQuality,
     pub above: Option<PlaybackQuality>,
     pub background: Option<&'a Notify>,
+    pub bulk: bool,
 }
 
 struct Climb<'a> {
@@ -107,6 +108,7 @@ impl TrackCacheState {
         let mut storage_tried = false;
         let mut turn = None;
         let mut last_err = String::from("no tier above sq asked");
+        let session_id = climb.ladder.session_id;
         for &tier in tiers {
             if !storage_tried && climb.ladder.stored.rank() >= tier.rank() {
                 storage_tried = true;
@@ -114,10 +116,10 @@ impl TrackCacheState {
                     return Ok(path);
                 }
             }
-            if turn.is_none() {
+            if turn.is_none() && !self.refuses(tier, session_id) {
                 turn = Some(self.streaming_turn(climb).await);
             }
-            if self.allowed_quality(tier, climb.ladder.session_id).rank() < tier.rank() {
+            if self.refuses(tier, session_id) {
                 last_err = format!("{}: refused", tier.label());
                 continue;
             }
@@ -131,7 +133,10 @@ impl TrackCacheState {
 
     async fn streaming_turn(&self, climb: &Climb<'_>) -> Option<OwnedSemaphorePermit> {
         let turn = match climb.ladder.background {
-            Some(playback_joined) => self.background_turn(playback_joined).await,
+            Some(playback_joined) => {
+                self.background_turn(playback_joined, climb.ladder.bulk)
+                    .await
+            }
             None => None,
         };
         climb.turn_taken.notify_one();
@@ -172,11 +177,10 @@ impl TrackCacheState {
         if download_urls.is_empty() && ladder.urls.is_empty() {
             return Err("no stream URLs provided".into());
         }
-        let session = crate::auth::session_token(self.app_handle.as_ref()).await;
         let job = RaceJob {
             target_dir: ladder.target_dir,
             urn: ladder.urn,
-            session_id: session.as_deref().or(ladder.session_id),
+            session_id: ladder.session_id,
             quality: tier,
             start: climb.start,
             receiving: climb.receiving.clone(),
@@ -230,6 +234,7 @@ impl TrackCacheState {
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::test_state;
     use super::*;
 
     fn labels(tiers: Vec<PlaybackQuality>) -> Vec<&'static str> {
@@ -275,6 +280,7 @@ mod tests {
             stored: PlaybackQuality::Sq,
             above: None,
             background: Some(&playback_joined),
+            bulk: false,
         };
         let storage = StorageJob {
             target_dir: ladder.target_dir,
@@ -303,5 +309,48 @@ mod tests {
         assert!(early.is_err());
         let silent = tokio::time::timeout(backup_secs, &mut silence).await;
         assert!(silent.is_ok());
+    }
+
+    #[tokio::test]
+    async fn a_refused_tier_does_not_wait_for_the_background_turn() {
+        let (root, state) = test_state("ladder-refused");
+        let nobody_joins = Notify::new();
+        let held = state.background_turn(&nobody_joins, false).await;
+        assert!(held.is_some());
+        state.note_refused(PlaybackQuality::Hq, Some("s1"), Duration::from_secs(60));
+
+        let ladder = Ladder {
+            target_dir: root.as_path(),
+            urn: "soundcloud:tracks:1",
+            urls: &[],
+            download_urls: &[],
+            storage_urls: &[],
+            session_id: Some("s1"),
+            wanted: PlaybackQuality::Hq,
+            stored: PlaybackQuality::Sq,
+            above: None,
+            background: Some(&nobody_joins),
+            bulk: false,
+        };
+        let storage = StorageJob {
+            target_dir: ladder.target_dir,
+            urn: ladder.urn,
+            urls: Vec::new(),
+            quality: PlaybackQuality::Sq,
+            start: Instant::now(),
+        };
+        let climb = Climb {
+            ladder: &ladder,
+            storage: &storage,
+            candidates: &Default::default(),
+            receiving: &Arc::new(AtomicBool::new(false)),
+            turn_taken: &Notify::new(),
+            start: Instant::now(),
+        };
+
+        let upper = state.climb_upper(&climb, &[PlaybackQuality::Hq]);
+        let climbed = tokio::time::timeout(Duration::from_secs(1), upper).await;
+        assert_eq!(climbed.unwrap().unwrap_err(), "hq: refused");
+        std::fs::remove_dir_all(root).ok();
     }
 }

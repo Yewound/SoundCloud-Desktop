@@ -20,7 +20,9 @@ impl TrackCacheState {
         };
         let entry = self.entry_at(&clean, read_cache_metadata(&clean));
         let current = PlaybackQuality::from_label(entry.quality.as_deref());
-        let wanted = self.allowed_quality(req.quality, req.session_id);
+        let session = crate::auth::session_token(self.app_handle.as_ref()).await;
+        let session_id = session.as_deref().or(req.session_id);
+        let wanted = self.allowed_quality(req.quality, session_id);
         if current.rank() >= wanted.rank()
             || entry.accepted_short
             || self.ffmpeg().is_none()
@@ -38,17 +40,18 @@ impl TrackCacheState {
                 urls: req.urls,
                 download_urls: req.download_urls,
                 storage_urls: req.storage_urls,
-                session_id: req.session_id,
+                session_id,
                 wanted,
                 stored: PlaybackQuality::from_label(req.storage_quality),
                 above: Some(current),
                 background: Some(&nobody_joins),
+                bulk: false,
             })
             .await;
         let path = match climbed {
             Ok(path) => path,
             Err(err) => {
-                if self.allowed_quality(wanted, req.session_id).rank() < wanted.rank() {
+                if self.refuses(wanted, session_id) {
                     self.release_upgrade(urn);
                 }
                 self.diag(

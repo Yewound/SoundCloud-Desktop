@@ -37,6 +37,8 @@ mod refusal;
 mod storage;
 mod upgrade;
 
+use background::BackgroundQueue;
+pub use background::Priority;
 pub use bulk::{BulkCacheEntry, BulkCacheStatus};
 pub use export::ExportOutcome;
 use ladder::Ladder;
@@ -349,7 +351,7 @@ pub struct CacheRequest<'a> {
     /// API-reported track length (ms), if known — enables truncated-download
     /// detection. `None` falls back to the size + magic-byte gate only.
     pub expected_duration_ms: Option<u64>,
-    pub background: bool,
+    pub priority: Priority,
 }
 
 struct RaceJob<'a> {
@@ -556,6 +558,7 @@ pub struct TrackCacheState {
     preload_limiter: Arc<Semaphore>,
     bulk_limiter: Arc<Semaphore>,
     background_hq_limiter: Arc<Semaphore>,
+    background_queue: Arc<BackgroundQueue>,
     transcode_limiter: Arc<Semaphore>,
     /// URNs with a transcode in flight, so live + recovery requests coalesce.
     transcoding: Arc<StdMutex<HashSet<String>>>,
@@ -632,6 +635,7 @@ pub fn init(audio_dir: PathBuf, liked_dir: PathBuf, incoming_dir: PathBuf) -> Tr
         preload_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_PRELOADS)),
         bulk_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_BULK)),
         background_hq_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_BACKGROUND_HQ)),
+        background_queue: Arc::default(),
         transcode_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_TRANSCODES)),
         transcoding: Arc::new(StdMutex::new(HashSet::new())),
         probing: Arc::new(StdMutex::new(HashSet::new())),
@@ -1182,7 +1186,7 @@ impl TrackCacheState {
             storage_quality,
             liked,
             expected_duration_ms,
-            background,
+            priority,
         } = req;
         let expected_duration_ms = expected_duration_ms.filter(|&ms| ms > 0);
 
@@ -1200,7 +1204,7 @@ impl TrackCacheState {
         let mut active = self.active.lock().await;
         if let Some(existing) = active.get(urn) {
             println!("[TrackCache] coalescing request for {urn}");
-            if !background {
+            if priority == Priority::Playback {
                 existing.playback_joined.notify_one();
             }
             let notify = existing.notify.clone();
@@ -1245,6 +1249,8 @@ impl TrackCacheState {
         );
         drop(active);
 
+        let session = crate::auth::session_token(self.app_handle.as_ref()).await;
+        let session_id = session.as_deref().or(session_id);
         let download_result = self
             .climb(Ladder {
                 target_dir,
@@ -1256,7 +1262,8 @@ impl TrackCacheState {
                 wanted: self.allowed_quality(quality, session_id),
                 stored: PlaybackQuality::from_label(storage_quality),
                 above: None,
-                background: background.then_some(playback_joined.as_ref()),
+                background: (priority != Priority::Playback).then_some(playback_joined.as_ref()),
+                bulk: priority == Priority::Bulk,
             })
             .await;
 
@@ -2193,7 +2200,7 @@ mod tests {
             storage_quality: None,
             liked: false,
             expected_duration_ms: None,
-            background: false,
+            priority: Priority::Playback,
         };
 
         let entry = state.save_offline(req, false).await.unwrap();

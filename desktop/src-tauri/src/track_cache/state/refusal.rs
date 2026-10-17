@@ -45,6 +45,10 @@ impl TrackCacheState {
         })
     }
 
+    pub(super) fn refuses(&self, tier: PlaybackQuality, session_id: Option<&str>) -> bool {
+        self.allowed_quality(tier, session_id).rank() < tier.rank()
+    }
+
     pub(super) fn note_refused(
         &self,
         tier: PlaybackQuality,
