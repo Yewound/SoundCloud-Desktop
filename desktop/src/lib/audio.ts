@@ -610,11 +610,11 @@ function skipUnloadable(track: Track, stuck: boolean): boolean {
     });
     player.pause();
     void playbackServersDown().then((down) => {
-      if (!down) return;
+      const latest = usePlayerStore.getState();
+      if (!down || latest.isPlaying || latest.currentTrack?.urn !== track.urn) return;
       toast.dismiss('track-load-error');
       toast.error(i18n.t('track.serversDown'), {
         id: 'skip-halted',
-        description: i18n.t('track.serversDownHint'),
         action: {
           label: i18n.t('hostStatus.actions.statusPage'),
           onClick: () => void openUrl(STATUS_PAGE_URL).catch(() => undefined),

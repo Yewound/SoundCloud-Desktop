@@ -257,7 +257,6 @@
     "skipHalted": "Ust uste birkac parca yuklenemedi",
     "skipHaltedHint": "Oynatma duraklatildi. Baglantinizi kontrol edin ve tekrar denemek icin oynat tusuna basin.",
     "serversDown": "Oynatma sunucuları çalışmıyor, düzeltiyoruz",
-    "serversDownHint": "Oynatma duraklatıldı",
     "dislike": "Onerme",
     "removeDislike": "Begenmemeyi kaldir",
     "like": "Beğen",

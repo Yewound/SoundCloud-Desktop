@@ -39,5 +39,6 @@ export async function fetchRemoteVerdict(): Promise<RemoteVerdict> {
 
 export async function playbackServersDown(): Promise<boolean> {
   const roles = await fetchRoles();
-  return verdictOf(roles?.playback) === 'down' || verdictOf(roles?.main) === 'down';
+  const playback = roles?.playback;
+  return playback === 'degraded' || playback === 'down' || verdictOf(roles?.main) === 'down';
 }

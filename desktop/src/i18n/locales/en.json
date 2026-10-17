@@ -287,7 +287,6 @@
     "skipHalted": "Several tracks in a row failed to load",
     "skipHaltedHint": "Playback is paused. Check your connection and press play to try again.",
     "serversDown": "Playback servers are down, we are fixing it",
-    "serversDownHint": "Playback is paused",
     "dislike": "Don't recommend",
     "removeDislike": "Remove dislike",
     "like": "Like",

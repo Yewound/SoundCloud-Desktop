@@ -287,7 +287,6 @@
     "skipHalted": "여러 트랙이 연달아 로딩에 실패했어요",
     "skipHaltedHint": "재생을 일시정지했어요. 연결을 확인한 뒤 재생 버튼을 눌러 다시 시도해 주세요.",
     "serversDown": "재생 서버에 문제가 있어 고치고 있어요",
-    "serversDownHint": "재생을 일시정지했어요",
     "dislike": "추천 안 함",
     "removeDislike": "싫어요 취소",
     "like": "좋아요",
