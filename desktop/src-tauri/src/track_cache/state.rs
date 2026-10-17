@@ -27,6 +27,7 @@ use crate::track_cache::direct_download::{Candidate, consume_at, fetch_candidate
 use crate::track_cache::sc_anon::AnonClient;
 use crate::track_cache::transcode;
 
+mod background;
 mod bulk;
 mod evict;
 mod ladder;
@@ -65,6 +66,7 @@ const DIRECT_READ_TIMEOUT_SECS: u64 = 70;
 const RETRY_DELAYS_MS: [u64; 1] = [600];
 const MAX_PARALLEL_PRELOADS: usize = 20;
 const MAX_PARALLEL_BULK: usize = 4;
+const MAX_PARALLEL_BACKGROUND_HQ: usize = 1;
 /// Transcoding is CPU-bound; keep it modest so it never starves playback on weak
 /// machines. Most cached tracks are already AAC (a near-free remux), so a small
 /// pool drains the queue fast in practice.
@@ -224,6 +226,7 @@ impl PlaybackQuality {
 struct ActiveDownload {
     notify: Arc<Notify>,
     result: Arc<Mutex<Option<Result<PathBuf, String>>>>,
+    playback_joined: Arc<Notify>,
 }
 
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
@@ -346,6 +349,7 @@ pub struct CacheRequest<'a> {
     /// API-reported track length (ms), if known — enables truncated-download
     /// detection. `None` falls back to the size + magic-byte gate only.
     pub expected_duration_ms: Option<u64>,
+    pub background: bool,
 }
 
 struct RaceJob<'a> {
@@ -551,6 +555,7 @@ pub struct TrackCacheState {
     active: Arc<Mutex<HashMap<String, ActiveDownload>>>,
     preload_limiter: Arc<Semaphore>,
     bulk_limiter: Arc<Semaphore>,
+    background_hq_limiter: Arc<Semaphore>,
     transcode_limiter: Arc<Semaphore>,
     /// URNs with a transcode in flight, so live + recovery requests coalesce.
     transcoding: Arc<StdMutex<HashSet<String>>>,
@@ -626,6 +631,7 @@ pub fn init(audio_dir: PathBuf, liked_dir: PathBuf, incoming_dir: PathBuf) -> Tr
         active: Arc::new(Mutex::new(HashMap::new())),
         preload_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_PRELOADS)),
         bulk_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_BULK)),
+        background_hq_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_BACKGROUND_HQ)),
         transcode_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_TRANSCODES)),
         transcoding: Arc::new(StdMutex::new(HashSet::new())),
         probing: Arc::new(StdMutex::new(HashSet::new())),
@@ -1176,6 +1182,7 @@ impl TrackCacheState {
             storage_quality,
             liked,
             expected_duration_ms,
+            background,
         } = req;
         let expected_duration_ms = expected_duration_ms.filter(|&ms| ms > 0);
 
@@ -1193,6 +1200,9 @@ impl TrackCacheState {
         let mut active = self.active.lock().await;
         if let Some(existing) = active.get(urn) {
             println!("[TrackCache] coalescing request for {urn}");
+            if !background {
+                existing.playback_joined.notify_one();
+            }
             let notify = existing.notify.clone();
             let result_slot = existing.result.clone();
             drop(active);
@@ -1224,11 +1234,13 @@ impl TrackCacheState {
 
         let notify = Arc::new(Notify::new());
         let result_slot: Arc<Mutex<Option<Result<PathBuf, String>>>> = Arc::new(Mutex::new(None));
+        let playback_joined = Arc::new(Notify::new());
         active.insert(
             urn.to_string(),
             ActiveDownload {
                 notify: notify.clone(),
                 result: result_slot.clone(),
+                playback_joined: playback_joined.clone(),
             },
         );
         drop(active);
@@ -1244,6 +1256,7 @@ impl TrackCacheState {
                 wanted: self.allowed_quality(quality, session_id),
                 stored: PlaybackQuality::from_label(storage_quality),
                 above: None,
+                background: background.then_some(playback_joined.as_ref()),
             })
             .await;
 
@@ -2155,6 +2168,7 @@ mod tests {
             ActiveDownload {
                 notify: notify.clone(),
                 result: result.clone(),
+                playback_joined: Arc::new(Notify::new()),
             },
         );
         let preload = {
@@ -2179,6 +2193,7 @@ mod tests {
             storage_quality: None,
             liked: false,
             expected_duration_ms: None,
+            background: false,
         };
 
         let entry = state.save_offline(req, false).await.unwrap();

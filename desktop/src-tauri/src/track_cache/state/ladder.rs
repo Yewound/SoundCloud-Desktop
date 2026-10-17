@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use tokio::sync::OnceCell;
+use tokio::sync::{Notify, OnceCell};
 
 use super::storage::StorageJob;
 use super::{HQ_ANON_BACKUP_SECS, PlaybackQuality, RaceJob, TrackCacheState};
@@ -21,14 +21,21 @@ pub(super) struct Ladder<'a> {
     pub wanted: PlaybackQuality,
     pub stored: PlaybackQuality,
     pub above: Option<PlaybackQuality>,
+    pub background: Option<&'a Notify>,
 }
 
 struct Climb<'a> {
     ladder: &'a Ladder<'a>,
     storage: &'a StorageJob<'a>,
-    candidates: &'a OnceCell<Vec<Candidate>>,
+    candidates: &'a [OnceCell<Vec<Candidate>>; 3],
     receiving: &'a Arc<AtomicBool>,
     start: Instant,
+}
+
+impl Climb<'_> {
+    fn candidates_at(&self, tier: PlaybackQuality) -> &OnceCell<Vec<Candidate>> {
+        &self.candidates[usize::from(tier.rank())]
+    }
 }
 
 const UPPER_TIERS: [PlaybackQuality; 2] = [PlaybackQuality::Uq, PlaybackQuality::Hq];
@@ -43,15 +50,24 @@ fn upper_tiers(wanted: PlaybackQuality, above: PlaybackQuality) -> Vec<PlaybackQ
 fn download_urls_at(urls: &[String], tier: PlaybackQuality) -> Vec<String> {
     match tier {
         PlaybackQuality::Uq => Vec::new(),
-        PlaybackQuality::Hq => urls.iter().map(|url| tier_url(url, tier)).collect(),
-        PlaybackQuality::Sq => urls.to_vec(),
+        PlaybackQuality::Hq | PlaybackQuality::Sq => {
+            urls.iter().map(|url| tier_url(url, tier)).collect()
+        }
     }
 }
 
 impl TrackCacheState {
     pub(super) async fn climb(&self, ladder: Ladder<'_>) -> Result<PathBuf, String> {
+        let floor = ladder.above.unwrap_or(PlaybackQuality::Sq);
+        let _turn = match ladder.background {
+            Some(playback_joined) if !upper_tiers(ladder.wanted, floor).is_empty() => {
+                self.background_turn(playback_joined).await
+            }
+            _ => None,
+        };
+        let wanted = self.allowed_quality(ladder.wanted, ladder.session_id);
+        let tiers = upper_tiers(wanted, floor);
         let start = Instant::now();
-        let tiers = upper_tiers(ladder.wanted, ladder.above.unwrap_or(PlaybackQuality::Sq));
         let storage = self.storage_job(
             ladder.target_dir,
             ladder.urn,
@@ -59,7 +75,7 @@ impl TrackCacheState {
             ladder.stored,
             start,
         );
-        let candidates = OnceCell::new();
+        let candidates = Default::default();
         let receiving = Arc::new(AtomicBool::new(false));
         let climb = Climb {
             ladder: &ladder,
@@ -144,7 +160,7 @@ impl TrackCacheState {
             quality: tier,
             start: climb.start,
             receiving: climb.receiving.clone(),
-            candidates: climb.candidates,
+            candidates: climb.candidates_at(tier),
         };
         self.race_direct_and_api(&job, &download_urls, ladder.urls)
             .await
@@ -211,14 +227,17 @@ mod tests {
     }
 
     #[test]
-    fn only_an_hq_ask_names_its_tier_to_download() {
+    fn a_download_ask_names_its_tier_and_uq_skips_download() {
         use PlaybackQuality::{Hq, Sq, Uq};
         let urls = ["https://api.example/download/soundcloud%3Atracks%3A1".to_string()];
         assert_eq!(
             download_urls_at(&urls, Hq),
             ["https://api.example/download/soundcloud%3Atracks%3A1?hq=true&quality=hq"]
         );
-        assert_eq!(download_urls_at(&urls, Sq), urls);
+        assert_eq!(
+            download_urls_at(&urls, Sq),
+            ["https://api.example/download/soundcloud%3Atracks%3A1?quality=sq"]
+        );
         assert!(download_urls_at(&urls, Uq).is_empty());
     }
 }

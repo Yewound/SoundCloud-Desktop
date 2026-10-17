@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use tokio::sync::Notify;
+
 use super::ladder::Ladder;
 use super::{CacheRequest, PlaybackQuality, TrackCacheState, is_valid_file, read_cache_metadata};
 
@@ -28,6 +30,7 @@ impl TrackCacheState {
             return false;
         }
 
+        let nobody_joins = Notify::new();
         let climbed = self
             .climb(Ladder {
                 target_dir: self.incoming_dir.as_path(),
@@ -39,6 +42,7 @@ impl TrackCacheState {
                 wanted,
                 stored: PlaybackQuality::from_label(req.storage_quality),
                 above: Some(current),
+                background: Some(&nobody_joins),
             })
             .await;
         let path = match climbed {

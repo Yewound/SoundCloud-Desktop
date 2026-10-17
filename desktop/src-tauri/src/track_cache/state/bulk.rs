@@ -131,6 +131,7 @@ impl TrackCacheState {
             storage_quality: entry.storage_quality.as_deref(),
             liked: true,
             expected_duration_ms: entry.duration_ms,
+            background: true,
         })
         .await
         .map(|_| ())

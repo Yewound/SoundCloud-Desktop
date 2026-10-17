@@ -56,6 +56,10 @@ impl SessionStore {
             rt,
         })
     }
+
+    pub async fn premium(&self) -> bool {
+        self.state.read().await.premium
+    }
 }
 
 fn is_usable(token: &str) -> bool {
