@@ -1,10 +1,13 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { inspectThemeCss, rewriteThemeAssetUrls } from '../../../desktop/src/lib/themes/css-guard.ts';
 import { THEME_LIMITS } from '../../../desktop/src/lib/themes/rules.ts';
+import { git } from '../git.mjs';
+import { print } from '../summary.mjs';
 import { listThemes } from '../theme.mjs';
 import { launchChrome } from './chrome.mjs';
+import { api, player } from './fixtures.mjs';
 import { startServer } from './server.mjs';
 
 const WIDTH = 1280;
@@ -12,6 +15,8 @@ const HEIGHT = 800;
 const QUALITIES = [80, 70, 60, 50];
 const READY_TIMEOUT_MS = 60_000;
 const SETTLE_MS = 2500;
+const USER_AGENT =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 const MIME = {
   webp: 'image/webp',
   png: 'image/png',
@@ -23,13 +28,26 @@ const MIME = {
   woff2: 'font/woff2',
 };
 
-const READY = `!!document.querySelector('[data-ui="main"] nav button') && document.fonts.status === 'loaded'`;
-const STATE = `({ fonts: document.fonts.status, nav: document.querySelectorAll('[data-ui="main"] nav button').length, text: document.body.innerText.slice(0, 120) })`;
-const OPEN_APPEARANCE = `document.querySelectorAll('[data-ui="main"] nav button')[1].click()`;
+const READY = `(() => {
+  const images = [...document.querySelectorAll('[data-ui="main"] img, [data-ui="player"] img')].filter((img) => {
+    const box = img.getBoundingClientRect();
+    return box.bottom > 0 && box.top < innerHeight && box.right > 0 && box.left < innerWidth;
+  });
+  return document.fonts.status === 'loaded' && images.length > 1 && images.every((img) => img.complete);
+})()`;
+const SCROLL = `document.querySelector('[data-ui="main"]').scrollTo({ top: 240, behavior: 'instant' })`;
+const STATE = `({ fonts: document.fonts.status, images: document.querySelectorAll('[data-ui="main"] img').length, text: document.body.innerText.slice(0, 120) })`;
 const FINISH = `(async () => {
   document.head.appendChild(window.__SC_PREVIEW_STYLE__);
+  for (const animation of document.getAnimations()) {
+    if (animation.playState !== 'finished') continue;
+    try {
+      animation.commitStyles();
+      animation.cancel();
+    } catch {}
+  }
   await document.fonts.ready;
-  return [...window.__SC_PREVIEW_UNKNOWN__];
+  return [...window.__SC_PREVIEW_UNKNOWN__, ...window.__SC_PREVIEW_REQUESTS__];
 })()`;
 
 const { values, positionals } = parseArgs({
@@ -37,8 +55,8 @@ const { values, positionals } = parseArgs({
     dist: { type: 'string' },
     chrome: { type: 'string' },
     out: { type: 'string' },
-    missing: { type: 'boolean', default: false },
-    list: { type: 'boolean', default: false },
+    since: { type: 'string' },
+    count: { type: 'boolean', default: false },
     verbose: { type: 'boolean', default: false },
   },
   allowPositionals: true,
@@ -46,27 +64,12 @@ const { values, positionals } = parseArgs({
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
-function findChrome() {
-  if (values.chrome) return values.chrome;
-  if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
-  if (existsSync('/ms-playwright')) {
-    const build = readdirSync('/ms-playwright').find((name) => /^chromium-\d+$/.test(name));
-    if (build) return `/ms-playwright/${build}/chrome-linux/chrome`;
-  }
-  return 'google-chrome';
-}
-
-const desktop = join(import.meta.dirname, '..', '..', '..', 'desktop');
-
-function appVersion() {
-  return JSON.parse(readFileSync(join(desktop, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
-}
-
-function newsIds() {
-  const source = readFileSync(join(desktop, 'src', 'lib', 'constants.ts'), 'utf8');
-  const list = source.slice(source.indexOf('export const NEWS'));
-  return [...list.slice(0, list.indexOf('];')).matchAll(/\bid: '([^']+)'/g)].map((match) => match[1]);
-}
+const root = resolve(import.meta.dirname, '..', '..', '..');
+const desktop = join(root, 'desktop');
+const appVersion = JSON.parse(readFileSync(join(desktop, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
+const constants = readFileSync(join(desktop, 'src', 'lib', 'constants.ts'), 'utf8');
+const news = constants.slice(constants.indexOf('export const NEWS'));
+const newsIds = [...news.slice(0, news.indexOf('];')).matchAll(/\bid: '([^']+)'/g)].map((match) => match[1]);
 
 function themePayload(dir) {
   const meta = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
@@ -87,7 +90,7 @@ function themePayload(dir) {
     bgPrimary: meta.background ?? '#08080a',
     interfaceFont: meta.font ?? 'inter',
     themePreset: 'custom',
-    startupPage: 'settings',
+    startupPage: 'home',
     language: 'en',
     perfMode: 'beauty',
     perfModeUserSet: true,
@@ -95,10 +98,12 @@ function themePayload(dir) {
   };
   return {
     css,
-    appVersion: appVersion(),
+    api,
+    appVersion,
     files: {
       'sc-settings.json': JSON.stringify({ state: settings, version: 0 }),
-      'news.json': JSON.stringify({ state: { dismissed: newsIds() }, version: 1 }),
+      'sc-player.json': JSON.stringify(player),
+      'news.json': JSON.stringify({ state: { dismissed: newsIds }, version: 1 }),
     },
   };
 }
@@ -113,13 +118,19 @@ async function evaluate(browser, sessionId, expression) {
   return result.result.value;
 }
 
-async function openPage(browser, origin) {
+async function openPage(browser, port) {
   const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
   const { sessionId } = await browser.send('Target.attachToTarget', { targetId, flatten: true });
   browser.listeners.add((message) => {
     if (message.sessionId !== sessionId || message.method !== 'Fetch.requestPaused') return;
     const { requestId, request } = message.params;
-    const local = request.url.startsWith(origin) || /^(data|blob):/.test(request.url);
+    const url = new URL(request.url);
+    const local =
+      url.protocol === 'data:' ||
+      url.protocol === 'blob:' ||
+      (url.protocol === 'http:' &&
+        url.port === port &&
+        (url.hostname === '127.0.0.1' || /^scproxy-\d+\.localhost$/.test(url.hostname)));
     const method = local ? 'Fetch.continueRequest' : 'Fetch.failRequest';
     const params = local ? { requestId } : { requestId, errorReason: 'BlockedByClient' };
     browser.send(method, params, sessionId).catch(() => {});
@@ -128,6 +139,11 @@ async function openPage(browser, origin) {
   await browser.send(
     'Emulation.setDeviceMetricsOverride',
     { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false },
+    sessionId,
+  );
+  await browser.send(
+    'Emulation.setUserAgentOverride',
+    { userAgent: USER_AGENT, platform: 'Linux x86_64' },
     sessionId,
   );
   await browser.send('Page.enable', {}, sessionId);
@@ -148,42 +164,56 @@ async function capture(browser, sessionId) {
 }
 
 async function renderTheme(browser, origin, id) {
-  const { targetId, sessionId } = await openPage(browser, origin);
+  const { targetId, sessionId } = await openPage(browser, new URL(origin).port);
   try {
-    await browser.send('Page.navigate', { url: `${origin}/settings?theme=${id}` }, sessionId);
+    await browser.send('Page.navigate', { url: `${origin}/home?theme=${id}` }, sessionId);
     const deadline = Date.now() + READY_TIMEOUT_MS;
-    while (!(await evaluate(browser, sessionId, READY).catch(() => false))) {
-      if (Date.now() > deadline) {
-        const state = await evaluate(browser, sessionId, STATE);
-        throw new Error(`the app did not render settings: ${JSON.stringify(state)}`);
+    const waitReady = async () => {
+      while (!(await evaluate(browser, sessionId, READY).catch(() => false))) {
+        if (Date.now() > deadline) {
+          const state = await evaluate(browser, sessionId, STATE);
+          throw new Error(`the app did not render the home page: ${JSON.stringify(state)}`);
+        }
+        await sleep(250);
       }
-      await sleep(250);
-    }
-    await evaluate(browser, sessionId, OPEN_APPEARANCE);
+    };
+    await waitReady();
+    await evaluate(browser, sessionId, SCROLL);
+    await waitReady();
     await sleep(SETTLE_MS);
-    const unknown = await evaluate(browser, sessionId, FINISH);
-    if (values.verbose) console.log(`${id}: unanswered commands ${unknown.join(', ') || 'none'}`);
+    const calls = await evaluate(browser, sessionId, FINISH);
+    if (values.verbose) console.log(`${id}: unanswered commands and api calls\n${calls.join('\n')}`);
     return await capture(browser, sessionId);
   } finally {
     await browser.send('Target.closeTarget', { targetId }).catch(() => {});
   }
 }
 
-const root = resolve(import.meta.dirname, '..', '..', '..');
-const hasPreview = (dir) => existsSync(join(dir, 'preview.webp')) || existsSync(join(dir, 'preview.png'));
-const all = positionals.length > 0 ? positionals : listThemes(root).map((id) => join(root, 'themes', id));
-const dirs = all.map((dir) => resolve(dir)).filter((dir) => !values.missing || !hasPreview(dir));
+const changed = values.since
+  ? new Set(
+      git(root, ['diff', '--name-only', `${values.since}...HEAD`, '--', 'themes'])
+        .split('\n')
+        .map((path) => path.split('/')[1]),
+    )
+  : null;
+const dirs =
+  positionals.length > 0
+    ? positionals.map((dir) => resolve(dir))
+    : listThemes(root)
+        .filter((id) => !changed || changed.has(id))
+        .map((id) => join(root, 'themes', id));
 
-if (values.list) {
-  console.log(dirs.map((dir) => basename(dir)).join(' '));
+if (values.count) {
+  console.log(dirs.length);
   process.exit(0);
 }
 if (!values.dist) {
-  console.error('usage: render.mjs --dist <vite build> [--chrome <bin>] [--out <dir>] [--missing] [theme dir...]');
+  console.error(
+    'usage: render.mjs --dist <vite build> [--chrome <bin>] [--out <dir>] [--since <git-ref>] [theme dir...]',
+  );
   process.exit(1);
 }
 
-const dist = resolve(values.dist);
 const payloads = new Map();
 let failed = 0;
 for (const dir of dirs) {
@@ -191,25 +221,36 @@ for (const dir of dirs) {
     payloads.set(basename(dir), themePayload(dir));
   } catch (error) {
     failed++;
-    console.error(`${basename(dir)}: ${error.message}`);
+    print(`${basename(dir)}: ${error.message}`);
   }
 }
 
-const server = await startServer(dist, payloads);
-const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await launchChrome(findChrome());
+const server = await startServer(resolve(values.dist), payloads);
+const port = server.address().port;
+const origin = `http://127.0.0.1:${port}`;
+for (const payload of payloads.values()) payload.port = port;
+const playwright = existsSync('/ms-playwright')
+  ? readdirSync('/ms-playwright').find((name) => /^chromium-\d+$/.test(name))
+  : undefined;
+const browser = await launchChrome(
+  values.chrome ??
+    process.env.CHROME_BIN ??
+    (playwright ? `/ms-playwright/${playwright}/chrome-linux/chrome` : 'google-chrome'),
+);
 try {
   for (const dir of dirs) {
     const id = basename(dir);
     if (!payloads.has(id)) continue;
     try {
       const bytes = await renderTheme(browser, origin, id);
-      const target = values.out ? join(resolve(values.out), `${id}.webp`) : join(dir, 'preview.webp');
+      const folder = values.out ? join(resolve(values.out), id) : dir;
+      mkdirSync(folder, { recursive: true });
+      const target = join(folder, 'preview.webp');
       writeFileSync(target, bytes);
-      console.log(`${id}: ${target} ${(bytes.length / 1024).toFixed(1)} KiB`);
+      print(`${id}: ${target} ${(bytes.length / 1024).toFixed(1)} KiB`);
     } catch (error) {
       failed++;
-      console.error(`${id}: ${error.message}`);
+      print(`${id}: ${error.message}`);
     }
   }
 } finally {

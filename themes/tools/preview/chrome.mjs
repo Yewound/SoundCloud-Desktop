@@ -6,7 +6,8 @@ import { join } from 'node:path';
 const FLAGS = [
   '--headless=new',
   '--no-sandbox',
-  '--disable-gpu',
+  '--use-angle=swiftshader',
+  '--enable-unsafe-swiftshader',
   '--disable-dev-shm-usage',
   '--hide-scrollbars',
   '--mute-audio',
@@ -67,7 +68,9 @@ export async function launchChrome(binary) {
     const exited = new Promise((done) => child.once('exit', done));
     child.kill('SIGKILL');
     await exited;
-    rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
+    } catch {}
   };
 
   return { send, listeners, close };
