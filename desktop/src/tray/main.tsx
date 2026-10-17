@@ -1,3 +1,4 @@
+import {listen} from '@tauri-apps/api/event';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import {changeAppLanguage} from '../i18n';
@@ -9,7 +10,7 @@ import {applyThemeCss} from '../lib/themes/apply';
 import {applyLook} from '../lib/themes/look';
 import {probeTheme} from '../lib/themes/probe';
 import {activeLook} from '../lib/themes/records';
-import {useSettingsStore} from '../stores/settings';
+import {miniPlayerStockOpacity, useSettingsStore} from '../stores/settings';
 import {useThemesStore} from '../stores/themes';
 import '../index.css';
 import './tray.css';
@@ -17,8 +18,18 @@ import {MiniPlayer} from './MiniPlayer';
 
 let brokenHash: string | null = null;
 
+function applyCardOpacity(opacity: number | null) {
+    const stock = miniPlayerStockOpacity(useSettingsStore.getState().perfMode);
+    const alpha = opacity ?? stock;
+    const root = document.documentElement.style;
+    root.setProperty('--tp-card-fade', String(Math.min(1, alpha / stock)));
+    root.setProperty('--tp-card-fill', String(Math.max(0, (alpha - stock) / (1 - stock))));
+}
+
 async function applyTheme(safe = false) {
-    applyPerfMode(useSettingsStore.getState().perfMode);
+    const settings = useSettingsStore.getState();
+    applyPerfMode(settings.perfMode);
+    applyCardOpacity(settings.miniPlayerOpacity);
     const hash = activeLook(useThemesStore.getState())?.hash ?? null;
     if (!(await applyLook(safe))) return;
     if (hash === brokenHash) {
@@ -74,6 +85,7 @@ async function bootstrap() {
 
     setupVisibilityGate();
     setupFocusGate();
+    void listen<number | null>('tray:opacity', (e) => applyCardOpacity(e.payload));
 
     // Re-pick theme/language changes made in the main window each time the popover re-shows
     // (separate store instance — it only reads the shared on-disk state on demand).

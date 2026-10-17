@@ -1349,6 +1349,8 @@
     "uiScaleKeysReset": "100%로 초기화",
     "uiScaleKeysWheel": "스크롤로 확대·축소",
     "uiScaleToast": "인터페이스 크기: {{value}}%",
+    "miniPlayerDesc": "트레이 아이콘에서 열려요",
+    "miniPlayerOpacity": "배경 불투명도",
     "updates": "업데이트",
     "updatesDesc": "현재 버전과 업데이트 방식",
     "checkUpdates": "업데이트 확인",

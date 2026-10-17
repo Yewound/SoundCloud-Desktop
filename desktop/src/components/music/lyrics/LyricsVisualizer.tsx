@@ -1,7 +1,7 @@
 import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
 import React, {useEffect, useRef} from 'react';
-import {isAppIdle, subscribeAppIdle} from '../../../lib/perf';
+import {isAppIdle, subscribeAppIdle, usePerfMode} from '../../../lib/perf';
 
 /* ── Fullscreen wave visualizer — driven by real FFT from Rust ────── */
 /* Rust `audio:fft` event delivers 64 log-spaced magnitude bins ~30Hz.
@@ -9,6 +9,8 @@ import {isAppIdle, subscribeAppIdle} from '../../../lib/perf';
  * decay tail (~250ms) so play→pause fades smoothly. No rAF when idle. */
 
 const VIS_BINS = 64;
+const FFT_FRAME_MS = 33;
+const STALE_MS = 350;
 
 function setSpectrumEnabled(enabled: boolean) {
     void invoke('audio_set_fft_enabled', {enabled}).catch(() => {});
@@ -45,16 +47,7 @@ export const LyricsVisualizer = React.memo(() => {
     // so we can do a quick decay tail after the last event.
     const targetRef = useRef<Float32Array>(new Float32Array(VIS_BINS));
     const displayRef = useRef<Float32Array>(new Float32Array(VIS_BINS));
-
-    useEffect(() => {
-        const sync = () => setSpectrumEnabled(!isAppIdle());
-        sync();
-        const unsubscribe = subscribeAppIdle(sync);
-        return () => {
-            unsubscribe();
-            setSpectrumEnabled(false);
-        };
-    }, []);
+    const glow = usePerfMode().glow;
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -171,8 +164,10 @@ export const LyricsVisualizer = React.memo(() => {
                 ctx.lineJoin = 'round';
                 ctx.lineWidth = lineW;
                 ctx.strokeStyle = `rgba(${rC}, ${gC}, ${bC}, ${peakAlpha.toFixed(3)})`;
-                ctx.shadowBlur = 24 * alphaMul;
-                ctx.shadowColor = `rgba(${rC}, ${gC}, ${bC}, ${(peakAlpha * 0.6).toFixed(3)})`;
+                if (glow) {
+                    ctx.shadowBlur = 24 * alphaMul;
+                    ctx.shadowColor = `rgba(${rC}, ${gC}, ${bC}, ${(peakAlpha * 0.6).toFixed(3)})`;
+                }
                 ctx.stroke();
             };
 
@@ -184,10 +179,9 @@ export const LyricsVisualizer = React.memo(() => {
         let rafId = 0;
         let lastEventTs = 0;
         let lastDecayTs = performance.now();
+        let lastDrawTs = 0;
+        const drawEveryMs = glow ? 0 : FFT_FRAME_MS;
 
-        // Single rAF that runs only when there is something to animate:
-        // either a new frame is available, or we are still decaying after pause.
-        let dirty = false;
         const ensureLoop = () => {
             if (rafId) return;
             rafId = requestAnimationFrame(loop);
@@ -196,11 +190,11 @@ export const LyricsVisualizer = React.memo(() => {
             const dt = Math.min(0.05, (ts - lastDecayTs) / 1000);
             lastDecayTs = ts;
 
-            // Smooth target → display. Faster attack, slower release.
             const target = targetRef.current;
             const display = displayRef.current;
-            const attack = 1 - Math.exp(-dt * 18); // ~55ms
-            const release = 1 - Math.exp(-dt * 5); // ~200ms
+            if (ts - lastEventTs > STALE_MS) target.fill(0);
+            const attack = 1 - Math.exp(-dt * 18);
+            const release = 1 - Math.exp(-dt * 5);
             let any = false;
             for (let i = 0; i < VIS_BINS; i++) {
                 const t = target[i];
@@ -211,19 +205,23 @@ export const LyricsVisualizer = React.memo(() => {
                 if (next > 1e-3 || t > 1e-3) any = true;
             }
 
-            draw();
-
-            const sinceEvent = ts - lastEventTs;
-            // Keep ticking while there's energy on screen, or up to 350ms after the
-            // last event (lets us animate the post-event smoothing curve). Otherwise
-            // park the rAF — pure idle CPU.
-            if (any && (dirty || sinceEvent < 350)) {
-                rafId = requestAnimationFrame(loop);
-            } else {
-                rafId = 0;
-                dirty = false;
+            if (!any || ts - lastDrawTs >= drawEveryMs) {
+                draw();
+                lastDrawTs = ts;
             }
+            rafId = any ? requestAnimationFrame(loop) : 0;
         };
+
+        const syncIdle = () => {
+            const idle = isAppIdle();
+            setSpectrumEnabled(!idle);
+            wrap.style.opacity = idle ? '0' : '1';
+            if (!idle) return;
+            targetRef.current.fill(0);
+            ensureLoop();
+        };
+        syncIdle();
+        const unsubscribeIdle = subscribeAppIdle(syncIdle);
 
         const unlistenPromise = listen<number[]>('audio:fft', (event) => {
             const bins = event.payload;
@@ -232,16 +230,17 @@ export const LyricsVisualizer = React.memo(() => {
             const n = Math.min(target.length, bins.length);
             for (let i = 0; i < n; i++) target[i] = bins[i];
             lastEventTs = performance.now();
-            dirty = true;
             ensureLoop();
         });
 
         return () => {
             if (rafId) cancelAnimationFrame(rafId);
+            unsubscribeIdle();
+            setSpectrumEnabled(false);
             ro.disconnect();
             unlistenPromise.then((u) => u());
         };
-    }, []);
+    }, [glow]);
 
     return (
         <div
@@ -255,6 +254,7 @@ export const LyricsVisualizer = React.memo(() => {
                 WebkitMaskImage: 'linear-gradient(to top, black 0%, black 60%, transparent 100%)',
                 contain: 'strict',
                 transform: 'translateZ(0)',
+                transition: 'opacity 0.5s ease',
             }}
         >
             <canvas ref={canvasRef} className="block"/>

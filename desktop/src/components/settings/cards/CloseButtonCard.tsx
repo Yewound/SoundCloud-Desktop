@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getCloseBehavior } from '../../../lib/close-action';
+import { useTrayAvailable } from '../../../lib/close-action';
 import { AlertCircle, X } from '../../../lib/icons';
 import { type CloseAction, useSettingsStore } from '../../../stores/settings';
 import { Card, Segmented } from '../primitives';
@@ -14,13 +13,7 @@ export function CloseButtonCard() {
   const { t } = useTranslation();
   const closeAction = useSettingsStore((s) => s.closeAction);
   const setCloseAction = useSettingsStore((s) => s.setCloseAction);
-  const [trayAvailable, setTrayAvailable] = useState(true);
-
-  useEffect(() => {
-    getCloseBehavior()
-      .then((behavior) => setTrayAvailable(behavior.trayAvailable))
-      .catch(() => setTrayAvailable(true));
-  }, []);
+  const trayAvailable = useTrayAvailable();
 
   return (
     <Card

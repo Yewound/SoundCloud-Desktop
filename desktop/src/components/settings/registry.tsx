@@ -18,6 +18,7 @@ import {HotkeysCard} from './cards/HotkeysCard';
 import {ImportCard} from './cards/ImportCard';
 import {LanguageCard} from './cards/LanguageCard';
 import {LayoutCard} from './cards/LayoutCard';
+import {MiniPlayerCard} from './cards/MiniPlayerCard';
 import {NetCheckCard} from './cards/NetCheckCard';
 import {NotificationsCard} from './cards/NotificationsCard';
 import {ObsCard} from './cards/obs/ObsCard';
@@ -86,6 +87,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
                 <FontCard/>
                 <WallpaperCard/>
                 <LayoutCard/>
+                <MiniPlayerCard/>
                 <PerformanceCard/>
                 <CustomCssCard/>
             </>

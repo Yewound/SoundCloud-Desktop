@@ -90,12 +90,28 @@ export function sendCmd(action: TrayCmd, value?: number) {
     void emit('tray:cmd', {action, value});
 }
 
+const SEEK_HOLD_MS = 600;
+const SEEK_SETTLED_SEC = 1;
+let pendingSeek: { target: number; until: number } | null = null;
+
+export function seekTo(seconds: number) {
+    position = seconds;
+    pendingSeek = {target: seconds, until: performance.now() + SEEK_HOLD_MS};
+    for (const l of posListeners) l();
+    sendCmd('seek', seconds);
+}
+
 void listen<TrayNp>('tray:np', (e) => {
     snapshot = e.payload;
     for (const l of snapListeners) l();
 });
 
 void listen<number>('audio:tick', (e) => {
+    if (pendingSeek) {
+        const stale = Math.abs(e.payload - pendingSeek.target) > SEEK_SETTLED_SEC;
+        if (stale && performance.now() < pendingSeek.until) return;
+        pendingSeek = null;
+    }
     position = e.payload;
     if (hidden()) return; // window minimized/hidden — skip the DOM fan-out (WebView doesn't throttle)
     for (const l of posListeners) l();

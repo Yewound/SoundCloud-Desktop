@@ -1417,6 +1417,8 @@
     "uiScaleKeysReset": "вернуть 100%",
     "uiScaleKeysWheel": "масштаб колесом",
     "uiScaleToast": "Масштаб интерфейса: {{value}}%",
+    "miniPlayerDesc": "Открывается из иконки в трее",
+    "miniPlayerOpacity": "Непрозрачность фона",
     "updates": "Обновления",
     "updatesDesc": "Ваша версия и способ обновления",
     "checkUpdates": "Проверить обновления",
