@@ -1,4 +1,4 @@
-import { THEME_STYLE_ID } from './apply';
+import { themeSheet } from './apply';
 
 type ProbeRoot = 'main' | 'tray';
 
@@ -37,36 +37,20 @@ export async function whenShown() {
   } while (!ready());
 }
 
-function targets(root: ProbeRoot): [string, Element][] {
-  const found: [string, Element][] = [
-    ['html', document.documentElement],
-    ['body', document.body],
-  ];
-  for (const hook of HOOKS[root]) {
-    const element = document.querySelector(`[data-ui="${hook}"]`);
-    if (element) found.push([hook, element]);
-  }
-  return found;
-}
-
-function visibleArea(rect: DOMRect): boolean {
-  const width = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
-  const height = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-  return width >= MIN_SIZE && height >= MIN_SIZE;
-}
-
 function passing(list: [string, Element][]): Set<string> {
   const passed = new Set<string>();
   for (const [name, element] of list) {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
     const zoom = Number.parseFloat(style.getPropertyValue('zoom')) || 1;
+    const width = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
+    const height = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
     const checks: [string, boolean][] = [
       ['display', style.display !== 'none'],
       ['visibility', style.visibility === 'visible'],
       ['opacity', Number.parseFloat(style.opacity) >= MIN_OPACITY],
       ['pointer-events', style.pointerEvents !== 'none'],
-      ['rect', visibleArea(rect)],
+      ['rect', width >= MIN_SIZE && height >= MIN_SIZE],
     ];
     if (ZOOM_TARGETS.has(name)) checks.push(['zoom', zoom >= 0.5 && zoom <= 2]);
     if (HIT_TARGETS.has(name)) {
@@ -80,10 +64,16 @@ function passing(list: [string, Element][]): Set<string> {
 
 export async function probeTheme(root: ProbeRoot): Promise<string[]> {
   await whenShown();
-  const style = document.getElementById(THEME_STYLE_ID) as HTMLStyleElement | null;
-  const sheet = style?.sheet;
+  const sheet = themeSheet();
   if (!sheet) return [];
-  const list = targets(root);
+  const list: [string, Element][] = [
+    ['html', document.documentElement],
+    ['body', document.body],
+  ];
+  for (const hook of HOOKS[root]) {
+    const element = document.querySelector(`[data-ui="${hook}"]`);
+    if (element) list.push([hook, element]);
+  }
   const themed = passing(list);
   sheet.disabled = true;
   let baseline: Set<string>;
