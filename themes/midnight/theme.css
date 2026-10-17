@@ -43,10 +43,6 @@ html:not([data-perf="light"]):not([data-perf="medium"]) [data-ui="player"] {
   --glass-blur-soft: 48px;
 }
 
-html[data-perf="medium"] [data-ui="player"] {
-  --glass-blur-soft: 24px;
-}
-
 [data-ui="queue"] {
   border-left-color: rgba(122, 162, 255, 0.12);
 }

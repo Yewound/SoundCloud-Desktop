@@ -10,6 +10,8 @@ html:not([data-perf="light"]) {
 }
 
 [data-ui="sidebar"] {
+  position: relative;
+  z-index: 1;
   background: #101010;
   border-right-color: #1d1d1d;
 }
