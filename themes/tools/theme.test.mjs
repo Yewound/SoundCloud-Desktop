@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import * as rules from '../../desktop/src/lib/themes/rules.ts';
@@ -64,6 +65,21 @@ test('changed files need a higher version', () => {
   assert.match(result.errors.join('\n'), /version must go up from 1\.0\.0/);
   assert.deepEqual(load('good-theme', { ...changed, version: '0.10.0' }).errors, []);
   assert.match(load('good-theme', { ...changed, version: '1.0.1' }).errors.join('\n'), /go up/);
+});
+
+test('a missing preview is a warning in a PR and an error when publishing', () => {
+  const dir = join(mkdtempSync(join(tmpdir(), 'themes-')), 'no-preview');
+  cpSync(join(fixtures, 'good-theme'), dir, { recursive: true });
+  rmSync(join(dir, 'preview.png'));
+  const meta = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
+  writeFileSync(join(dir, 'theme.json'), JSON.stringify({ ...meta, id: 'no-preview' }));
+  const publish = loadTheme(dir, null);
+  assert.equal(publish.entry, null);
+  assert.match(publish.errors.join('\n'), /needs exactly one preview/);
+  const pr = loadTheme(dir, null, undefined, { previewOptional: true });
+  assert.deepEqual(pr.errors, []);
+  assert.equal(pr.entry.preview, null);
+  assert.match(pr.warnings.join('\n'), /no preview, CI renders one/);
 });
 
 test('theme.schema.json matches rules.ts', () => {

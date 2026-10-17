@@ -73,7 +73,7 @@ export function readRevoked(root) {
   }
 }
 
-function readLayout(dir, at, errors) {
+function readLayout(dir, at, errors, previewOptional) {
   const names = readdirSync(dir).sort();
   const previews = [];
   const assets = [];
@@ -97,7 +97,9 @@ function readLayout(dir, at, errors) {
   for (const required of ['theme.json', 'theme.css']) {
     if (!names.includes(required)) errors.push(`${at}/${required}: missing`);
   }
-  if (previews.length !== 1) errors.push(`${at}: needs exactly one preview.webp or preview.png`);
+  if (previews.length > 1 || (previews.length === 0 && !previewOptional)) {
+    errors.push(`${at}: needs exactly one preview.webp or preview.png`);
+  }
   return errors.length > 0 ? null : { preview: previews[0], assets };
 }
 
@@ -274,20 +276,21 @@ function orderedDescription(description) {
   return Object.fromEntries(THEME_LANGS.filter((lang) => lang in description).map((lang) => [lang, description[lang]]));
 }
 
-export function loadTheme(dir, buildRev, previousEntry) {
+export function loadTheme(dir, buildRev, previousEntry, { previewOptional = false } = {}) {
   const folder = basename(dir);
   const at = `themes/${folder}`;
   const errors = [];
   const warnings = [];
   const failed = () => ({ entry: null, errors, warnings });
 
-  const layout = readLayout(dir, at, errors);
+  const layout = readLayout(dir, at, errors, previewOptional);
   if (!layout) return failed();
   const meta = readMeta(dir, at, folder, errors);
   const css = readCss(dir, at, layout.assets, errors, warnings);
   const assets = readAssets(dir, at, layout.assets, css?.used ?? [], errors, warnings);
-  const preview = readPreview(dir, at, layout.preview, errors);
-  if (!meta || !css || !preview || errors.length > 0) return failed();
+  const preview = layout.preview ? readPreview(dir, at, layout.preview, errors) : null;
+  if (!layout.preview) warnings.push(`${at}: no preview, CI renders one after the merge`);
+  if (!meta || !css || (layout.preview && !preview) || errors.length > 0) return failed();
 
   const hash = themeHash(css.file, assets, meta);
   if (previousEntry && previousEntry.hash !== hash && isVersion(previousEntry.version)) {

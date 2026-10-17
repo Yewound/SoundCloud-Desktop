@@ -74,7 +74,9 @@ for (const id of ids) {
     }
     continue;
   }
-  const { entry, errors, warnings } = loadTheme(join(root, 'themes', id), buildRev, old);
+  const { entry, errors, warnings } = loadTheme(join(root, 'themes', id), buildRev, old, {
+    previewOptional: true,
+  });
   if (entry) warnings.push(...reviewWarnings(entry, old));
   for (const line of errors) console.log(`error: ${line}`);
   for (const line of warnings) console.log(`warning: ${line}`);
@@ -85,7 +87,7 @@ for (const id of ids) {
     entry ? describeChange(entry, old) : 'failed',
     entry ? kib(entry.css.size) : '-',
     entry ? kib(entry.size - entry.css.size) : '-',
-    entry ? kib(entry.preview.size) : '-',
+    entry?.preview ? kib(entry.preview.size) : '-',
     errors,
     warnings,
   ]);
