@@ -31,6 +31,13 @@ const PREFIX: &str = "desktop_";
 static COPYING: Mutex<()> = Mutex::new(());
 
 #[tauri::command]
+pub async fn desktop_wallpaper_found(app: AppHandle) -> bool {
+    platform::current(&app)
+        .await
+        .is_some_and(|source| shown_ext(&source).is_some())
+}
+
+#[tauri::command]
 pub async fn desktop_wallpaper_sync(app: AppHandle) -> Option<String> {
     let source = platform::current(&app).await?;
     let dir = app.path().app_cache_dir().ok()?.join("wallpapers");
@@ -40,20 +47,22 @@ pub async fn desktop_wallpaper_sync(app: AppHandle) -> Option<String> {
         .flatten()
 }
 
-fn cache_copy(source: &Path, dir: &Path) -> Option<String> {
-    let meta = fs::metadata(source).ok().filter(|meta| meta.is_file())?;
-    let mut hasher = DefaultHasher::new();
-    source.hash(&mut hasher);
-    meta.len().hash(&mut hasher);
-    meta.modified().ok().hash(&mut hasher);
+fn shown_ext(source: &Path) -> Option<String> {
     let ext = source
         .extension()
         .and_then(|ext| ext.to_str())
         .unwrap_or("jpg")
         .to_ascii_lowercase();
-    if !platform::FORMATS.contains(&ext.as_str()) {
-        return None;
-    }
+    platform::FORMATS.contains(&ext.as_str()).then_some(ext)
+}
+
+fn cache_copy(source: &Path, dir: &Path) -> Option<String> {
+    let ext = shown_ext(source)?;
+    let meta = fs::metadata(source).ok().filter(|meta| meta.is_file())?;
+    let mut hasher = DefaultHasher::new();
+    source.hash(&mut hasher);
+    meta.len().hash(&mut hasher);
+    meta.modified().ok().hash(&mut hasher);
     let name = format!("{PREFIX}{:016x}.{ext}", hasher.finish());
     let target = dir.join(&name);
 

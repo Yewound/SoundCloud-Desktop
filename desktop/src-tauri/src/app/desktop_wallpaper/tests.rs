@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use super::cache_copy;
 use super::parse::{
     fehbg_image, gvariant_string, hyprpaper_image, largest_package_image, plasma_activity,
-    plasma_image, slideshow_first, swww_image, uri_path, xfce_image_property,
+    plasma_image, slideshow_first, swww_image, system_data_dirs, uri_path, xfce_image_property,
 };
 
 const PLASMA: &str = "
@@ -191,6 +191,25 @@ fn plasma_package_uses_the_largest_image() {
     let names = ["1920x1080.png", "5120x2880.png", "720x1440.png"].map(String::from);
     assert_eq!(largest_package_image(&names), Some("5120x2880.png"));
     assert_eq!(largest_package_image(&[]), None);
+}
+
+#[test]
+fn appimage_data_dirs_give_way_to_the_system() {
+    assert_eq!(
+        system_data_dirs(
+            "/tmp/.mount_scdAb12/usr/share:/usr/share:/usr/share/gnome:/var/lib/flatpak/exports/share",
+            "/tmp/.mount_scdAb12"
+        ),
+        "/usr/share:/usr/share/gnome:/var/lib/flatpak/exports/share"
+    );
+    assert_eq!(
+        system_data_dirs("/tmp/.mount_scdAb12//usr/share:", "/tmp/.mount_scdAb12/"),
+        "/usr/local/share:/usr/share"
+    );
+    assert_eq!(
+        system_data_dirs("/tmp/.mount_scdAb12x/usr/share", "/tmp/.mount_scdAb12"),
+        "/tmp/.mount_scdAb12x/usr/share"
+    );
 }
 
 #[test]

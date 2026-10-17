@@ -28,8 +28,13 @@ pub async fn current(_app: &AppHandle) -> Option<PathBuf> {
         return None;
     }
     let path = PathBuf::from(OsString::from_wide(&wide[..len]));
-    if path.is_file() {
+    let shown = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| FORMATS.contains(&ext.to_ascii_lowercase().as_str()));
+    if shown && path.is_file() {
         return Some(path);
     }
-    Some(dirs::config_dir()?.join(r"Microsoft\Windows\Themes\TranscodedWallpaper"))
+    let transcoded = dirs::config_dir()?.join(r"Microsoft\Windows\Themes\TranscodedWallpaper");
+    transcoded.is_file().then_some(transcoded)
 }

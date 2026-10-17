@@ -7,7 +7,7 @@ use tokio::sync::oneshot;
 use crate::rt::AppHandle;
 
 pub const FORMATS: &[&str] = &[
-    "jpg", "jpeg", "png", "gif", "webp", "bmp", "avif", "heic", "jxl",
+    "jpg", "jpeg", "png", "gif", "webp", "bmp", "avif", "heic", "jxl", "tif", "tiff",
 ];
 
 pub async fn current(app: &AppHandle) -> Option<PathBuf> {

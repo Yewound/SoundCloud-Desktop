@@ -8,7 +8,12 @@ import {
     removeWallpaper,
     saveWallpaperFromBuffer,
 } from '../../../lib/cache';
-import {isDesktopWallpaper, syncDesktopWallpaper} from '../../../lib/desktop-wallpaper';
+import {
+    findDesktopWallpaper,
+    isDesktopWallpaper,
+    syncDesktopWallpaper,
+    useDesktopWallpaperLost,
+} from '../../../lib/desktop-wallpaper';
 import {Check, Link, Loader2, Monitor, MonitorOff, Search, X} from '../../../lib/icons';
 import {useSettingsStore} from '../../../stores/settings';
 import {Card, RangeSlider} from '../primitives';
@@ -37,11 +42,15 @@ export function WallpaperCard() {
     const [urlInput, setUrlInput] = useState('');
     const [showUrlInput, setShowUrlInput] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
-    const [desktopName, setDesktopName] = useState<string | null>();
+    const [desktopFound, setDesktopFound] = useState<boolean>();
+    const [brokenDesktop, setBrokenDesktop] = useState<string>();
+    const desktopLost = useDesktopWallpaperLost((s) => s.lost);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const followingDesktop = isDesktopWallpaper(backgroundImage);
-    const desktopShown = followingDesktop ? backgroundImage : desktopName;
-    const desktopUrl = desktopShown ? getWallpaperUrl(desktopShown) : null;
+    const desktopMissing = followingDesktop
+        ? desktopLost || brokenDesktop === backgroundImage
+        : desktopFound === false;
+    const desktopUrl = followingDesktop && !desktopMissing ? getWallpaperUrl(backgroundImage) : null;
 
     const adopt = useCallback(
         (name: string) => {
@@ -75,8 +84,9 @@ export function WallpaperCard() {
             setBackgroundImage('');
             return;
         }
+        setDesktopFound(undefined);
         const name = await syncDesktopWallpaper();
-        setDesktopName(name);
+        setDesktopFound(name !== null);
         if (!name) return;
         setRotation(false);
         setBackgroundImage(name);
@@ -101,14 +111,8 @@ export function WallpaperCard() {
             setWallpapers(names);
             setLoading(false);
         });
-        if (!isDesktopWallpaper(useSettingsStore.getState().backgroundImage)) {
-            syncDesktopWallpaper().then(setDesktopName);
-        }
+        findDesktopWallpaper().then(setDesktopFound);
     }, []);
-
-    useEffect(() => {
-        if (followingDesktop) setDesktopName(backgroundImage);
-    }, [followingDesktop, backgroundImage]);
 
     const handleFileSelect = useCallback(
         async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,13 +181,13 @@ export function WallpaperCard() {
                     <button
                         type="button"
                         onClick={toggleDesktop}
-                        disabled={desktopShown === null}
+                        disabled={!followingDesktop && desktopMissing}
                         aria-pressed={followingDesktop}
-                        title={t(desktopShown === null ? 'settings.wpDesktopMissing' : 'settings.wpDesktop')}
+                        title={t(desktopMissing ? 'settings.wpDesktopMissing' : 'settings.wpDesktop')}
                         className={`relative w-20 h-14 rounded-xl overflow-hidden border-2 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
                             followingDesktop
                                 ? 'border-white/40 shadow-[0_0_12px_rgba(255,255,255,0.1)] cursor-pointer'
-                                : desktopShown === null
+                                : desktopMissing
                                   ? 'border-dashed border-white/[0.06] cursor-not-allowed'
                                   : 'border-white/[0.06] hover:border-white/[0.15] cursor-pointer'
                         }`}
@@ -193,7 +197,7 @@ export function WallpaperCard() {
                                 <img
                                     src={desktopUrl}
                                     alt=""
-                                    onError={() => setDesktopName(null)}
+                                    onError={() => setBrokenDesktop(backgroundImage)}
                                     className="absolute inset-0 w-full h-full object-cover"
                                 />
                                 <span
@@ -204,10 +208,12 @@ export function WallpaperCard() {
                             </>
                         ) : (
                             <>
-                                {desktopShown === null ? (
+                                {desktopMissing ? (
                                     <MonitorOff size={12} className="text-white/25"/>
-                                ) : (
+                                ) : desktopFound === undefined ? (
                                     <Loader2 size={12} className="animate-spin text-white/20"/>
+                                ) : (
+                                    <Monitor size={12} className="text-white/30"/>
                                 )}
                                 <span className="text-[9px] text-white/25 font-medium">{t('settings.wpDesktop')}</span>
                             </>

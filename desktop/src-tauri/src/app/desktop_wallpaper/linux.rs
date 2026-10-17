@@ -7,7 +7,7 @@ use tokio::process::Command;
 
 use super::parse::{
     fehbg_image, gvariant_string, hyprpaper_image, largest_package_image, plasma_activity,
-    plasma_image, slideshow_first, swww_image, uri_path, xfce_image_property,
+    plasma_image, slideshow_first, swww_image, system_data_dirs, uri_path, xfce_image_property,
 };
 use crate::rt::AppHandle;
 
@@ -119,14 +119,24 @@ async fn resolve(path: PathBuf) -> Option<PathBuf> {
 }
 
 async fn output(program: &str, args: &[&str]) -> Option<String> {
-    let run = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(args)
-        .env_remove("GSETTINGS_SCHEMA_DIR")
         .stdin(Stdio::null())
         .stderr(Stdio::null())
-        .kill_on_drop(true)
-        .output();
-    let done = tokio::time::timeout(TOOL_TIMEOUT, run).await.ok()?.ok()?;
+        .kill_on_drop(true);
+    if let Ok(appdir) = std::env::var("APPDIR")
+        && !appdir.is_empty()
+    {
+        let data_dirs = std::env::var("XDG_DATA_DIRS").unwrap_or_default();
+        command
+            .env("XDG_DATA_DIRS", system_data_dirs(&data_dirs, &appdir))
+            .env_remove("GSETTINGS_SCHEMA_DIR");
+    }
+    let done = tokio::time::timeout(TOOL_TIMEOUT, command.output())
+        .await
+        .ok()?
+        .ok()?;
     done.status
         .success()
         .then(|| String::from_utf8_lossy(&done.stdout).into_owned())

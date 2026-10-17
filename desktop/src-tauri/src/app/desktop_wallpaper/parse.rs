@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const PLASMA_IMAGE_PLUGIN: &str = "org.kde.image";
 const PLASMA_DEFAULT_IMAGE: &str = "/usr/share/wallpapers/Next";
+const SYSTEM_DATA_DIRS: &str = "/usr/local/share:/usr/share";
 
 #[derive(Default)]
 struct PlasmaContainment<'a> {
@@ -136,4 +137,16 @@ pub fn largest_package_image(names: &[String]) -> Option<&str> {
         let (width, height) = size.split_once('x').unwrap_or_default();
         width.parse::<u64>().unwrap_or(0) * height.parse::<u64>().unwrap_or(0)
     })
+}
+
+pub fn system_data_dirs(data_dirs: &str, appdir: &str) -> String {
+    let kept: Vec<&str> = data_dirs
+        .split(':')
+        .filter(|dir| !dir.is_empty() && !Path::new(dir).starts_with(appdir))
+        .collect();
+    if kept.is_empty() {
+        SYSTEM_DATA_DIRS.to_string()
+    } else {
+        kept.join(":")
+    }
 }
