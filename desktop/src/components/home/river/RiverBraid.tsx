@@ -105,6 +105,7 @@ export const RiverBraid = React.memo(function RiverBraid({
   const perf = usePerfMode();
   const [geo, setGeo] = useState<Geometry | null>(null);
   const rafRef = useRef(0);
+  const svgRef = useRef<SVGSVGElement>(null);
   // SMIL не паузится глобальным CSS-гейтом [data-app-hidden] — гасим руками.
   const idle = useAppIdle();
 
@@ -128,6 +129,26 @@ export const RiverBraid = React.memo(function RiverBraid({
     };
   }, [layoutKey, rootRef, anchorsRef]);
 
+  useEffect(() => {
+    const svg = svgRef.current;
+    const scroller = svg?.closest('main');
+    if (!geo || !svg || !scroller) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => {
+      if (!svg.animationsPaused()) svg.pauseAnimations();
+      clearTimeout(timer);
+      timer = setTimeout(() => svg.unpauseAnimations(), 120);
+    };
+
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      clearTimeout(timer);
+      svg.unpauseAnimations();
+    };
+  }, [geo]);
+
   if (!geo) return null;
 
   const c0 = tint?.[0] ?? 'var(--color-accent)';
@@ -136,6 +157,7 @@ export const RiverBraid = React.memo(function RiverBraid({
 
   return (
     <svg
+      ref={svgRef}
       className="pointer-events-none absolute inset-0 z-0 hidden overflow-visible lg:block"
       width="100%"
       height="100%"

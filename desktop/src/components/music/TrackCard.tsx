@@ -92,7 +92,7 @@ export const TrackCard = React.memo(
 
           {/* Duration pill */}
           <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="text-[10px] font-medium bg-black/50 group-hover:backdrop-blur-md text-white/80 px-2 py-0.5 rounded-full">
+            <div className="text-[10px] font-medium bg-black/50 group-hover:backdrop-blur-md transition-[backdrop-filter] duration-200 text-white/80 px-2 py-0.5 rounded-full">
               {dur(track.duration)}
             </div>
           </div>
