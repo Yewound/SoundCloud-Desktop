@@ -254,7 +254,7 @@ docker exec <backend> sh -c '
   echo "=== через прокси ==="
   TARGET=$(printf "https://secure.soundcloud.com/oauth/token" | base64 -w0)
   time curl -sS -o /dev/null -w "code=%{http_code} total=%{time_total}s\n" \
-    --max-time 15 https://prx-internal.scnative.space \
+    --max-time 15 http://prx-internal.scnative.space \
     -H "X-Target: $TARGET" \
     -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=test"
 '
