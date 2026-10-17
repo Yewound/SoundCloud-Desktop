@@ -12,6 +12,7 @@ import {
 } from '../../lib/discover';
 import {Disc3} from '../../lib/icons';
 import {Skeleton} from '../ui/Skeleton';
+import { SyncNotice } from '../ui/SyncNotice';
 import {VirtualGrid} from '../ui/VirtualGrid';
 import {AlbumGridCard} from './AlbumGridCard';
 import {FilterRow} from './FilterRow';
@@ -73,10 +74,21 @@ const YearBucketsView = memo(function YearBucketsView({
   kind: AlbumKindFilter;
   aura: Aura;
 }) {
-  const { data, isLoading } = useDiscoverAlbumsByYear({ kind, years: 8, perYear: 20 });
+  const { data, isLoading, isError, refetch } = useDiscoverAlbumsByYear({
+    kind,
+    years: 8,
+    perYear: 20,
+  });
   const buckets = data?.buckets ?? [];
 
   if (isLoading) return <YearBucketsSkeleton />;
+  if (isError && buckets.length === 0) {
+    return (
+      <div className="py-24">
+        <SyncNotice kind="failed" onRetry={() => void refetch()} />
+      </div>
+    );
+  }
   if (buckets.length === 0) return <EmptyAlbums query="" />;
 
   return (
@@ -110,12 +122,17 @@ const FlatAlbumsView = memo(function FlatAlbumsView({
   }, [albumsQuery]);
 
   const isInitialLoading = albumsQuery.isLoading;
-  const isEmpty = !isInitialLoading && items.length === 0;
+  const isFailed = albumsQuery.isError && items.length === 0;
+  const isEmpty = !isInitialLoading && !isFailed && items.length === 0;
 
   return (
     <div className="flex flex-col gap-6">
       {isInitialLoading ? (
         <SkeletonGrid />
+      ) : isFailed ? (
+        <div className="py-24">
+          <SyncNotice kind="failed" onRetry={() => void albumsQuery.refetch()} />
+        </div>
       ) : isEmpty ? (
         <EmptyAlbums query={query} />
       ) : (

@@ -49,6 +49,7 @@ struct Data {
     accounts: Accounts,
     queue: Queue,
     lastfm_token: Option<String>,
+    lastfm_auth: u64,
 }
 
 impl Data {
@@ -133,6 +134,7 @@ impl ScrobbleState {
             accounts: store::load(&dir.join(store::ACCOUNTS_FILE)),
             queue: store::load(&dir.join(store::QUEUE_FILE)),
             lastfm_token: None,
+            lastfm_auth: 0,
         };
         let state = Arc::new(Self {
             dir,
@@ -201,8 +203,20 @@ impl ScrobbleState {
         status
     }
 
-    pub async fn set_lastfm_token(&self, token: Option<String>) {
-        self.data.lock().await.lastfm_token = token;
+    pub async fn reset_lastfm_auth(&self) -> u64 {
+        let mut data = self.data.lock().await;
+        data.lastfm_auth += 1;
+        data.lastfm_token = None;
+        data.lastfm_auth
+    }
+
+    pub async fn set_lastfm_token(&self, auth: u64, token: String) -> bool {
+        let mut data = self.data.lock().await;
+        if data.lastfm_auth != auth {
+            return false;
+        }
+        data.lastfm_token = Some(token);
+        true
     }
 
     pub async fn lastfm_token(&self) -> Option<String> {

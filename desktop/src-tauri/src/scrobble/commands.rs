@@ -50,11 +50,17 @@ pub async fn scrobble_submit(track: Scrobble, state: Scrobbler<'_>) -> Result<()
 #[tauri::command]
 pub async fn lastfm_auth_start(state: Scrobbler<'_>) -> Result<String, String> {
     let creds = lastfm::credentials().ok_or("unavailable")?;
+    let auth = state.reset_lastfm_auth().await;
     let token = lastfm::request_token(&state.http, creds)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| match e {
+            ApiError::Retry(detail) => format!("network: {detail}"),
+            other => format!("refused: {other}"),
+        })?;
     let url = lastfm::auth_url(creds, &token);
-    state.set_lastfm_token(Some(token)).await;
+    if !state.set_lastfm_token(auth, token).await {
+        return Err("cancelled".into());
+    }
     Ok(url)
 }
 
@@ -66,7 +72,7 @@ pub async fn lastfm_auth_finish(state: Scrobbler<'_>) -> Result<Option<Status>, 
         Ok(session) => session,
         Err(ApiError::Pending) => return Ok(None),
         Err(ApiError::Session) => {
-            state.set_lastfm_token(None).await;
+            state.reset_lastfm_auth().await;
             return Err("expired".into());
         }
         Err(e) => return Err(e.to_string()),
@@ -82,7 +88,7 @@ pub async fn lastfm_auth_finish(state: Scrobbler<'_>) -> Result<Option<Status>, 
 
 #[tauri::command]
 pub async fn lastfm_auth_cancel(state: Scrobbler<'_>) -> Result<(), String> {
-    state.set_lastfm_token(None).await;
+    state.reset_lastfm_auth().await;
     Ok(())
 }
 

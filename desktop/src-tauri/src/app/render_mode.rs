@@ -34,6 +34,7 @@ struct Flag {
 pub struct RenderMode {
     supported: bool,
     software_rendering: bool,
+    safe_render: bool,
     restart_required: bool,
 }
 
@@ -129,11 +130,16 @@ pub fn restore_launch_env() {
     }
 }
 
+fn launched_safe_render() -> bool {
+    SUPPORTED && cfg!(target_os = "linux") && std::env::args_os().any(|arg| arg == "--safe-render")
+}
+
 fn current_mode() -> RenderMode {
     let software_rendering = SUPPORTED && load_flag().software_rendering;
     RenderMode {
         supported: SUPPORTED,
         software_rendering,
+        safe_render: launched_safe_render(),
         restart_required: software_rendering != launched_software(),
     }
 }

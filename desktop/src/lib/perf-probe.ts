@@ -1,7 +1,9 @@
 import { toast } from 'sonner';
 import i18n from '../i18n';
 import { useSettingsStore } from '../stores/settings';
+import { trackedInvoke } from './diagnostics';
 import { isLinux } from './platform';
+import type { RenderMode } from './render-mode';
 
 const PROBE_DELAY_MS = 5000;
 const RESAMPLE_DELAY_MS = 5000;
@@ -56,6 +58,27 @@ function stillOnDefault(): boolean {
   return perfMode === 'beauty' && !perfModeUserSet;
 }
 
+function switchToLight(message: string): void {
+  useSettingsStore.setState({ perfMode: 'light' });
+  toast(message, {
+    duration: 10000,
+    action: {
+      label: i18n.t('settings.perfAutoLightUndo'),
+      onClick: () => useSettingsStore.getState().setPerfMode('beauty'),
+    },
+  });
+}
+
+export function lightenForSoftwareRendering(): void {
+  if (stillOnDefault()) switchToLight(i18n.t('settings.softwareRenderingAutoLight'));
+}
+
+export async function probeSoftwareRendering(): Promise<void> {
+  if (!stillOnDefault()) return;
+  const mode = await trackedInvoke<RenderMode>('render_mode_get').catch(() => null);
+  if (mode?.softwareRendering || mode?.safeRender) lightenForSoftwareRendering();
+}
+
 export function probePerfMode(): void {
   if (useSettingsStore.getState().perfProbed || !stillOnDefault()) return;
   setTimeout(async () => {
@@ -66,13 +89,6 @@ export function probePerfMode(): void {
       if (canSample()) useSettingsStore.setState({ perfProbed: true });
       return;
     }
-    useSettingsStore.setState({ perfMode: 'light' });
-    toast(i18n.t('settings.perfAutoLight'), {
-      duration: 10000,
-      action: {
-        label: i18n.t('settings.perfAutoLightUndo'),
-        onClick: () => useSettingsStore.getState().setPerfMode('beauty'),
-      },
-    });
+    switchToLight(i18n.t('settings.perfAutoLight'));
   }, PROBE_DELAY_MS);
 }

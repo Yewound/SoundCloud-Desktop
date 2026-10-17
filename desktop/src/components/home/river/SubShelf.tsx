@@ -6,6 +6,7 @@ import type { Track } from '../../../stores/player';
 import { TrackCard } from '../../music/TrackCard';
 import { HorizontalScroll } from '../../ui/HorizontalScroll';
 import { Skeleton } from '../../ui/Skeleton';
+import { SyncNotice } from '../../ui/SyncNotice';
 
 const SHELF_CAP = 24;
 
@@ -27,6 +28,8 @@ export function SubShelf({
   index,
   label,
   isLoading,
+  isError,
+  onRetry,
   tracks,
   onPlay,
   to,
@@ -34,13 +37,15 @@ export function SubShelf({
   index: string;
   label: string;
   isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
   tracks: Track[];
   onPlay?: () => void;
   to?: string;
 }) {
   const { t } = useTranslation();
   const cap = usePerfMode().mode === 'beauty' ? Number.POSITIVE_INFINITY : SHELF_CAP;
-  if (!isLoading && tracks.length === 0) return null;
+  if (!isLoading && !isError && tracks.length === 0) return null;
   return (
     <div>
       <div className="mb-3 flex items-center gap-2.5 pl-1">
@@ -59,17 +64,23 @@ export function SubShelf({
           </Link>
         )}
       </div>
-      <HorizontalScroll>
-        {isLoading ? (
-          <ShelfSkeleton />
-        ) : (
-          tracks.slice(0, cap).map((track) => (
-            <div key={track.urn} className="w-[176px] shrink-0">
-              <TrackCard track={track} queue={tracks} onPlay={onPlay} />
-            </div>
-          ))
-        )}
-      </HorizontalScroll>
+      {isError ? (
+        <div className="py-6">
+          <SyncNotice kind="failed" onRetry={onRetry} />
+        </div>
+      ) : (
+        <HorizontalScroll>
+          {isLoading ? (
+            <ShelfSkeleton />
+          ) : (
+            tracks.slice(0, cap).map((track) => (
+              <div key={track.urn} className="w-[176px] shrink-0">
+                <TrackCard track={track} queue={tracks} onPlay={onPlay} />
+              </div>
+            ))
+          )}
+        </HorizontalScroll>
+      )}
     </div>
   );
 }

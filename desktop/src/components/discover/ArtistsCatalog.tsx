@@ -11,6 +11,7 @@ import {
 } from '../../lib/discover';
 import { Users } from '../../lib/icons';
 import { Skeleton } from '../ui/Skeleton';
+import { SyncNotice } from '../ui/SyncNotice';
 import { VirtualGrid } from '../ui/VirtualGrid';
 import { ArtistGridCard } from './ArtistGridCard';
 import { FilterRow } from './FilterRow';
@@ -62,7 +63,8 @@ function ArtistsCatalogImpl({ aura, query }: ArtistsCatalogProps) {
     );
 
   const isInitialLoading = artistsQuery.isLoading;
-  const isEmpty = !isInitialLoading && items.length === 0;
+  const isFailed = artistsQuery.isError && items.length === 0;
+  const isEmpty = !isInitialLoading && !isFailed && items.length === 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -73,6 +75,10 @@ function ArtistsCatalogImpl({ aura, query }: ArtistsCatalogProps) {
 
       {isInitialLoading ? (
         <SkeletonGrid />
+      ) : isFailed ? (
+        <div className="py-24">
+          <SyncNotice kind="failed" onRetry={() => void artistsQuery.refetch()} />
+        </div>
       ) : isEmpty ? (
         <EmptyArtists query={query} />
       ) : (

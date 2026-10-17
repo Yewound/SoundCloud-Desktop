@@ -9,6 +9,7 @@ import {usePerfMode} from '../../lib/perf';
 import {useViewerAura} from '../../lib/useViewerAura';
 import { HorizontalScroll } from '../ui/HorizontalScroll';
 import { Skeleton } from '../ui/Skeleton';
+import { SyncNotice } from '../ui/SyncNotice';
 import { gradientForId, monogramOf } from './visuals';
 
 interface DiscoverSpotlightProps {
@@ -17,10 +18,11 @@ interface DiscoverSpotlightProps {
 
 function DiscoverSpotlightImpl({ aura }: DiscoverSpotlightProps) {
   const { t } = useTranslation();
-  const { data, isLoading } = useDiscoverSpotlight();
+  const { data, isLoading, isError, refetch } = useDiscoverSpotlight();
   const items = data?.items ?? [];
+  const isFailed = isError && items.length === 0;
 
-  if (!isLoading && items.length === 0) return null;
+  if (!isLoading && !isFailed && items.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-4">
@@ -50,6 +52,10 @@ function DiscoverSpotlightImpl({ aura }: DiscoverSpotlightProps) {
             <Skeleton key={i} className="shrink-0 w-[280px] h-[360px] rounded-[1.75rem]" />
           ))}
         </HorizontalScroll>
+      ) : isFailed ? (
+        <div className="py-8">
+          <SyncNotice kind="failed" onRetry={() => void refetch()} />
+        </div>
       ) : (
         <HorizontalScroll className="px-1">
           {items.map((it) =>
