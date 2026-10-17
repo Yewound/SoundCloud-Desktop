@@ -66,7 +66,7 @@ export const EqImportForm = React.memo(function EqImportForm({ onDone }: { onDon
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [result, setResult] = useState<EqImport | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<'empty' | 'unreadable' | null>(null);
 
   const run = useCallback((request: Promise<EqImport>) => {
     request
@@ -75,11 +75,11 @@ export const EqImportForm = React.memo(function EqImportForm({ onDone }: { onDon
         settings.setEqGains(imported.gains);
         settings.setEqPreamp(imported.preamp);
         setResult(imported);
-        setFailed(false);
+        setFailure(null);
       })
-      .catch(() => {
+      .catch((error) => {
         setResult(null);
-        setFailed(true);
+        setFailure(error === 'no_filters' ? 'empty' : 'unreadable');
       });
   }, []);
 
@@ -123,10 +123,10 @@ export const EqImportForm = React.memo(function EqImportForm({ onDone }: { onDon
           {t('eq.fromFile')}
         </button>
         {result && <ImportReport result={result} />}
-        {failed && (
+        {failure && (
           <span className={`${chipClass} bg-red-500/10 text-red-400`}>
             <TriangleAlert size={11} />
-            {t('eq.importFailed')}
+            {t(failure === 'empty' ? 'eq.importFailed' : 'eq.readFailed')}
           </span>
         )}
         <span className="flex-1" />

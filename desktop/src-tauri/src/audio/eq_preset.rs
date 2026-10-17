@@ -29,6 +29,14 @@ enum Line {
     Unsupported,
 }
 
+#[derive(Default)]
+struct Preset {
+    filters: Vec<Coefficients<f64>>,
+    graphics: Vec<Vec<(f64, f64)>>,
+    preamp: Option<f64>,
+    skipped: Vec<String>,
+}
+
 pub fn decode(bytes: &[u8]) -> String {
     match bytes {
         [0xFF, 0xFE, rest @ ..] => {
@@ -44,10 +52,60 @@ pub fn decode(bytes: &[u8]) -> String {
 }
 
 pub fn import(text: &str) -> Result<EqImport, String> {
-    let mut filters = Vec::new();
-    let mut graphics: Vec<Vec<(f64, f64)>> = Vec::new();
-    let mut preamp: Option<f64> = None;
-    let mut skipped = Vec::new();
+    let is_peace = text
+        .lines()
+        .any(|line| line.trim().eq_ignore_ascii_case("[frequencies]"));
+    let mut preset = if is_peace {
+        read_peace(text)
+    } else {
+        read_apo(text)
+    };
+
+    preset.graphics.retain(|points| !points.is_empty());
+    if preset.filters.is_empty() && preset.graphics.is_empty() {
+        return Err("no_filters".into());
+    }
+
+    let target: Vec<f64> = eq_curve::grid()
+        .into_iter()
+        .map(|frequency| {
+            let parametric: f64 = preset
+                .filters
+                .iter()
+                .map(|filter| magnitude_db(filter, frequency))
+                .sum();
+            let graphic: f64 = preset
+                .graphics
+                .iter()
+                .map(|points| interpolate(points, frequency))
+                .sum();
+            parametric + graphic
+        })
+        .collect();
+    let level = if preset.graphics.is_empty() {
+        0.0
+    } else {
+        round_tenth(median(&target))
+    };
+    let shape: Vec<f64> = target.iter().map(|value| value - level).collect();
+    let fit = eq_curve::fit(&shape);
+    let preamp = match preset.preamp {
+        Some(gain) => Some(gain + level),
+        None => (level < 0.0).then_some(level),
+    }
+    .map(|gain| round_tenth(gain.clamp(EQ_PREAMP_MIN_DB, EQ_PREAMP_MAX_DB)));
+
+    Ok(EqImport {
+        gains: fit.gains,
+        preamp,
+        used: preset.filters.len() + preset.graphics.len(),
+        skipped: preset.skipped,
+        deviation: fit.deviation,
+    })
+}
+
+fn read_apo(text: &str) -> Preset {
+    let mut preset = Preset::default();
     let mut first_channel = true;
 
     for line in text.lines() {
@@ -69,69 +127,122 @@ pub fn import(text: &str) -> Result<EqImport, String> {
         if !is_eq {
             continue;
         }
+        let skip = || line.chars().take(SKIPPED_CHARS).collect::<String>();
         if !first_channel {
             if key != "preamp" {
-                skipped.push(line.chars().take(SKIPPED_CHARS).collect());
+                preset.skipped.push(skip());
             }
             continue;
         }
         if key == "preamp" {
-            let gain = value
-                .split_whitespace()
-                .next()
-                .and_then(number)
-                .ok_or("bad preamp")?;
-            preamp = Some(preamp.unwrap_or(0.0) + gain);
+            match value.split_whitespace().next().and_then(number) {
+                Some(gain) => preset.preamp = Some(preset.preamp.unwrap_or(0.0) + gain),
+                None => preset.skipped.push(skip()),
+            }
         } else if key == "graphiceq" {
-            graphics.push(graphic_points(value));
+            preset.graphics.push(graphic_points(value));
         } else {
             match filter(value) {
-                Line::Filter(coefficients) => filters.push(coefficients),
+                Line::Filter(coefficients) => preset.filters.push(coefficients),
                 Line::Off => {}
-                Line::Unsupported => skipped.push(line.chars().take(SKIPPED_CHARS).collect()),
+                Line::Unsupported => preset.skipped.push(skip()),
             }
         }
     }
+    preset
+}
 
-    graphics.retain(|points| !points.is_empty());
-    if filters.is_empty() && graphics.is_empty() {
-        return Err("no filters".into());
+fn read_peace(text: &str) -> Preset {
+    let mut entries: Vec<(String, String, &str, &str)> = Vec::new();
+    let mut section = String::new();
+    for line in text.lines().map(str::trim) {
+        if let Some(name) = line
+            .strip_prefix('[')
+            .and_then(|rest| rest.strip_suffix(']'))
+        {
+            section = name.trim().to_ascii_lowercase();
+        } else if let Some((key, value)) = line.split_once('=') {
+            entries.push((
+                section.clone(),
+                key.trim().to_ascii_lowercase(),
+                value.trim(),
+                line,
+            ));
+        }
     }
-
-    let target: Vec<f64> = eq_curve::grid()
-        .into_iter()
-        .map(|frequency| {
-            let parametric: f64 = filters
-                .iter()
-                .map(|filter| magnitude_db(filter, frequency))
-                .sum();
-            let graphic: f64 = graphics
-                .iter()
-                .map(|points| interpolate(points, frequency))
-                .sum();
-            parametric + graphic
-        })
-        .collect();
-    let level = if graphics.is_empty() {
-        0.0
-    } else {
-        round_tenth(median(&target))
+    let get = |section: &str, key: &str| {
+        entries
+            .iter()
+            .find(|(entry_section, entry_key, _, _)| entry_section == section && entry_key == key)
+            .map(|&(_, _, value, line)| (value, line))
     };
-    let shape: Vec<f64> = target.iter().map(|value| value - level).collect();
-    let fit = eq_curve::fit(&shape);
-    let preamp = match preamp {
-        Some(gain) => Some(gain + level),
-        None => (level < 0.0).then_some(level),
-    }
-    .map(|gain| round_tenth(gain.clamp(EQ_PREAMP_MIN_DB, EQ_PREAMP_MAX_DB)));
 
-    Ok(EqImport {
-        gains: fit.gains,
-        preamp,
-        used: filters.len() + graphics.len(),
-        skipped,
-        deviation: fit.deviation,
-    })
+    let mut preset = Preset::default();
+    if let Some((value, line)) = get("general", "preamp") {
+        match number(value) {
+            Some(gain) => preset.preamp = Some(gain),
+            None => preset.skipped.push(line.to_string()),
+        }
+    }
+    let graphic = get("general", "graphiceq").is_some_and(|(value, _)| value == "1");
+    let mut points = Vec::new();
+    for band in 1.. {
+        let Some(frequency) = get("frequencies", &format!("frequency{band}"))
+            .and_then(|(value, _)| number(value))
+            .filter(|&frequency| frequency > 0.0)
+        else {
+            break;
+        };
+        let gain = match get("gains", &format!("gain{band}")) {
+            None => 0.0,
+            Some((value, line)) => match number(value) {
+                Some(gain) => gain,
+                None => {
+                    preset.skipped.push(line.to_string());
+                    continue;
+                }
+            },
+        };
+        if graphic {
+            points.push((frequency, gain));
+            continue;
+        }
+        let kind = get("filters", &format!("filter{band}"));
+        let shape = match kind.map_or("0", |(value, _)| value) {
+            "0" => Type::PeakingEQ(gain),
+            "4" => Type::LowShelf(gain),
+            "5" => Type::HighShelf(gain),
+            _ => {
+                preset
+                    .skipped
+                    .extend(kind.map(|(_, line)| line.to_string()));
+                continue;
+            }
+        };
+        if gain == 0.0 {
+            continue;
+        }
+        let q = get("qualities", &format!("quality{band}"))
+            .and_then(|(value, _)| number(value))
+            .filter(|&q| q > 0.0)
+            .unwrap_or(default_q(&shape));
+        if let Some(coefficients) = design(shape, frequency, q, CURVE_RATE) {
+            preset.filters.push(coefficients);
+        }
+    }
+    if graphic {
+        preset.graphics.push(points);
+    }
+
+    for (section, key, value, line) in &entries {
+        let per_speaker = (section == "general" && key.starts_with("preamp") && key != "preamp")
+            || (section.starts_with("gains") && section != "gains")
+            || (section.starts_with("filters") && section != "filters");
+        if per_speaker && number(value) != Some(0.0) {
+            preset.skipped.push(line.to_string());
+        }
+    }
+    preset
 }
 
 pub fn export(gains: &[f64; EQ_BANDS], preamp: f64, format: EqFormat) -> String {
@@ -178,11 +289,21 @@ fn graphic_frequencies() -> Vec<f64> {
 }
 
 fn number(token: &str) -> Option<f64> {
-    token
-        .replace(',', ".")
+    let token = token.replace(',', ".").to_ascii_lowercase();
+    let (digits, scale) = if let Some(digits) = token.strip_suffix("khz") {
+        (digits, 1000.0)
+    } else {
+        let digits = token
+            .strip_suffix("hz")
+            .or_else(|| token.strip_suffix("db"))
+            .unwrap_or(&token);
+        (digits, 1.0)
+    };
+    digits
         .parse::<f64>()
         .ok()
         .filter(|value| value.is_finite())
+        .map(|value| value * scale)
 }
 
 fn filter(value: &str) -> Line {
@@ -195,7 +316,7 @@ fn filter(value: &str) -> Line {
     };
 
     let mut frequency = None;
-    let mut gain = 0.0;
+    let mut gain = None;
     let mut q = None;
     let mut index = 2;
     while index < tokens.len() {
@@ -209,7 +330,7 @@ fn filter(value: &str) -> Line {
                 };
                 frequency = next.map(|value| value * scale);
             }
-            "gain" => gain = next.unwrap_or(0.0),
+            "gain" => gain = next,
             "q" => q = next,
             "bw" => {
                 let octaves = tokens.get(index + 2).copied().and_then(number);
@@ -226,22 +347,27 @@ fn filter(value: &str) -> Line {
     let Some(frequency) = frequency.filter(|&frequency| frequency > 0.0) else {
         return Line::Unsupported;
     };
+    let Some(gain) = gain else {
+        return Line::Unsupported;
+    };
     let shape = match kind.as_str() {
         "PK" | "PEQ" => Type::PeakingEQ(gain),
         "LS" | "LSC" | "LSQ" => Type::LowShelf(gain),
         "HS" | "HSC" | "HSQ" => Type::HighShelf(gain),
         _ => return Line::Unsupported,
     };
-    let q = q
-        .filter(|&q| q > 0.0)
-        .unwrap_or(if matches!(shape, Type::PeakingEQ(_)) {
-            EQ_Q
-        } else {
-            Q_BUTTERWORTH_F64
-        });
+    let q = q.filter(|&q| q > 0.0).unwrap_or(default_q(&shape));
     match design(shape, frequency, q, CURVE_RATE) {
         Some(coefficients) => Line::Filter(coefficients),
         None => Line::Unsupported,
+    }
+}
+
+fn default_q(shape: &Type<f64>) -> f64 {
+    if matches!(shape, Type::PeakingEQ(_)) {
+        EQ_Q
+    } else {
+        Q_BUTTERWORTH_F64
     }
 }
 
@@ -350,6 +476,77 @@ Filter 7: ON PK Fc 6000 Hz Gain 2 dB Q 3
         assert!(imported.gains[1] > 2.0, "{:?}", imported.gains);
         assert!(imported.gains[6] < -2.0, "{:?}", imported.gains);
         assert!(imported.deviation > 0.0);
+    }
+
+    #[test]
+    fn reads_units_glued_to_numbers_and_skips_bad_values() {
+        let text = "\
+Preamp: -6dB
+Filter 1: ON PK Fc 1kHz Gain -3dB Q 1
+Filter 2: ON PK Fc 100Hz Gain 4,5dB Q 1
+Filter 3: ON PK Fc 300 Hz Gain loud dB Q 1
+Preamp: quiet
+";
+        let imported = import(text).unwrap();
+        assert_eq!(imported.used, 2);
+        assert_eq!(imported.preamp, Some(-6.0));
+        assert_eq!(
+            imported.skipped,
+            vec![
+                "Filter 3: ON PK Fc 300 Hz Gain loud dB Q 1",
+                "Preamp: quiet"
+            ]
+        );
+        assert!(imported.gains[1] > 2.0, "{:?}", imported.gains);
+        assert!(imported.gains[5] < -1.5, "{:?}", imported.gains);
+    }
+
+    fn peace_file(general: &str, gains: &str, filters: &str) -> String {
+        let frequencies = [
+            10, 21, 42, 83, 166, 333, 577, 1000, 2000, 4000, 8000, 16000, 20000,
+        ];
+        let mut text = String::from("[Speakers]\r\nSpeakerId0=0\r\nSpeakerTargets0=all\r\n");
+        text.push_str(&format!("[General]\r\n{general}"));
+        for suffix in ["", "1"] {
+            text.push_str(&format!("[Frequencies{suffix}]\r\n"));
+            for (index, frequency) in frequencies.iter().enumerate() {
+                text.push_str(&format!("Frequency{}={frequency}\r\n", index + 1));
+            }
+            text.push_str(&format!("[Qualities{suffix}]\r\n"));
+            for index in 0..frequencies.len() {
+                text.push_str(&format!("Quality{}=1.41\r\n", index + 1));
+            }
+        }
+        text.push_str(&format!("[Gains]\r\n{gains}[Filters]\r\n{filters}"));
+        text.push_str("[Configuration]\r\nHotKey=\r\n");
+        text
+    }
+
+    #[test]
+    fn reads_peace_files() {
+        let text = peace_file(
+            "PreAmp=-10\r\nPreAmp1=-4\r\n",
+            "Gain2=0\r\nGain8=10\r\nGain9=3\r\n",
+            "Filter8=4\r\nFilter9=2\r\n",
+        );
+        let imported = import(&text).unwrap();
+        assert_eq!(imported.used, 1);
+        assert_eq!(imported.preamp, Some(-10.0));
+        assert_eq!(imported.skipped, vec!["Filter9=2", "PreAmp1=-4"]);
+        assert!(imported.gains[2] > 6.0, "{:?}", imported.gains);
+        assert!(imported.gains[9].abs() < 1.0, "{:?}", imported.gains);
+
+        let peaks = peace_file("", "Gain1=9.5\r\nGain4=3.5\r\nGain12=-3\r\n", "");
+        let imported = import(&peaks).unwrap();
+        assert_eq!(imported.used, 3);
+        assert_eq!(imported.preamp, None);
+        assert!(imported.gains[1] > 1.0, "{:?}", imported.gains);
+        assert!(imported.gains[9] < -1.0, "{:?}", imported.gains);
+
+        let graphic = peace_file("GraphicEQ=1\r\n", "Gain1=6\r\nGain2=6\r\n", "");
+        let imported = import(&graphic).unwrap();
+        assert_eq!(imported.used, 1);
+        assert!(imported.gains[0] > 3.0, "{:?}", imported.gains);
     }
 
     #[test]

@@ -204,6 +204,32 @@ mod tests {
         [12.0, 12.0, 10.0, 7.0, 3.0, 0.0, -2.0, -4.0, -4.0, -5.0];
 
     #[test]
+    fn bands_sit_at_their_frequencies() {
+        for band in 1..EQ_BANDS - 1 {
+            let filter = band_coefficients(band, 6.0, CURVE_RATE);
+            let centre = magnitude_db(&filter, EQ_FREQS[band]);
+            assert!((centre - 6.0).abs() < 0.01, "{band}: {centre}");
+            for octaves in [-1.0, 1.0] {
+                let side = magnitude_db(&filter, EQ_FREQS[band] * 2f64.powf(octaves));
+                assert!(side < 4.0, "{band} {octaves}: {side}");
+            }
+        }
+    }
+
+    #[test]
+    fn shelves_turn_at_their_frequencies() {
+        let low = band_coefficients(0, 6.0, CURVE_RATE);
+        assert!((magnitude_db(&low, EQ_FREQS[0]) - 3.0).abs() < 0.05);
+        assert!(magnitude_db(&low, 20.0) > 4.5);
+        assert!(magnitude_db(&low, 250.0) < 0.3);
+
+        let high = band_coefficients(EQ_BANDS - 1, 6.0, CURVE_RATE);
+        assert!((magnitude_db(&high, EQ_FREQS[EQ_BANDS - 1]) - 3.0).abs() < 0.05);
+        assert!(magnitude_db(&high, 20_000.0) > 4.0);
+        assert!(magnitude_db(&high, 4000.0) < 0.5);
+    }
+
+    #[test]
     fn auto_preamp_leaves_headroom_for_overlapping_boosts() {
         let preamp = auto_preamp(&BASS_DESTROYER);
         assert!(preamp < -12.0, "{preamp}");

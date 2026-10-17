@@ -1343,6 +1343,7 @@
     "importSkipped_one": "{{count}} atlandı",
     "importSkipped_other": "{{count}} atlandı",
     "importFailed": "Ön ayar bulunamadı",
+    "readFailed": "Dosya açılamadı",
     "formatApo": "APO / Peace",
     "formatGraphic": "GraphicEQ / Wavelet",
     "copy": "Kopyala",

@@ -1397,6 +1397,7 @@
     "importDeviationHint": "10개 밴드와 원본 프리셋의 차이",
     "importSkipped_other": "{{count}}개 건너뜀",
     "importFailed": "프리셋을 찾지 못했어요",
+    "readFailed": "파일을 열지 못했어요",
     "formatApo": "APO / Peace",
     "formatGraphic": "GraphicEQ / Wavelet",
     "copy": "복사",

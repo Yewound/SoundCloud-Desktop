@@ -1469,6 +1469,7 @@
     "importSkipped_few": "{{count}} пропущено",
     "importSkipped_many": "{{count}} пропущено",
     "importFailed": "Пресет не найден",
+    "readFailed": "Файл не открылся",
     "formatApo": "APO / Peace",
     "formatGraphic": "GraphicEQ / Wavelet",
     "copy": "Копировать",

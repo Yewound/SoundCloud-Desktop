@@ -29,6 +29,7 @@ pub struct PitchSource<S: Source<Item = f32>> {
     sample_rate: SampleRate,
     span_len: usize,
     channel: usize,
+    started: bool,
     shifter: Option<Shifter>,
 }
 
@@ -43,6 +44,7 @@ impl<S: Source<Item = f32>> PitchSource<S> {
             sample_rate,
             span_len: block_frames(sample_rate) * channels.get() as usize,
             channel: 0,
+            started: false,
             shifter: None,
         }
     }
@@ -56,7 +58,8 @@ impl<S: Source<Item = f32>> PitchSource<S> {
             self.shifter = None;
         }
         if self.shifter.is_none() && !is_unity(ratio) {
-            self.shifter = Some(Shifter::new(self.channels, self.sample_rate));
+            let mix = if self.started { 0.0 } else { 1.0 };
+            self.shifter = Some(Shifter::new(self.channels, self.sample_rate, mix));
         }
     }
 }
@@ -74,6 +77,7 @@ impl<S: Source<Item = f32>> Iterator for PitchSource<S> {
             None => self.source.next()?,
         };
         self.channel = (self.channel + 1) % self.channels.get() as usize;
+        self.started = true;
         Some(sample)
     }
 }
@@ -136,7 +140,7 @@ struct Shifter {
 }
 
 impl Shifter {
-    fn new(channels: ChannelCount, sample_rate: SampleRate) -> Self {
+    fn new(channels: ChannelCount, sample_rate: SampleRate, mix: f32) -> Self {
         let count = channels.get() as usize;
         Self {
             stretch: Stretch::preset_default(count as u32, sample_rate.get()),
@@ -150,7 +154,7 @@ impl Shifter {
             raw: VecDeque::new(),
             out: Vec::new(),
             out_pos: 0,
-            mix: 0.0,
+            mix,
             primed: false,
             source_done: false,
             draining: false,
@@ -383,6 +387,45 @@ mod tests {
                 "{ratio}: {measured}"
             );
         }
+    }
+
+    #[test]
+    fn starts_shifted_from_the_first_sample() {
+        let head = left(&shifted(1.5))[..RATE as usize / 25].to_vec();
+        let window =
+            |i: usize| 0.5 - 0.5 * (std::f32::consts::TAU * i as f32 / head.len() as f32).cos();
+        let power = |frequency: f32| -> f32 {
+            let mut re = 0.0;
+            let mut im = 0.0;
+            for (i, sample) in head.iter().enumerate() {
+                let phase = std::f32::consts::TAU * frequency * i as f32 / RATE as f32;
+                re += sample * window(i) * phase.cos();
+                im -= sample * window(i) * phase.sin();
+            }
+            re * re + im * im
+        };
+        assert!(
+            power(440.0) < power(660.0) * 0.01,
+            "{} {}",
+            power(440.0),
+            power(660.0)
+        );
+    }
+
+    #[test]
+    fn switching_on_mid_track_fades_in() {
+        let ratio = Arc::new(AtomicU32::new(1.0f32.to_bits()));
+        let mut source = PitchSource::new(sine(440.0, 2.0), ratio.clone());
+        let mut output = source.by_ref().take(RATE as usize).collect::<Vec<_>>();
+        ratio.store(1.5f32.to_bits(), Ordering::Relaxed);
+        output.extend(source.take(RATE as usize));
+        assert!(largest_step(&output) < 0.06, "{}", largest_step(&output));
+        let shifted = &output[RATE as usize * 6 / 5..];
+        assert!(
+            close_to(frequency(shifted), 660.0),
+            "{}",
+            frequency(shifted)
+        );
     }
 
     #[test]

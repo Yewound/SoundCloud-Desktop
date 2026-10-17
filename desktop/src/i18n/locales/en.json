@@ -1431,6 +1431,7 @@
     "importSkipped_one": "{{count}} skipped",
     "importSkipped_other": "{{count}} skipped",
     "importFailed": "No preset found",
+    "readFailed": "Can't open the file",
     "formatApo": "APO / Peace",
     "formatGraphic": "GraphicEQ / Wavelet",
     "copy": "Copy",
