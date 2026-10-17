@@ -395,7 +395,9 @@
     "noMatches": "Eslesme yok",
     "noLikedTracks": "Henuz begenilen parca yok",
     "likesSyncing": "Begeniler SoundCloud ile esitleniyor...",
-    "likesSyncSlow": "SoundCloud ile esitleme normalden uzun suruyor",
+    "offlineGate": "Sunucuyla bağlantı yok. İndirilenler Offline bölümünde",
+    "openOffline": "Offline'ı aç",
+    "profileFailed": "Profil yüklenemedi",
     "likesLoadFailed": "Begeniler yuklenemedi",
     "notFollowing": "Kimseyi takip etmiyorsunuz",
     "noPlaylists": "Calma listesi bulunamadi",
@@ -1374,6 +1376,9 @@
     "backgroundHint": "Ice aktarma arka planda surer, bu pencereyi kapatabilirsiniz",
     "error": "Ice aktarma basarisiz",
     "pending": "Calma listesi sunucuda olusturuluyor, kisa sure sonra kitapliginizda gorunecek",
+    "delayed": "SoundCloud sınırlıyor, çalma listesi daha sonra oluşturulacak",
+    "createFailed": "\"{{title}}\" çalma listesi oluşturulamadı",
+    "relogin": "Yeniden giriş yapın, yoksa çalma listesi oluşturulmayacak",
     "partial": "Ice aktarmanin bir kismi kaydedildi, nedeni asagida",
     "errors": "Hatalar",
     "nothingFound": "Hicbir sey bulunamadi. Baglantinizi ve tokeninizi kontrol edip tekrar deneyin",
@@ -1439,7 +1444,8 @@
     "empty": "Burada henuz bir sey yok",
     "loadFailed": "Yuklenemedi",
     "syncing": "SoundCloud ile esitleniyor...",
-    "syncSlow": "SoundCloud ile esitleme normalden uzun suruyor",
+    "syncWaiting": "SoundCloud ile eşitleniyor · {{time}} bekleniyor",
+    "syncQueue": "Sunucu kuyruğu, bu birkaç saat sürebilir. Dinlemeye devam edebilirsiniz.",
     "stillLoading": "SoundCloud'dan hala yukleniyor, biraz sonra tekrar deneyin",
     "loadingFromSoundcloud": "SoundCloud'dan yukleniyor, bu bir dakika surebilir",
     "pageLoadFailed": "Sayfa yuklenemedi",
@@ -1793,17 +1799,30 @@
     "retrySoon": "bir dakikadan az",
     "retryMinutes": "~{{count}} dk",
     "retryHours": "~{{count}} sa",
+    "signIn": "Giriş yap",
     "chip": {
-      "synced": "Senkronize",
+      "synced": "Değişiklikler gönderildi",
+      "relogin": "Yeniden giriş yapın",
       "syncing": "{{count}} sırada",
       "delayed": "SoundCloud sınırlıyor · {{time}} sonra tekrar",
-      "failed": "{{count}} senkronize edilmedi"
+      "failed": "{{count}} hatalı",
+      "dead": "{{count}} gönderilmedi"
     },
     "hint": {
-      "synced": "Beğeniler ve çalma listeleri soundcloud.com ile otomatik olarak senkronize edilir. Her şey güncel.",
-      "syncing": "Uygulamaya kaydedildi. Değişiklikleriniz soundcloud.com'a gönderiliyor.",
-      "delayed": "SoundCloud uygulamadan gelen değişiklikleri geçici olarak kabul etmiyor. {{count}} değişiklik kaydedildi ve otomatik olarak gönderilecek, sonraki deneme {{time}} sonra.",
-      "failed": "SoundCloud bazı değişiklikleri reddetti. Uygulamada kalırlar ve SoundCloud izin verdikçe yeniden denenirler."
+      "synced": "Uygulamada değiştirdiğiniz her şey zaten soundcloud.com'da.",
+      "syncing": "Uygulamaya kaydedildi, sırayla soundcloud.com'a gönderilecek.",
+      "delayed": "SoundCloud şu an bunu uygulamadan kabul etmiyor. {{count}} kaydedildi, {{time}} sonra kendiliğinden gönderilecek.",
+      "failed": "SoundCloud bazı değişiklikleri reddetti, kendimiz tekrar deniyoruz.",
+      "dead": "SoundCloud bu değişiklikleri kabul etmedi, kendiliğinden tekrar denenmeyecekler.",
+      "relogin": "Yeniden giriş yapana kadar değişiklikler SoundCloud'a gitmez."
+    },
+    "learnMore": "Daha fazla bilgi",
+    "retryIn": "{{time}} sonra tekrar",
+    "refused": {
+      "authRequired": "SoundCloud'a yeniden giriş yapmanız gerekiyor",
+      "notFound": "SoundCloud bu listeyi bulamıyor",
+      "forbidden": "SoundCloud bu listeye erişimi kapattı",
+      "unavailable": "SoundCloud veri döndürmüyor"
     }
   },
   "upload": {
@@ -2093,5 +2112,21 @@
     "prev": "Önceki",
     "next": "Sonraki",
     "quit": "Çıkış"
+  },
+  "recovery": {
+    "title": "Oturum kesildi",
+    "description": "Oturum otomatik olarak yenilenemedi. Tekrar deneyin veya yeniden giriş yapın.",
+    "retry": "Tekrar dene",
+    "errorDead": "Bu oturum artık geçerli değil. Yeniden giriş yapın.",
+    "errorTransient": "Sunucu yanıt vermedi. Daha sonra tekrar deneyin.",
+    "renewing": "Oturum yenileniyor...",
+    "signIn": "Yeniden giriş yap",
+    "signingIn": "Giriş yapılıyor...",
+    "copyLink": "Bağlantıyı kopyala",
+    "copied": "Kopyalandı!",
+    "logout": "Çıkış yap",
+    "writesTitle": "Yeniden giriş yapın",
+    "writesText": "SoundCloud mevcut girişiniz üzerinden değişiklikleri kabul etmiyor. Yeniden giriş yapın, bir dakika sürer.",
+    "readsText": "SoundCloud bu listeyi mevcut girişiniz üzerinden vermiyor. Yeniden giriş yapın, bir dakika sürer."
   }
 }

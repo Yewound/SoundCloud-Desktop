@@ -75,7 +75,7 @@ export const PlaylistPage = React.memo(function PlaylistPage() {
     isLoading: tracksLoading,
     isError: tracksFailed,
     refetch: refetchTracks,
-    syncState: tracksSyncState,
+    syncInfo: tracksSyncInfo,
     sync: tracksSync,
     hasNextPage,
     isFetchingNextPage,
@@ -319,14 +319,20 @@ export const PlaylistPage = React.memo(function PlaylistPage() {
   const missingTracks = !hasNextPage && serverTracks.length < declaredCount;
   const tracksSyncStatus = tracksSync?.status ?? '';
   const tracksUnreadable =
-    tracksSyncStatus === 'auth_required' || tracksSync?.conflictCode === 'remote_not_found';
+    !tracksSyncInfo.errorCode &&
+    (tracksSyncStatus === 'auth_required' || tracksSync?.conflictCode === 'remote_not_found');
   const listNotice = useMemo(() => {
     const retry = () => void refetchTracks();
     const notice = syncNoticeOf({
       isError: tracksFailed && serverTracks.length === 0,
-      syncState: missingTracks ? tracksSyncState : 'complete',
+      syncInfo: missingTracks ? tracksSyncInfo : undefined,
     });
-    if (notice) return <SyncNotice kind={notice} onRetry={retry} />;
+    if (notice === 'refused' && tracksSyncInfo.errorCode === 'auth_required' && !isOwner) {
+      return <SyncNotice kind="refused" text={t('playlist.tracksUnavailable')} onRetry={retry} />;
+    }
+    if (notice) {
+      return <SyncNotice kind={notice} info={tracksSyncInfo} ownedByMe={isOwner} onRetry={retry} />;
+    }
     if (!missingTracks) return null;
     if (tracksUnreadable) {
       return <SyncNotice kind="failed" text={t('playlist.tracksUnavailable')} onRetry={retry} />;
@@ -342,8 +348,9 @@ export const PlaylistPage = React.memo(function PlaylistPage() {
     );
   }, [
     tracksFailed,
-    tracksSyncState,
+    tracksSyncInfo,
     tracksUnreadable,
+    isOwner,
     missingTracks,
     serverTracks.length,
     declaredCount,

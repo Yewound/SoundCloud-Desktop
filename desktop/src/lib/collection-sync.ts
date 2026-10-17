@@ -1,5 +1,5 @@
 import { type QueryKey, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 
 export interface CollectionSync {
@@ -7,9 +7,18 @@ export interface CollectionSync {
   conflictCode?: string | null;
   lastCompletedAt?: string | null;
   retryAfterSeconds?: number;
+  queuedSince?: string | null;
+  errorCode?: string | null;
 }
 
-export type CollectionSyncState = 'complete' | 'syncing' | 'stalled';
+export type CollectionSyncState = 'complete' | 'syncing' | 'stalled' | 'refused';
+
+export interface CollectionSyncInfo {
+  state: CollectionSyncState;
+  errorCode: string | null;
+  queuedSince: string | null;
+  retryAt: number;
+}
 
 interface SyncedPage {
   collection: unknown[];
@@ -19,14 +28,18 @@ interface SyncedPage {
 const MIN_PROBE_MS = 10_000;
 const MAX_PROBE_MS = 60_000;
 const PROBE_BUDGET_MS = 15 * 60_000;
+const STALLED_PROBE_MS = 5 * 60_000;
+const STALLED_QUEUE_MS = 15 * 60_000;
 const UNOBSERVED_PLAYLIST_STATUSES = ['unhydrated', 'legacy_review', 'retry_wait'];
 
-function isWaiting(status: string | undefined, conflictCode: string | null): boolean {
-  if (status === 'conflict') return conflictCode === 'catalog_incomplete';
-  return status === 'refreshing' || UNOBSERVED_PLAYLIST_STATUSES.includes(status ?? '');
+function isWaiting(sync: CollectionSync | undefined): boolean {
+  if (sync?.errorCode) return false;
+  if (sync?.status === 'conflict') return sync.conflictCode === 'catalog_incomplete';
+  return sync?.status === 'refreshing' || UNOBSERVED_PLAYLIST_STATUSES.includes(sync?.status ?? '');
 }
 
 export function isPartialSync(sync: CollectionSync | undefined): boolean {
+  if (sync?.errorCode) return false;
   if (UNOBSERVED_PLAYLIST_STATUSES.includes(sync?.status ?? '')) return true;
   return sync?.status === 'refreshing' && !sync.lastCompletedAt;
 }
@@ -36,7 +49,7 @@ export function useCollectionSync(
   probeUrl: string,
   head: SyncedPage | undefined,
   updatedAt: number,
-): CollectionSyncState {
+): CollectionSyncInfo {
   const qc = useQueryClient();
   const queryKeyRef = useRef(queryKey);
   queryKeyRef.current = queryKey;
@@ -46,8 +59,11 @@ export function useCollectionSync(
   const conflictCode = head?.sync?.conflictCode ?? null;
   const lastCompletedAt = head?.sync?.lastCompletedAt ?? null;
   const retryAfterSeconds = head?.sync?.retryAfterSeconds ?? 0;
+  const queuedSince = head?.sync?.queuedSince ?? null;
+  const errorCode = head?.sync?.errorCode ?? null;
   const hasItems = (head?.collection.length ?? 0) > 0;
-  const waiting = isWaiting(status, conflictCode);
+  const waiting = isWaiting(head?.sync);
+  const stalledFrom = queuedSince ? Date.parse(queuedSince) + STALLED_QUEUE_MS : Number.NaN;
 
   useEffect(() => {
     if (!waiting) return;
@@ -57,11 +73,9 @@ export function useCollectionSync(
     const deadline = Date.now() + PROBE_BUDGET_MS;
 
     function schedule() {
-      if (Date.now() + delay > deadline) {
-        setStalledAt(updatedAt);
-        return;
-      }
-      timer = setTimeout(probe, delay);
+      const late = Date.now() + delay > deadline;
+      if (late) setStalledAt(updatedAt);
+      timer = setTimeout(probe, late ? STALLED_PROBE_MS : delay);
       delay = Math.min(delay * 1.5, MAX_PROBE_MS);
     }
 
@@ -73,6 +87,7 @@ export function useCollectionSync(
         (latest.sync?.status !== status ||
           (latest.sync?.conflictCode ?? null) !== conflictCode ||
           (latest.sync?.lastCompletedAt ?? null) !== lastCompletedAt ||
+          (latest.sync?.errorCode ?? null) !== errorCode ||
           latest.collection.length > 0 !== hasItems);
       if (moved) {
         await qc.invalidateQueries(
@@ -95,11 +110,44 @@ export function useCollectionSync(
     status,
     conflictCode,
     lastCompletedAt,
+    errorCode,
     retryAfterSeconds,
     hasItems,
     updatedAt,
   ]);
 
-  if (!isPartialSync(head?.sync)) return 'complete';
-  return stalledAt === updatedAt ? 'stalled' : 'syncing';
+  useEffect(() => {
+    const left = stalledFrom - Date.now();
+    if (!waiting || !(left > 0)) return;
+    const timer = setTimeout(() => setStalledAt(updatedAt), left);
+    return () => clearTimeout(timer);
+  }, [waiting, stalledFrom, updatedAt]);
+
+  const retryAt = updatedAt + retryAfterSeconds * 1000;
+
+  useEffect(() => {
+    if (errorCode !== 'unavailable' || retryAfterSeconds <= 0) return;
+    const timer = setTimeout(
+      () =>
+        void qc.invalidateQueries(
+          { queryKey: queryKeyRef.current, exact: true },
+          { cancelRefetch: false },
+        ),
+      retryAt - Date.now() + MIN_PROBE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [qc, errorCode, retryAfterSeconds, retryAt]);
+
+  const stalled = stalledAt === updatedAt || stalledFrom <= Date.now();
+  const state: CollectionSyncState = errorCode
+    ? 'refused'
+    : !isPartialSync(head?.sync)
+      ? 'complete'
+      : stalled
+        ? 'stalled'
+        : 'syncing';
+  return useMemo(
+    () => ({ state, errorCode, queuedSince, retryAt }),
+    [state, errorCode, queuedSince, retryAt],
+  );
 }

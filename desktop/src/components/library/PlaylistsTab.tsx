@@ -73,7 +73,8 @@ export const PlaylistsTab = React.memo(function PlaylistsTab({filter}: { filter:
         }
     }, [filter, hasNextPage, isFetchingNextPage]);
 
-    const notice = syncNoticeOf(myPlaylistsQuery) ?? syncNoticeOf(likedPlaylistsQuery);
+    const noticeQuery = syncNoticeOf(myPlaylistsQuery) ? myPlaylistsQuery : likedPlaylistsQuery;
+    const notice = syncNoticeOf(noticeQuery);
     const retry = () => {
         void myPlaylistsQuery.refetch();
         void likedPlaylistsQuery.refetch();
@@ -103,7 +104,7 @@ export const PlaylistsTab = React.memo(function PlaylistsTab({filter}: { filter:
                     filteredLiked.length === 0 &&
                     (!filter && notice ? (
                         <div className="py-20">
-                            <SyncNotice kind={notice} onRetry={retry}/>
+                            <SyncNotice kind={notice} info={noticeQuery.syncInfo} ownedByMe onRetry={retry}/>
                         </div>
                     ) : (
                         <div className="py-20 text-center text-white/20">

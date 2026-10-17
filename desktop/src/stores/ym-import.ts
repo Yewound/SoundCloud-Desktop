@@ -7,6 +7,7 @@ import { preferredDataBase } from '../lib/api-client';
 import { noteAuthGap } from '../lib/auth-recovery';
 import { trackedInvoke as invoke } from '../lib/diagnostics';
 import { queryClient } from '../lib/query-client';
+import { fetchSyncStatus, type PlaylistCreate } from '../lib/sync-status';
 import {
   forgetOwnedPlaylists,
   loadOwnedPlaylists,
@@ -62,13 +63,23 @@ interface PlaylistTracksPage {
 
 type YmImportPhase = 'idle' | 'running' | 'stopping' | 'done' | 'stopped' | 'error';
 
+export type YmPendingState = 'queued' | 'delayed' | 'failed' | 'relogin';
+
+export interface YmPendingCreate {
+  title: string;
+  targetUrn: string | null;
+  state: PlaylistCreate['state'];
+}
+
 interface YmImportState {
   phase: YmImportPhase;
   saving: boolean;
   progress: YmImportProgress | null;
   playlist: ScPlaylist | null;
   playlistCount: number;
-  pending: boolean;
+  pendingState: YmPendingState | null;
+  pendingCreates: YmPendingCreate[];
+  savedAt: number;
   error: string | null;
   initBridge: () => void;
   startImport: (token: string) => Promise<void>;
@@ -82,7 +93,9 @@ const idleState = {
   progress: null,
   playlist: null,
   playlistCount: 0,
-  pending: false,
+  pendingState: null,
+  pendingCreates: [],
+  savedAt: 0,
   error: null,
 };
 
@@ -211,6 +224,17 @@ async function deleteStalePlaylists(owner: string, existing: ScPlaylist[], targe
   );
 }
 
+export function ymPendingStateOf(
+  creates: YmPendingCreate[],
+  needsRelogin: boolean,
+): YmPendingState | null {
+  if (creates.length === 0) return null;
+  if (needsRelogin) return 'relogin';
+  if (creates.some((create) => create.state === 'failed')) return 'failed';
+  if (creates.some((create) => create.state === 'delayed')) return 'delayed';
+  return 'queued';
+}
+
 async function savePlaylists(runId: number, deleteStale: boolean) {
   if (matches.length === 0) return;
 
@@ -218,23 +242,38 @@ async function savePlaylists(runId: number, deleteStale: boolean) {
 
   const existing = await findExistingPlaylists();
   const owner = useAuthStore.getState().user?.urn ?? '';
-  const pending = await loadPendingCreates(owner, existing);
+  const sync = await fetchSyncStatus().catch(() => null);
+  const serverCreates = new Map<string, PlaylistCreate>();
+  for (const create of sync?.playlistCreates ?? []) {
+    if (!serverCreates.has(create.title)) serverCreates.set(create.title, create);
+  }
+  const pending = await loadPendingCreates(
+    owner,
+    existing,
+    sync?.playlistCreates ?? null,
+    sync?.playlistCreatesTruncated ?? false,
+  );
   await rememberOwnedPlaylists(owner, pending.createdUrns);
   if (!currentRunIsActive(runId)) return;
 
   const order = useSettingsStore.getState().ymImportOrder;
   const chunks = chunkArray(orderedUrns(order), PLAYLIST_TRACK_LIMIT);
   const saved: ScPlaylist[] = [];
-  let queued = 0;
+  const waiting: YmPendingCreate[] = [];
   let failure: unknown = null;
 
   for (const [index, urns] of chunks.entries()) {
     const title = getPlaylistName(index);
-    if (pending.titles.has(title)) {
-      queued++;
+    const existingPlaylist = existing.find((playlist) => playlist.title === title);
+    const server = existingPlaylist ? undefined : serverCreates.get(title);
+    if (server) {
+      waiting.push({ title, targetUrn: server.targetUrn, state: server.state });
       continue;
     }
-    const existingPlaylist = existing.find((playlist) => playlist.title === title);
+    if (pending.titles.has(title)) {
+      waiting.push({ title, targetUrn: null, state: 'queued' });
+      continue;
+    }
     try {
       if (existingPlaylist) {
         await replacePlaylistTracks(existingPlaylist.urn, urns);
@@ -245,8 +284,8 @@ async function savePlaylists(runId: number, deleteStale: boolean) {
           saved.push(result);
           await rememberOwnedPlaylists(owner, [result.urn]);
         } else {
-          queued++;
-          await rememberPendingCreate(owner, title);
+          waiting.push({ title, targetUrn: result.targetUrn, state: 'queued' });
+          await rememberPendingCreate(owner, title, result.targetUrn);
         }
       }
     } catch (error) {
@@ -264,8 +303,10 @@ async function savePlaylists(runId: number, deleteStale: boolean) {
   const primaryPlaylist = saved[0] ?? null;
   useYmImportStore.setState({
     playlist: primaryPlaylist,
-    playlistCount: saved.length + queued,
-    pending: queued > 0,
+    playlistCount: saved.length + waiting.length,
+    pendingState: ymPendingStateOf(waiting, sync?.needsRelogin ?? false),
+    pendingCreates: waiting,
+    savedAt: Date.now(),
   });
 
   queryClient.invalidateQueries({ queryKey: ['me', 'playlists'] }).catch(() => undefined);

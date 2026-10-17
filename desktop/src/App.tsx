@@ -11,7 +11,7 @@ import YMImportFloatingStatus from './components/music/YMImportFloatingStatus';
 import { NetCheckModal } from './components/net-check/NetCheckModal';
 import { SessionRecoveryModal } from './components/SessionRecoveryModal';
 import { ThemeProvider } from './components/ThemeProvider';
-import { ApiError } from './lib/api';
+import { ApiError, getSessionId } from './lib/api';
 import { loadBlockedArtists } from './lib/blocked-artists';
 import { CHECK_UPDATES } from './lib/constants';
 import { requestProbe } from './lib/host-status';
@@ -66,6 +66,7 @@ const NewsToast = lazy(() =>
 );
 
 const UPDATE_RECHECK_MS = 6 * 60 * 60 * 1000;
+const PROFILE_RETRY_MS = [5_000, 15_000, 60_000];
 
 const STARTUP_PAGE_ROUTES: Record<StartupPage, string> = {
   home: '/home',
@@ -131,24 +132,35 @@ export default function App() {
     }
 
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const session = getSessionId();
 
-    fetchUser().catch((error) => {
-      if (cancelled) return;
+    const loadUser = (attempt: number) =>
+      fetchUser().catch((error) => {
+        if (cancelled) return;
 
-      // Auth-recoverable сбои (401/429/пустой юзер) уже перехвачены в
-      // api-client → recoverSession() (silent renew, при неудаче — модалка).
-      if (error instanceof ApiError) return;
+        // Auth-recoverable сбои (401/429/пустой юзер) уже перехвачены в
+        // api-client → recoverSession() (silent renew, при неудаче — модалка).
+        if (error instanceof ApiError) {
+          const delay = PROFILE_RETRY_MS[attempt];
+          if (error.status < 500 || delay === undefined) return;
+          retryTimer = setTimeout(() => {
+            if (!cancelled && getSessionId() === session) void loadUser(attempt + 1);
+          }, delay);
+          return;
+        }
 
-      if (getAppMode() !== 'online') {
-        return;
-      }
+        if (getAppMode() !== 'online') {
+          return;
+        }
 
-      // Logged out while /me was in flight — don't resurrect the session.
-      if (!useAuthStore.getState().hasSession) return;
+        // Logged out while /me was in flight — don't resurrect the session.
+        if (!useAuthStore.getState().hasSession) return;
 
-      console.warn('[Auth] Keeping local session after /me bootstrap failure:', error);
-      useAuthStore.setState({ isAuthenticated: true });
-    });
+        console.warn('[Auth] Keeping local session after /me bootstrap failure:', error);
+        useAuthStore.setState({ isAuthenticated: true });
+      });
+    void loadUser(0);
 
     void import('./lib/dislikes').then(({ loadAllDislikedIds }) => {
       if (!cancelled) void loadAllDislikedIds();
@@ -156,6 +168,7 @@ export default function App() {
 
     return () => {
       cancelled = true;
+      clearTimeout(retryTimer);
     };
   }, [appMode, fetchUser, hasSession]);
 

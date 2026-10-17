@@ -9,6 +9,7 @@ import {LibrarySubHeader} from '../components/library/LibrarySubHeader';
 import {LikesSortMenu} from '../components/library/LikesSortMenu';
 import {LikesTab} from '../components/library/LikesTab';
 import {PlaylistsTab} from '../components/library/PlaylistsTab';
+import {ProfileGate} from '../components/library/ProfileGate';
 import {StatsView} from '../components/library/stats/StatsView';
 import {SuperlikesOrderReset} from '../components/library/superlikes/SuperlikesOrderReset';
 import {SuperlikesTab} from '../components/library/superlikes/SuperlikesTab';
@@ -47,7 +48,13 @@ export const LibraryCollection = React.memo(() => {
     const [filter, setFilter] = useState('');
     const deferredFilter = useDeferredValue(filter);
 
-    if (!user) return null;
+    if (!user) {
+        return (
+            <LibraryFrame sound={sound}>
+                <ProfileGate/>
+            </LibraryFrame>
+        );
+    }
     if (!section || !SECTIONS.includes(section as Section)) {
         return <Navigate to="/library" replace/>;
     }
