@@ -83,6 +83,7 @@ import {
   PanelLeftOpen as _PanelLeftOpen,
   Pause as _Pause,
   Pencil as _Pencil,
+  PictureInPicture2 as _PictureInPicture2,
   Play as _Play,
   Plus as _Plus,
   Power as _Power,
@@ -232,6 +233,7 @@ export const PanelLeftClose = memo(_PanelLeftClose);
 export const PanelLeftOpen = memo(_PanelLeftOpen);
 export const Pause = memo(_Pause);
 export const Pencil = memo(_Pencil);
+export const PictureInPicture2 = memo(_PictureInPicture2);
 export const Ellipsis = memo(_Ellipsis);
 export const Play = memo(_Play);
 export const Plus = memo(_Plus);

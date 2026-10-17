@@ -1348,6 +1348,8 @@
     "uiScaleKeysReset": "reset to 100%",
     "uiScaleKeysWheel": "scroll to zoom",
     "uiScaleToast": "Interface scale: {{value}}%",
+    "miniPlayerDesc": "Opens from the tray icon",
+    "miniPlayerOpacity": "Background opacity",
     "updates": "Updates",
     "updatesDesc": "Your version and how updates reach it",
     "checkUpdates": "Check for updates",

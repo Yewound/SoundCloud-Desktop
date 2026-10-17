@@ -47,6 +47,7 @@ import {QUALITY_LABEL_KEYS} from '../../lib/playback-quality';
 import {useSuperliked} from '../../lib/superlikes';
 import {useArtistDisplay, useArtistLinkItems, useDisplayTitle} from '../../lib/track-display';
 import {useTrackContextMenu} from '../../lib/useTrackContextMenu';
+import {useWheelSeek} from '../../lib/useWheelSeek';
 import {useAddToPlaylistRequest} from '../../stores/add-to-playlist';
 import {useLyricsStore} from '../../stores/lyrics';
 import {
@@ -249,6 +250,18 @@ const AbLoopOverlay = React.memo(({ duration }: { duration: number }) => {
 
 /* ── Progress Slider ─────────────────────────────────────────── */
 
+function paintProgress(
+  range: HTMLSpanElement | null,
+  thumb: HTMLSpanElement | null,
+  seconds: number,
+) {
+  const d = getDuration();
+  const pct = d > 0 ? (seconds / d) * 100 : 0;
+  if (range) range.style.right = `${100 - pct}%`;
+  const thumbWrapper = thumb?.parentElement;
+  if (thumbWrapper) thumbWrapper.style.left = `${pct}%`;
+}
+
 export const ProgressSlider = React.memo(() => {
   const duration = useSyncExternalStore(subscribe, getDuration);
 
@@ -257,21 +270,25 @@ export const ProgressSlider = React.memo(() => {
   const [syncedValue, setSyncedValue] = useState(0);
 
   const draggingRef = useRef(false);
+  const rootRef = useRef<HTMLSpanElement>(null);
   const rangeRef = useRef<HTMLSpanElement>(null);
   const thumbRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
 
-  // Direct DOM updates at 60fps — zero React re-renders
+  const wheelTargetRef = useWheelSeek(rootRef, tipRef, {
+    position: getCurrentTime,
+    duration: getDuration,
+    seek,
+    preview: (seconds) => paintProgress(rangeRef.current, thumbRef.current, seconds),
+    dragging: () => draggingRef.current,
+  });
+
   useEffect(() => {
     return subscribe(() => {
-      if (draggingRef.current) return;
-      const t = getCurrentTime();
-      const d = getDuration();
-      const pct = d > 0 ? (t / d) * 100 : 0;
-      if (rangeRef.current) rangeRef.current.style.right = `${100 - pct}%`;
-      const thumbWrapper = thumbRef.current?.parentElement;
-      if (thumbWrapper) thumbWrapper.style.left = `${pct}%`;
+      if (draggingRef.current || wheelTargetRef.current !== null) return;
+      paintProgress(rangeRef.current, thumbRef.current, getCurrentTime());
     });
-  }, []);
+  }, [wheelTargetRef]);
 
   const displayValue = dragging ? dragValue : syncedValue;
 
@@ -315,6 +332,7 @@ export const ProgressSlider = React.memo(() => {
 
   return (
     <Slider.Root
+      ref={rootRef}
       className="relative flex items-center w-full h-5 cursor-pointer group select-none touch-none"
       value={[displayValue]}
       max={duration || 1}
@@ -333,6 +351,7 @@ export const ProgressSlider = React.memo(() => {
         className="block w-3 h-3 rounded-full bg-accent shadow-[0_0_10px_var(--color-accent-glow)] scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-150 outline-none will-change-transform"
       />
       <AbLoopOverlay duration={duration} />
+      <span ref={tipRef} className={tipClass} />
     </Slider.Root>
   );
 });

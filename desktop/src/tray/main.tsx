@@ -1,3 +1,4 @@
+import {listen} from '@tauri-apps/api/event';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import {changeAppLanguage} from '../i18n';
@@ -10,12 +11,17 @@ import '../index.css';
 import './tray.css';
 import {MiniPlayer} from './MiniPlayer';
 
+function applyCardOpacity(opacity: number) {
+    document.documentElement.style.setProperty('--tp-card-opacity', String(opacity));
+}
+
 /** Mirror the main window's accent/perf theming into this separate webview context. */
 function applyTheme() {
     const s = useSettingsStore.getState();
     applyAccentVars(s.accentColor);
     applyBgVars(s.bgPrimary);
     applyPerfMode(s.perfMode);
+    applyCardOpacity(s.miniPlayerOpacity);
     void applyFontVars(s.interfaceFont, s.customFontName, s.customFontFile);
     applyCustomCss(effectiveCustomCss(s));
 }
@@ -54,6 +60,7 @@ async function bootstrap() {
 
     setupVisibilityGate();
     setupFocusGate();
+    void listen<number>('tray:opacity', (e) => applyCardOpacity(e.payload));
 
     // Re-pick theme/language changes made in the main window each time the popover re-shows
     // (separate store instance — it only reads the shared on-disk state on demand).

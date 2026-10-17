@@ -1,6 +1,7 @@
 import {emit, listen} from '@tauri-apps/api/event';
 import {useAddToPlaylistRequest} from '../stores/add-to-playlist';
 import { usePlayerStore } from '../stores/player';
+import {useSettingsStore} from '../stores/settings';
 import {useSuperlikeLimit} from '../stores/superlike-limit';
 import {api} from './api';
 import {getDuration, handlePrev, seek} from './audio';
@@ -223,6 +224,10 @@ listen('tray:hello', () => emitNp());
 
 usePlayerStore.subscribe(pushNp);
 subscribeSuperliked(pushNp);
+
+useSettingsStore.subscribe((s, prev) => {
+    if (s.miniPlayerOpacity !== prev.miniPlayerOpacity) void emit('tray:opacity', s.miniPlayerOpacity);
+});
 
 // Like/dislike state lives in TanStack Query — re-push when the current track's
 // reaction caches change (toggles from the main UI).

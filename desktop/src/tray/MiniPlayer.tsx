@@ -18,6 +18,7 @@ import {useCallback, useEffect, useRef, useState, useSyncExternalStore} from 're
 import i18n from '../i18n';
 import {trackedInvoke as invoke} from '../lib/diagnostics';
 import {formatTime} from '../lib/formatters';
+import {useWheelSeek} from '../lib/useWheelSeek';
 import {snapVolume} from '../lib/volume';
 import {getNp, getPosition, patchNp, sendCmd, subscribeNp, subscribePosition} from './state';
 import {TrayLikeButton} from './TrayLikeButton';
@@ -47,19 +48,30 @@ function useShowPulse(): number {
 function Scrubber({duration}: { duration: number }) {
     const trackRef = useRef<HTMLDivElement>(null);
     const fillRef = useRef<HTMLDivElement>(null);
+    const tipRef = useRef<HTMLSpanElement>(null);
     const draggingRef = useRef(false);
 
-    // Live fill from the broadcast tick, written straight to the DOM.
+    const wheelTargetRef = useWheelSeek(trackRef, tipRef, {
+        position: getPosition,
+        duration: () => getNp().durationSec || duration,
+        seek: (seconds) => sendCmd('seek', seconds),
+        preview: (seconds) => {
+            const d = getNp().durationSec || duration;
+            if (fillRef.current) fillRef.current.style.width = `${(seconds / d) * 100}%`;
+        },
+        dragging: () => draggingRef.current,
+    });
+
     useEffect(() => {
         const paint = () => {
-            if (draggingRef.current) return;
+            if (draggingRef.current || wheelTargetRef.current !== null) return;
             const d = getNp().durationSec || duration;
             const pct = d > 0 ? Math.min(100, (getPosition() / d) * 100) : 0;
             if (fillRef.current) fillRef.current.style.width = `${pct}%`;
         };
         paint();
         return subscribePosition(paint);
-    }, [duration]);
+    }, [duration, wheelTargetRef]);
 
     const valueAt = (clientX: number): number => {
         const el = trackRef.current;
@@ -102,6 +114,7 @@ function Scrubber({duration}: { duration: number }) {
             <div className="tp-scrub-track">
                 <div ref={fillRef} className="tp-scrub-fill"/>
             </div>
+            <span ref={tipRef} className="tp-scrub-tip"/>
         </div>
     );
 }
@@ -190,7 +203,7 @@ export function MiniPlayer() {
                 {bloom && np.artworkLarge && (
                     <div
                         className="tp-aura"
-                        style={{backgroundImage: `url(${np.artworkLarge})`}}
+                        style={{'--tp-aura-image': `url(${np.artworkLarge})`} as React.CSSProperties}
                         aria-hidden="true"
                     />
                 )}

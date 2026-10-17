@@ -1260,6 +1260,8 @@
     "uiScaleKeysReset": "%100'e döndür",
     "uiScaleKeysWheel": "tekerlekle yakınlaştır",
     "uiScaleToast": "Arayüz ölçeği: %{{value}}",
+    "miniPlayerDesc": "Tepsi simgesinden açılır",
+    "miniPlayerOpacity": "Arka plan opaklığı",
     "updates": "Güncellemeler",
     "updatesDesc": "Sürümünüz ve güncellemelerin nasıl geldiği",
     "checkUpdates": "Güncellemeleri denetle",

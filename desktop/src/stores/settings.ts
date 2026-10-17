@@ -23,6 +23,7 @@ export type SearchPlayback = 'similar' | 'results';
 export type RoomCrossfade = 'mine' | 'room';
 export type RoomAccess = 'private' | 'public';
 export const CROSSFADE_MAX_SEC = 12;
+export const MINI_PLAYER_OPACITY_MIN = 0.1;
 export type DiscordRpcStatus = 'app' | 'track' | 'artist';
 export type ObsTheme = 'card' | 'minimal' | 'vinyl';
 export type YmImportOrder = 'newest' | 'oldest';
@@ -119,6 +120,7 @@ export interface SettingsState {
   startupPage: StartupPage;
   closeAction: CloseAction;
   uiScale: number;
+  miniPlayerOpacity: number;
   pinnedPlaylists: SidebarPinnedPlaylist[];
   pinnedArtists: SidebarPinnedArtist[];
   discordRpcEnabled: boolean;
@@ -197,6 +199,7 @@ export interface SettingsState {
   setStartupPage: (page: StartupPage) => void;
   setCloseAction: (action: CloseAction) => void;
   setUiScale: (scale: number) => void;
+  setMiniPlayerOpacity: (opacity: number) => void;
   pinPlaylist: (playlist: SidebarPinnedPlaylist) => void;
   unpinPlaylist: (urn: string) => void;
   renamePinnedPlaylist: (urn: string, title: string) => void;
@@ -288,6 +291,7 @@ const DEFAULTS = {
   startupPage: 'home' as StartupPage,
   closeAction: 'tray' as CloseAction,
   uiScale: 100,
+  miniPlayerOpacity: 1,
   pinnedPlaylists: [] as SidebarPinnedPlaylist[],
   pinnedArtists: [] as SidebarPinnedArtist[],
   discordRpcEnabled: true,
@@ -408,6 +412,8 @@ export const useSettingsStore = create<SettingsState>()(
       setStartupPage: (startupPage) => set({ startupPage }),
       setCloseAction: (closeAction) => set({ closeAction }),
       setUiScale: (uiScale) => set({ uiScale }),
+      setMiniPlayerOpacity: (opacity) =>
+        set({ miniPlayerOpacity: Math.min(1, Math.max(MINI_PLAYER_OPACITY_MIN, opacity)) }),
       pinPlaylist: (playlist) =>
         set((s) => ({
           pinnedPlaylists: [
@@ -586,6 +592,7 @@ export const useSettingsStore = create<SettingsState>()(
         startupPage: s.startupPage,
         closeAction: s.closeAction,
         uiScale: s.uiScale,
+        miniPlayerOpacity: s.miniPlayerOpacity,
         pinnedPlaylists: s.pinnedPlaylists,
         pinnedArtists: s.pinnedArtists,
         discordRpcEnabled: s.discordRpcEnabled,
