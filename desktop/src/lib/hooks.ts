@@ -984,17 +984,16 @@ export function useRelatedPool(likedTracks: Track[]) {
   return useQuery({
     queryKey: ['discover', 'related-pool', seedUrns],
     queryFn: async () => {
-      const results = await Promise.all(
-        seedUrns.map((urn) =>
-          fetchRelatedTracks(urn, 20).catch(
-            () => ({ collection: [], page: 0, page_size: 20, has_more: false }) as TrackPage,
-          ),
-        ),
+      const settled = await Promise.allSettled(seedUrns.map((urn) => fetchRelatedTracks(urn, 20)));
+      const failures = settled.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected',
       );
+      if (failures.length === settled.length) throw failures[0].reason;
 
       const freq: RelatedPool = new Map();
-      for (const res of results) {
-        for (const track of res.collection) {
+      for (const result of settled) {
+        if (result.status === 'rejected') continue;
+        for (const track of result.value.collection) {
           if (likedUrns.has(track.urn)) continue;
           const entry = freq.get(track.urn);
           if (entry) entry.count++;

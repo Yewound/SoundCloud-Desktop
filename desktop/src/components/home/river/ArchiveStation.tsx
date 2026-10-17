@@ -108,13 +108,14 @@ function ArchiveView({
 
 function RecommendedArchive(props: ArchiveProps & { superliked: ShelfTracks }) {
   const discover = useDiscoverFeed();
+  const likesFailureShown = props.likedFailed && props.shelves.includes('likes');
   return (
     <ArchiveView
       {...props}
       recommended={{
         tracks: discover.recommended,
         isLoading: discover.isLoading,
-        isError: discover.isError,
+        isError: discover.isError && !likesFailureShown,
         retry: () => void discover.refetch(),
       }}
     />
