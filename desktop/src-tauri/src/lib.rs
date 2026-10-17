@@ -258,6 +258,7 @@ pub fn run() {
             app::launch_flags::custom_css_suppressed,
             app::themes::theme_file_store,
             app::themes::theme_files_gc,
+            app::themes::theme_alive,
             app::visibility::show_main_window,
             app::popover::tray_popover_hide,
             app::tray_labels::tray_set_labels,
