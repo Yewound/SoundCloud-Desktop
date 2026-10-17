@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../stores/settings';
 import { trackedInvoke as invoke } from './diagnostics';
 
@@ -12,6 +13,18 @@ function pushCloseAction(quitOnClose: boolean) {
 
 export function getCloseBehavior() {
   return invoke<CloseBehavior>('close_action_get');
+}
+
+export function useTrayAvailable(): boolean {
+  const [trayAvailable, setTrayAvailable] = useState(true);
+
+  useEffect(() => {
+    getCloseBehavior()
+      .then((behavior) => setTrayAvailable(behavior.trayAvailable))
+      .catch(() => setTrayAvailable(true));
+  }, []);
+
+  return trayAvailable;
 }
 
 export function initCloseAction() {

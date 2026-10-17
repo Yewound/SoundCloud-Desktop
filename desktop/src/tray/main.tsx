@@ -6,13 +6,17 @@ import {applyAccentVars, applyBgVars, applyPerfMode} from '../lib/apply-theme';
 import {applyCustomCss, effectiveCustomCss} from '../lib/custom-css';
 import {applyFontVars} from '../lib/interface-font';
 import {setupFocusGate, setupVisibilityGate} from '../lib/perf';
-import {useSettingsStore} from '../stores/settings';
+import {miniPlayerStockOpacity, useSettingsStore} from '../stores/settings';
 import '../index.css';
 import './tray.css';
 import {MiniPlayer} from './MiniPlayer';
 
-function applyCardOpacity(opacity: number) {
-    document.documentElement.style.setProperty('--tp-card-opacity', String(opacity));
+function applyCardOpacity(opacity: number | null) {
+    const stock = miniPlayerStockOpacity(useSettingsStore.getState().perfMode);
+    const alpha = opacity ?? stock;
+    const root = document.documentElement.style;
+    root.setProperty('--tp-card-fade', String(Math.min(1, alpha / stock)));
+    root.setProperty('--tp-card-fill', String(Math.max(0, (alpha - stock) / (1 - stock))));
 }
 
 /** Mirror the main window's accent/perf theming into this separate webview context. */
@@ -60,7 +64,7 @@ async function bootstrap() {
 
     setupVisibilityGate();
     setupFocusGate();
-    void listen<number>('tray:opacity', (e) => applyCardOpacity(e.payload));
+    void listen<number | null>('tray:opacity', (e) => applyCardOpacity(e.payload));
 
     // Re-pick theme/language changes made in the main window each time the popover re-shows
     // (separate store instance — it only reads the shared on-disk state on demand).

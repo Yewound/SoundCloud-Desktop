@@ -20,7 +20,7 @@ import {trackedInvoke as invoke} from '../lib/diagnostics';
 import {formatTime} from '../lib/formatters';
 import {useWheelSeek} from '../lib/useWheelSeek';
 import {snapVolume} from '../lib/volume';
-import {getNp, getPosition, patchNp, sendCmd, subscribeNp, subscribePosition} from './state';
+import {getNp, getPosition, patchNp, seekTo, sendCmd, subscribeNp, subscribePosition} from './state';
 import {TrayLikeButton} from './TrayLikeButton';
 
 const t = (key: string) => i18n.t(key);
@@ -54,7 +54,7 @@ function Scrubber({duration}: { duration: number }) {
     const wheelTargetRef = useWheelSeek(trackRef, tipRef, {
         position: getPosition,
         duration: () => getNp().durationSec || duration,
-        seek: (seconds) => sendCmd('seek', seconds),
+        seek: seekTo,
         preview: (seconds) => {
             const d = getNp().durationSec || duration;
             if (fillRef.current) fillRef.current.style.width = `${(seconds / d) * 100}%`;
@@ -98,7 +98,7 @@ function Scrubber({duration}: { duration: number }) {
             window.removeEventListener('pointerup', onUp);
             const v = valueAt(ev.clientX);
             draggingRef.current = false;
-            sendCmd('seek', v);
+            seekTo(v);
         };
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onUp);

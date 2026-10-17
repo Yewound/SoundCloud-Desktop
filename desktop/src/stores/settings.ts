@@ -24,6 +24,7 @@ export type RoomCrossfade = 'mine' | 'room';
 export type RoomAccess = 'private' | 'public';
 export const CROSSFADE_MAX_SEC = 12;
 export const MINI_PLAYER_OPACITY_MIN = 0.1;
+export const miniPlayerStockOpacity = (mode: PerfMode) => (mode === 'light' ? 0.92 : 0.55);
 export type DiscordRpcStatus = 'app' | 'track' | 'artist';
 export type ObsTheme = 'card' | 'minimal' | 'vinyl';
 export type YmImportOrder = 'newest' | 'oldest';
@@ -120,7 +121,7 @@ export interface SettingsState {
   startupPage: StartupPage;
   closeAction: CloseAction;
   uiScale: number;
-  miniPlayerOpacity: number;
+  miniPlayerOpacity: number | null;
   pinnedPlaylists: SidebarPinnedPlaylist[];
   pinnedArtists: SidebarPinnedArtist[];
   discordRpcEnabled: boolean;
@@ -291,7 +292,7 @@ const DEFAULTS = {
   startupPage: 'home' as StartupPage,
   closeAction: 'tray' as CloseAction,
   uiScale: 100,
-  miniPlayerOpacity: 1,
+  miniPlayerOpacity: null as number | null,
   pinnedPlaylists: [] as SidebarPinnedPlaylist[],
   pinnedArtists: [] as SidebarPinnedArtist[],
   discordRpcEnabled: true,

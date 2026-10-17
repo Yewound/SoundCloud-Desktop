@@ -1,6 +1,6 @@
-import React, {useCallback, useEffect, useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {art} from '../../lib/formatters';
-import {type LyricsPanelTab, useLyricsStore} from '../../stores/lyrics';
+import {useLyricsStore} from '../../stores/lyrics';
 import {usePlayerStore} from '../../stores/player';
 import {useSettingsStore} from '../../stores/settings';
 import {LyricsBackdrop, useArtworkColor} from './lyrics/LyricsBackdrop';
@@ -31,14 +31,6 @@ export const LyricsPanel = React.memo(() => {
   const splitLayoutRef = useRef<HTMLDivElement>(null);
   const visualizerEnabled = useSettingsStore((s) => s.lyricsVisualizer);
 
-  const selectTab = useCallback(
-    (next: LyricsPanelTab) => {
-      setTab(next);
-      setRightPanelOpen(true);
-    },
-    [setTab, setRightPanelOpen],
-  );
-
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -61,7 +53,10 @@ export const LyricsPanel = React.memo(() => {
         <LyricsHeader
             tab={tab}
             rightPanelOpen={rightPanelOpen}
-            onSelectTab={selectTab}
+            onSelectTab={(next) => {
+                setTab(next);
+                setRightPanelOpen(true);
+            }}
             onTogglePanel={toggleRightPanel}
             onClose={close}
         />

@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next';
+import { useTrayAvailable } from '../../../lib/close-action';
 import { PictureInPicture2 } from '../../../lib/icons';
-import { MINI_PLAYER_OPACITY_MIN, useSettingsStore } from '../../../stores/settings';
+import {
+  MINI_PLAYER_OPACITY_MIN,
+  miniPlayerStockOpacity,
+  useSettingsStore,
+} from '../../../stores/settings';
 import { Card, RangeSlider } from '../primitives';
 
 const CHECKER =
@@ -9,8 +14,13 @@ const CHECKER =
 export function MiniPlayerCard() {
   const { t } = useTranslation();
   const opacity = useSettingsStore((s) => s.miniPlayerOpacity);
+  const perfMode = useSettingsStore((s) => s.perfMode);
   const setOpacity = useSettingsStore((s) => s.setMiniPlayerOpacity);
-  const percent = Math.round(opacity * 100);
+  const trayAvailable = useTrayAvailable();
+  if (!trayAvailable) return null;
+
+  const alpha = opacity ?? miniPlayerStockOpacity(perfMode);
+  const percent = Math.round(alpha * 100);
 
   return (
     <Card
@@ -25,8 +35,8 @@ export function MiniPlayerCard() {
           aria-hidden="true"
         >
           <div
-            className="absolute inset-2.5 rounded-[10px] border border-white/15 bg-[rgba(15,15,19,0.55)]"
-            style={{ opacity }}
+            className="absolute inset-2.5 rounded-[10px] border border-white/15"
+            style={{ background: `rgba(15, 15, 19, ${alpha})` }}
           />
           <div className="absolute inset-2.5 flex items-center gap-2 px-2">
             <span className="h-6 w-6 shrink-0 rounded-md bg-accent" />
@@ -47,7 +57,7 @@ export function MiniPlayerCard() {
             value={percent}
             min={MINI_PLAYER_OPACITY_MIN * 100}
             max={100}
-            step={5}
+            step={1}
             onChange={(value) => setOpacity(value / 100)}
           />
         </div>

@@ -56,11 +56,6 @@ export const SplitDivider = React.memo(
             dragRatioRef.current = ratio;
         };
 
-        const followPointer = (clientX: number) => {
-            pointerXRef.current = clientX;
-            if (!frameRef.current) frameRef.current = requestAnimationFrame(applyPointer);
-        };
-
         const stop = () => {
             if (!draggingRef.current) return;
             draggingRef.current = false;
@@ -100,7 +95,8 @@ export const SplitDivider = React.memo(
                 }}
                 onPointerMove={(event) => {
                     if (!draggingRef.current) return;
-                    followPointer(event.clientX);
+                    pointerXRef.current = event.clientX;
+                    if (!frameRef.current) frameRef.current = requestAnimationFrame(applyPointer);
                 }}
                 onPointerUp={stop}
                 onPointerCancel={stop}

@@ -3,11 +3,12 @@ import { formatTime } from './formatters';
 
 const STEP_SEC = 5;
 const SHIFT_STEP_SEC = 15;
-const WHEEL_NOTCH = 40;
-const WHEEL_IDLE_MS = 160;
+const NOTCH_GAP_MS = 50;
+const STREAM_STEP_PX = 100;
+const BURST_GAP_MS = 160;
 const COMMIT_DELAY_MS = 200;
 
-export interface WheelSeekSource {
+interface WheelSeekSource {
   position: () => number;
   duration: () => number;
   seek: (seconds: number) => void;
@@ -32,26 +33,28 @@ export function useWheelSeek(
     if (!root) return;
     let lastWheelAt = 0;
     let burstOnBar = false;
-    let burstFresh = false;
-    let accumulated = 0;
+    let spaced = false;
+    let streamPx = 0;
     let timer = 0;
 
-    const commit = () => {
-      timer = 0;
-      const target = targetRef.current;
+    const reset = () => {
+      window.clearTimeout(timer);
       targetRef.current = null;
       if (tipRef.current) tipRef.current.style.opacity = '0';
+    };
+
+    const commit = () => {
+      const target = targetRef.current;
+      reset();
       if (target !== null) sourceRef.current.seek(target);
     };
 
     const onAnyWheel = (e: WheelEvent) => {
       const now = performance.now();
-      if (now - lastWheelAt > WHEEL_IDLE_MS) {
-        burstOnBar = e.target instanceof Node && root.contains(e.target);
-        burstFresh = true;
-        accumulated = 0;
-      }
+      const gap = now - lastWheelAt;
       lastWheelAt = now;
+      spaced = gap >= NOTCH_GAP_MS;
+      if (gap > BURST_GAP_MS) burstOnBar = e.target instanceof Node && root.contains(e.target);
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -63,12 +66,15 @@ export function useWheelSeek(
 
       const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       if (delta === 0) return;
-      accumulated += e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? delta : delta * WHEEL_NOTCH;
-      if (!burstFresh && Math.abs(accumulated) < WHEEL_NOTCH) return;
+      if (spaced || e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) {
+        streamPx = delta;
+      } else {
+        streamPx += delta;
+        if (Math.abs(streamPx) < STREAM_STEP_PX) return;
+      }
 
-      const step = (e.shiftKey ? SHIFT_STEP_SEC : STEP_SEC) * (accumulated < 0 ? 1 : -1);
-      burstFresh = false;
-      accumulated = 0;
+      const step = (e.shiftKey ? SHIFT_STEP_SEC : STEP_SEC) * (streamPx < 0 ? 1 : -1);
+      streamPx = 0;
       const target = Math.max(0, Math.min(duration, (targetRef.current ?? src.position()) + step));
       targetRef.current = target;
       src.preview(target);
@@ -85,11 +91,12 @@ export function useWheelSeek(
 
     window.addEventListener('wheel', onAnyWheel, { capture: true, passive: true });
     root.addEventListener('wheel', onWheel, { passive: false });
+    root.addEventListener('pointerdown', reset);
     return () => {
       window.removeEventListener('wheel', onAnyWheel, { capture: true });
       root.removeEventListener('wheel', onWheel);
-      window.clearTimeout(timer);
-      targetRef.current = null;
+      root.removeEventListener('pointerdown', reset);
+      reset();
     };
   }, [rootRef, tipRef]);
 
