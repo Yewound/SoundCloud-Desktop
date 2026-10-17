@@ -13,11 +13,11 @@ The theme catalog for SoundCloud Desktop. A theme installs in one click: **Setti
    themes/<id>/
      theme.json      metadata
      theme.css       styles
-     preview.webp    screenshot, optional
+     preview.webp    screenshot
      assets/         images and fonts, if you need them
    ```
 
-3. Check it (Node 22 or newer, nothing to install):
+3. Check it (Node 22.6 or newer, nothing to install):
 
    ```
    node --experimental-strip-types themes/tools/check.mjs <id>
@@ -25,7 +25,7 @@ The theme catalog for SoundCloud Desktop. A theme installs in one click: **Setti
 
 4. Open a PR to `main`. Change only your folder.
 
-After the merge the theme reaches everyone in about 5 minutes.
+After the merge the theme shows up in the catalog within an hour. Installed copies update within a few hours.
 
 ## theme.json
 
@@ -75,18 +75,17 @@ Long text in `content:` and `<text>` in SVG get a look in review.
 - `assets/` has no subfolders: up to 24 files, 1 MB each, 3 MB in total.
 - File names: `a-z`, `0-9`, `-`, `_`. Extensions: `webp`, `png`, `jpg`, `jpeg`, `avif`, `gif`, `svg`, `woff2`.
 - Every file must be used in `theme.css`.
-- SVG: no scripts, no outside links, no `&...;` and no backslash.
+- SVG: no scripts, no outside links, no `&...;`, no backslash, only the svg and xlink namespaces.
 
 ## Preview
 
-- Optional: after the merge CI takes a shot of the window with the theme.
-- Your own screenshot: the window with the theme, 1280x800 works best.
-- `preview.webp` or `preview.png`, 960-1600 wide, about 16:10, up to 256 KB.
+- `preview.webp` or `preview.png`, 960-1600 wide, about 16:10, up to 256 KB. 1280x800 works best.
+- No screenshot? Open the PR anyway. The Themes check renders one: download `theme-previews` from the run page, put `<id>/preview.webp` into your folder and push.
 
 ## Try it in the app
 
 1. **Settings -> Appearance -> Custom CSS**: paste `theme.css`.
-2. Add the files from `assets/` in **Your images** under the same names.
+2. Add the images from `assets/` in **Your images** under the same names. Fonts (woff2) cannot be added there, check them on the CI preview.
 3. Set the accent, background and font by hand in **Appearance**.
 
 If the interface breaks: **Ctrl+Alt+Shift+C** (**Cmd+Option+Shift+C** on macOS).
