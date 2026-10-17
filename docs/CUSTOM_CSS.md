@@ -4,15 +4,17 @@
 
 Settings > Appearance > Custom CSS lets you restyle the app with your own CSS. Changes apply as you type, in the main window and in the tray mini player. The switch in the card header turns the styles off without deleting them.
 
+Custom CSS sits on top of a theme from the catalog, so your rules win.
+
 ## If a style breaks the interface
 
-- Press **Ctrl+Alt+Shift+C** (**Cmd+Option+Shift+C** on macOS). It turns custom CSS off, and pressing it again turns it back on.
-- Or start the app with the `--no-custom-css` flag. It switches custom CSS off before anything else loads:
+- Press **Ctrl+Alt+Shift+C** (**Cmd+Option+Shift+C** on macOS). It turns off custom CSS and the catalog theme. The second press brings back what the first one turned off.
+- Or start the app with the `--no-custom-css` flag. It turns off custom CSS and the catalog theme before anything else loads:
   - Windows: add ` --no-custom-css` to the end of the shortcut's Target field, or run `soundcloud-desktop.exe --no-custom-css`.
   - macOS: `open -a soundcloud-desktop --args --no-custom-css`
   - Linux: `soundcloud-desktop --no-custom-css`
 
-Close the running app first, otherwise the flag reaches the copy that is already open and is ignored.
+If the app is already running, for example in the tray, the flag reaches that copy: it turns both off and shows the window.
 
 ## Stable hooks
 
@@ -23,11 +25,17 @@ Tailwind class names change from release to release. These attributes do not:
 | `[data-ui="app"]` | The whole window frame |
 | `[data-ui="titlebar"]` | Title bar with search and window buttons |
 | `[data-ui="sidebar"]` | Left navigation |
+| `[data-ui="nav-item"]` | A link in the left navigation |
+| `[data-ui="search"]` | Search field in the title bar |
 | `[data-ui="main"]` | Scrollable page area |
 | `[data-ui="player"]` | Floating player bar |
 | `[data-ui="queue"]` | Queue panel |
 | `[data-ui="lyrics"]` | Full-screen lyrics |
 | `[data-ui="card"]` | Settings cards |
+| `[data-ui="track-card"]` | Track tile in grids and shelves |
+| `[data-ui="track-row"]` | Track row in Likes and other reorderable lists |
+| `[data-ui="playlist-card"]` | Playlist and album tile |
+| `[data-ui="modal"]` | Dialog window |
 | `[data-ui="tray"]` | Tray mini player |
 | `html[data-perf="light"]`, `"medium"` | Performance mode (no attribute means Beauty) |
 
@@ -96,7 +104,7 @@ An image in the sidebar:
 }
 ```
 
-Write the path exactly as it is, `sc-assets/name`: the app turns it into a working address by itself. The file name is lowercase letters, digits, `-` and `_`; other characters are replaced with `-`. Adding a file with a taken name gives it a number: `bg-2.webp`.
+Write the path exactly as it is, `sc-assets/name` or the short `assets/name`: the app turns it into a working address by itself. The file name is lowercase letters, digits, `-` and `_`; other characters are replaced with `-`. Adding a file with a taken name gives it a number: `bg-2.webp`.
 
 The files live only on this computer. If you share your CSS, the other person has no such files: they need to add their own images under the same names.
 
@@ -141,4 +149,10 @@ If the image does not show up:
 
 ## What is blocked
 
-`@import` rules and `url()` links to the internet are removed before the CSS is applied, so a theme copied from someone else cannot load files from other sites or leak what you type. `data:` URIs and `sc-assets/` files still work, see [Your own images](#your-own-images).
+`@import` rules and `url()` links to the internet are removed before the CSS is applied, so a theme copied from someone else cannot load files from other sites or leak what you type. This also holds for escaped spellings such as `\75 rl(` or `@\69mport` and for links hidden behind tabs, backslashes or leading spaces. `data:` URIs and `sc-assets/` files still work, see [Your own images](#your-own-images).
+
+## Themes from the catalog
+
+Settings > Appearance > Themes has ready-made themes. **Apply** shows a theme for 20 seconds: **Keep** saves it, **Revert** or Esc goes back. Themes update by themselves unless you turn off **Auto-update** or pin a version.
+
+To publish your own theme, see the [theme guide](../themes/README.md).
