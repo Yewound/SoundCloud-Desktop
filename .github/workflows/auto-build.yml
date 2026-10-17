@@ -217,6 +217,13 @@ jobs:
           UPDATER_CONFIG: ${{ env.HAS_UPDATER_KEY == 'true' && format('{0}/desktop/src-tauri/tauri.updater.conf.json', github.workspace) || '' }}
         run: pnpm tauri build ${{ matrix.args }} ${UPDATER_CONFIG:+--config "$UPDATER_CONFIG"}
 
+      - name: Check CRT imports (windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          python -m pip install --quiet pefile
+          python .github/scripts/crt-imports.py desktop/src-tauri/target/release/soundcloud-desktop.exe
+
       - name: Create portable exe (windows only)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
@@ -379,6 +386,19 @@ jobs:
         run: |
           node .github/scripts/updater-manifest.mjs manifest /tmp/release "$V"
           rm -f /tmp/release/*.sig
+
+      - name: Add version-less aliases
+        working-directory: /tmp/release
+        env:
+          V: ${{ needs.version.outputs.version }}
+        run: |
+          for file in *"$V"*; do
+            alias=$(printf '%s' "$file" | sed -e "s/_${V}_/_/" -e "s/-${V}-1\./\./")
+            if [ "$alias" != "$file" ]; then
+              cp "$file" "$alias"
+              echo "$file -> $alias"
+            fi
+          done
 
       - name: Publish release
         uses: zxcloli666/release-helper@main

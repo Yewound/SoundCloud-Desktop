@@ -251,6 +251,7 @@ pub fn run() {
             app::launch_flags::custom_css_suppressed,
             app::visibility::show_main_window,
             app::popover::tray_popover_hide,
+            app::tray_labels::tray_set_labels,
             app::storage::storage_location_info,
             app::storage::storage_relocate,
             app::storage::storage_open_folder,

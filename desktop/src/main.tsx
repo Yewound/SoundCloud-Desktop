@@ -61,6 +61,7 @@ function startDeferredRuntime() {
     setupCacheMaintenance();
     void import('./lib/scproxy');
     void import('./lib/tray');
+    void import('./lib/tray-menu').then((m) => m.initTrayMenu());
     void import('./lib/audio');
     void import('./lib/track-sound').then((m) => m.initTrackSound());
     void import('./lib/queue-autopilot');

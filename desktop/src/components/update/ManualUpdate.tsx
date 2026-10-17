@@ -4,7 +4,7 @@ import { AlertCircle, Download, ExternalLink, Info } from '../../lib/icons';
 import {
   DOWNLOAD_PAGE_URL,
   manualHintKey,
-  mirroredDownloadUrl,
+  mirroredUrl,
   pickReleaseAsset,
   updateCommands,
 } from '../../lib/update-assets';
@@ -27,7 +27,7 @@ export function ManualUpdate({
 }) {
   const { t } = useTranslation();
   const asset = info ? pickReleaseAsset(release.assets, info) : null;
-  const target = asset ? mirroredDownloadUrl(asset.browser_download_url) : DOWNLOAD_PAGE_URL;
+  const target = asset ? mirroredUrl(asset.browser_download_url) : DOWNLOAD_PAGE_URL;
   const commands = info ? updateCommands(info, asset) : [];
 
   return (
@@ -74,7 +74,7 @@ export function ManualUpdate({
       <div className="mt-3 flex items-center justify-center gap-4">
         <button
           type="button"
-          onClick={() => openUrl(release.html_url)}
+          onClick={() => openUrl(mirroredUrl(release.html_url))}
           className="flex items-center gap-1.5 text-[11.5px] text-white/35 hover:text-white/70 transition-colors cursor-pointer"
         >
           {t('update.openReleasePage')}

@@ -49,6 +49,17 @@ pub fn probe() -> bool {
     }
 }
 
+pub fn refresh_labels(app: &AppHandle) {
+    #[cfg(target_os = "linux")]
+    {
+        linux::refresh_labels(app);
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        native::refresh_labels(app);
+    }
+}
+
 /// Выполнить действие пункта меню на main-потоке.
 pub fn run_action(app: &AppHandle, id: &str) {
     let h = app.clone();
@@ -88,19 +99,23 @@ mod linux {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
 
-    use ksni::{MenuItem, OfflineReason, Tray, TrayMethods};
+    use ksni::{Handle, MenuItem, OfflineReason, Tray, TrayMethods};
+    use tauri::Manager;
     use zbus::Connection;
     use zbus::fdo::DBusProxy;
     use zbus::names::BusName;
 
     use crate::app::autostart;
     use crate::app::diagnostics::log_native;
+    use crate::app::tray_labels;
     use crate::rt::AppHandle;
 
     const WATCHER: &str = "org.kde.StatusNotifierWatcher";
     const PROBE_TIMEOUT: Duration = Duration::from_millis(1500);
 
     static ONLINE: AtomicBool = AtomicBool::new(true);
+
+    struct Spawned(Handle<ScTray>);
 
     pub fn is_online() -> bool {
         ONLINE.load(Ordering::Relaxed)
@@ -122,6 +137,16 @@ mod linux {
         .is_ok_and(|registered| registered.unwrap_or(false));
         ONLINE.store(online, Ordering::Relaxed);
         online
+    }
+
+    pub fn refresh_labels(app: &AppHandle) {
+        let Some(spawned) = app.try_state::<Spawned>() else {
+            return;
+        };
+        let tray = spawned.0.clone();
+        tauri::async_runtime::spawn(async move {
+            tray.update(|_| ()).await;
+        });
     }
 
     fn go_offline(app: &AppHandle) {
@@ -154,6 +179,7 @@ mod linux {
         }
         fn menu(&self) -> Vec<MenuItem<Self>> {
             use ksni::menu::StandardItem;
+            let labels = tray_labels::current();
             let item = |label: &str, id: &'static str| -> MenuItem<Self> {
                 StandardItem {
                     label: label.into(),
@@ -163,14 +189,14 @@ mod linux {
                 .into()
             };
             vec![
-                item("Show", "show"),
-                item("Mini player", "mini"),
+                item(&labels.show, "show"),
+                item(&labels.mini, "mini"),
                 MenuItem::Separator,
-                item("Play / Pause", "play_pause"),
-                item("Previous", "prev"),
-                item("Next", "next"),
+                item(&labels.play_pause, "play_pause"),
+                item(&labels.prev, "prev"),
+                item(&labels.next, "next"),
                 MenuItem::Separator,
-                item("Quit", "quit"),
+                item(&labels.quit, "quit"),
             ]
         }
         fn watcher_online(&self) {
@@ -203,7 +229,10 @@ mod linux {
                 .spawn()
                 .await;
             match spawned {
-                Ok(_handle) => std::future::pending::<()>().await,
+                Ok(tray) => {
+                    handle.manage(Spawned(tray));
+                    std::future::pending::<()>().await
+                }
                 Err(err) => {
                     go_offline(&handle);
                     log_native(&handle, "ERROR", format!("[tray] ksni spawn failed: {err}"));
@@ -236,20 +265,64 @@ mod linux {
 #[cfg(not(target_os = "linux"))]
 mod native {
     use tauri::Manager;
-    use tauri::menu::{MenuBuilder, MenuItemBuilder};
+    use tauri::menu::{MenuBuilder, MenuItem, MenuItemBuilder};
     use tauri::tray::TrayIconBuilder;
 
+    use crate::app::tray_labels::{self, TrayLabels};
+    use crate::rt::{AppHandle, Rt};
+
+    struct Items {
+        show: MenuItem<Rt>,
+        mini: MenuItem<Rt>,
+        play_pause: MenuItem<Rt>,
+        prev: MenuItem<Rt>,
+        next: MenuItem<Rt>,
+        quit: MenuItem<Rt>,
+    }
+
+    impl Items {
+        fn build(app: &crate::rt::App, labels: &TrayLabels) -> tauri::Result<Self> {
+            let item = |id: &str, label: &str| MenuItemBuilder::with_id(id, label).build(app);
+            Ok(Self {
+                show: item("show", &labels.show)?,
+                mini: item("mini", &labels.mini)?,
+                play_pause: item("play_pause", &labels.play_pause)?,
+                prev: item("prev", &labels.prev)?,
+                next: item("next", &labels.next)?,
+                quit: item("quit", &labels.quit)?,
+            })
+        }
+
+        fn relabel(&self, labels: &TrayLabels) {
+            let _ = self.show.set_text(&labels.show);
+            let _ = self.mini.set_text(&labels.mini);
+            let _ = self.play_pause.set_text(&labels.play_pause);
+            let _ = self.prev.set_text(&labels.prev);
+            let _ = self.next.set_text(&labels.next);
+            let _ = self.quit.set_text(&labels.quit);
+        }
+    }
+
+    pub fn refresh_labels(app: &AppHandle) {
+        if let Some(items) = app.try_state::<Items>() {
+            items.relabel(&tray_labels::current());
+        }
+    }
+
     pub fn setup(app: &crate::rt::App) -> Result<(), Box<dyn std::error::Error>> {
-        let show = MenuItemBuilder::with_id("show", "Show").build(app)?;
-        let mini = MenuItemBuilder::with_id("mini", "Mini player").build(app)?;
-        let play_pause = MenuItemBuilder::with_id("play_pause", "Play / Pause").build(app)?;
-        let next = MenuItemBuilder::with_id("next", "Next").build(app)?;
-        let prev = MenuItemBuilder::with_id("prev", "Previous").build(app)?;
-        let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+        let items = Items::build(app, &tray_labels::current())?;
 
         let menu = MenuBuilder::new(app)
-            .items(&[&show, &mini, &play_pause, &prev, &next, &quit])
+            .items(&[
+                &items.show,
+                &items.mini,
+                &items.play_pause,
+                &items.prev,
+                &items.next,
+                &items.quit,
+            ])
             .build()?;
+        app.manage(items);
 
         TrayIconBuilder::new()
             .icon(app.default_window_icon().cloned().expect("no app icon"))

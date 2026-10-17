@@ -122,7 +122,8 @@ jobs:
 
       # Фаза 1: cargo build качает CEF SDK в OUT_DIR (версия-в-версию с крейтом cef).
       - name: Build CEF binary (download SDK)
-        run: cargo build --release --features cef ${{ matrix.target && format('--target {0}', matrix.target) || '' }} --manifest-path desktop/src-tauri/Cargo.toml
+        working-directory: desktop/src-tauri
+        run: cargo build --release --features cef ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
 
       # Фаза 2: указываем бандлеру скачанный CEF (CEF_PATH) и пакуем.
       - name: Bundle (unix)

@@ -2217,5 +2217,13 @@
     "exportFailed": "폴더에 다운로드하지 못했어요",
     "exportSkipped_other": "파일 {{count}}개가 이미 폴더에 있어서 건너뛰었어요",
     "showInFolder": "폴더에서 보기"
+  },
+  "trayMenu": {
+    "show": "열기",
+    "mini": "미니 플레이어",
+    "playPause": "재생 / 일시정지",
+    "prev": "이전",
+    "next": "다음",
+    "quit": "종료"
   }
 }
