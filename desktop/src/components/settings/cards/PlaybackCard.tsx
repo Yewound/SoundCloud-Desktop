@@ -29,6 +29,8 @@ export function PlaybackCard() {
     const setSkipSilence = useSettingsStore((s) => s.setSkipSilence);
     const autoplay = useSettingsStore((s) => s.autoplay);
     const setAutoplay = useSettingsStore((s) => s.setAutoplay);
+    const playAltUploads = useSettingsStore((s) => s.playAltUploads);
+    const setPlayAltUploads = useSettingsStore((s) => s.setPlayAltUploads);
 
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
     const {data: isPremium} = useSubscription(isAuthenticated);
@@ -70,6 +72,11 @@ export function PlaybackCard() {
                 <Row title={t('settings.autoplay')} desc={t('settings.autoplayDesc')}>
                     <Toggle checked={autoplay} onChange={() => setAutoplay(!autoplay)}/>
                 </Row>
+                {!isPremium && (
+                    <Row title={t('settings.altUploads')} desc={t('settings.altUploadsDesc')}>
+                        <Toggle checked={playAltUploads} onChange={() => setPlayAltUploads(!playAltUploads)}/>
+                    </Row>
+                )}
                 <SearchPlaybackPicker/>
                 <CrossfadePicker/>
                 <SkipStuckPicker/>

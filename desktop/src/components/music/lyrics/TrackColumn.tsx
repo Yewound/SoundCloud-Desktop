@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {useTranslation} from 'react-i18next';
+import {usePlayingCopy} from '../../../lib/alt-upload';
 import {art} from '../../../lib/formatters';
 import {Eye, MicVocal, X} from '../../../lib/icons';
 import {isPreviewOnly} from '../../../lib/track-access';
@@ -8,6 +9,7 @@ import {useArtistDisplay, useArtistLinkItems, useDisplayTitle} from '../../../li
 import type {Track} from '../../../stores/player';
 import {PlaybackRateSlider, ProgressSlider, ProgressTime} from '../../layout/NowPlayingBar';
 import {ControlVolumeBtn, VolumeLabel, VolumeSlider} from '../../layout/VolumeControls';
+import {AltUploadMark} from '../AltUploadMark';
 import {ArtistNameLinks} from '../ArtistNameLinks';
 import {Controls} from './LyricsControls';
 
@@ -83,6 +85,7 @@ export const TrackColumn = React.memo(({ track, maxArt }: { track: Track; maxArt
   const artistDisplay = useArtistDisplay(track);
   const artistLinks = useArtistLinkItems(track);
   const displayTitle = useDisplayTitle(track);
+  const copy = usePlayingCopy(track.urn);
   const [loaded, setLoaded] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
   const [showFullArt, setShowFullArt] = useState(false);
@@ -174,7 +177,8 @@ export const TrackColumn = React.memo(({ track, maxArt }: { track: Track; maxArt
       <div className={`${widthClass} text-center space-y-1`}>
         <div className="flex items-center justify-center gap-2 min-w-0">
           <p className="text-[18px] font-bold text-white/95 truncate">{displayTitle}</p>
-          {isPreviewOnly(track) && (
+          <AltUploadMark urn={track.urn} size={14} />
+          {isPreviewOnly(track) && !copy && (
             <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide bg-amber-500/20 text-amber-400/90 px-1.5 py-px rounded">
               {t('track.previewOnly')}
             </span>

@@ -34,6 +34,7 @@ export interface ClusterDto {
   track_urns?: string[];
   tracks?: Track[];
   neighbors?: ClusterNeighborDto[];
+  cursor?: string | null;
 }
 
 export interface ClusterResponseDto {
@@ -44,6 +45,7 @@ export interface ClusterHydrated {
   id: ClusterId;
   tracks: Track[];
   neighbors?: ClusterNeighbor[];
+  cursor?: string | null;
 }
 
 export interface ClusterData {

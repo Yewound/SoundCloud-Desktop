@@ -9,6 +9,7 @@ import {forgetOfflineLike} from './cache';
 import {trackedInvoke as invoke} from './diagnostics';
 import {clearDislike, dislikeTrack} from './dislike-actions';
 import {isUrnDisliked} from './dislikes';
+import {trackTasteWrite} from './events';
 import {art} from './formatters';
 import {invalidateAllLikesCache} from './hooks';
 import {isUrnLiked, optimisticToggleLike} from './likes';
@@ -119,9 +120,11 @@ export async function toggleLikeCurrent() {
     if (next) clearDislike(tr.urn);
     pushNp();
     try {
-        await api(`/likes/tracks/${encodeURIComponent(tr.urn)}`, {
-            method: next ? 'POST' : 'DELETE',
-        });
+        await trackTasteWrite(
+            api(`/likes/tracks/${encodeURIComponent(tr.urn)}`, {
+                method: next ? 'POST' : 'DELETE',
+            }),
+        );
         void (next ? rememberLikedUrn(tr.urn, tr) : forgetOfflineLike(tr.urn));
     } catch {
         optimisticToggleLike(queryClient, tr, !next);

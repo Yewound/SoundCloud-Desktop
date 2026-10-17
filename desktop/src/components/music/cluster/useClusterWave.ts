@@ -94,6 +94,7 @@ export async function fetchAndHydrate(url: string): Promise<ClusterData> {
     });
     const hydrated: ClusterHydrated = { id: cluster.id, tracks };
     if (neighbors.length > 0) hydrated.neighbors = neighbors;
+    if (cluster.cursor) hydrated.cursor = cluster.cursor;
     clusters.push(hydrated);
   });
 

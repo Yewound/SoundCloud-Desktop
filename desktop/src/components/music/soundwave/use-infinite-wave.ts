@@ -1,20 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { fetchSmartWave, type SmartWaveSeedKind, sendWaveFeedback } from '../../../lib/soundwave';
+import { fetchSmartWave, type SmartWaveSeedKind } from '../../../lib/soundwave';
+import { followWave, sendWaveFeedback, type WaveTally } from '../../../lib/wave-feedback';
 import type { Track } from '../../../stores/player';
 import { usePlayerStore } from '../../../stores/player';
 
-/**
- * Бесконечная SmartWave-волна на стороне клиента.
- *
- * 1. Хук владеет cursor'ом — серверным токеном, который помнит уже отданное
- *    и адаптивные веса arm'ов. После каждой подгрузки cursor обновляется.
- *    Если Redis грохнули — сервер начнёт новую сессию, для UX незаметно.
- * 2. Refill срабатывает только если играет наш трек и в очереди осталось
- *    меньше `minTail` хвоста. `ownedRef` — Set urn'ов, которые мы положили;
- *    чужие очереди (плейлисты, лайки) не триггерят refill.
- * 3. Feedback (dis/pos) накапливается между refill'ами; перед следующим
- *    fetch шлём батч, сервер пересчитает веса arm'ов.
- */
 export function useInfiniteWave(opts: {
   enabled: boolean;
   seedKind: SmartWaveSeedKind;
@@ -36,15 +25,19 @@ export function useInfiniteWave(opts: {
     languages,
     filterTrack,
     hideListened,
-    minTail = 5,
-    batchLimit = 20,
+    minTail = 4,
+    batchLimit = 10,
   } = opts;
 
-  const ownedRef = useRef<Set<string>>(new Set());
-  const cursorRef = useRef<string>(initialCursor ?? '');
+  const tallyRef = useRef<WaveTally>({
+    owned: new Set(),
+    decided: new Map(),
+    negatives: 0,
+    positives: 0,
+  });
+  const cursorRef = useRef('');
+  const shelfCursorRef = useRef(initialCursor);
   const fetchingRef = useRef(false);
-  const negCountRef = useRef(0);
-  const posCountRef = useRef(0);
   const languagesRef = useRef(languages);
   const filterRef = useRef(filterTrack);
   const hideListenedRef = useRef(hideListened);
@@ -60,66 +53,74 @@ export function useInfiniteWave(opts: {
   }, [hideListened]);
 
   useEffect(() => {
-    if (initialCursor) cursorRef.current = initialCursor;
+    shelfCursorRef.current = initialCursor;
   }, [initialCursor]);
 
   useEffect(() => {
-    for (const t of initialTracks) ownedRef.current.add(t.urn);
+    for (const t of initialTracks) tallyRef.current.owned.add(t.urn);
   }, [initialTracks]);
 
   useEffect(() => {
     if (!enabled) return;
+    return followWave(tallyRef.current);
+  }, [enabled]);
 
-    return usePlayerStore.subscribe((state, prev) => {
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    cursorRef.current = '';
+    tallyRef.current.negatives = 0;
+    tallyRef.current.positives = 0;
+    tallyRef.current.decided.clear();
+
+    const refill = async (cursor: string) => {
+      const batch = await fetchSmartWave({
+        seedKind,
+        seedId,
+        cursor: cursor || undefined,
+        limit: batchLimit,
+        languages: languagesRef.current,
+        hideListened: hideListenedRef.current,
+      });
+      if (live && batch.cursor) cursorRef.current = batch.cursor;
+      const filterFn = filterRef.current;
+      const existing = new Set(usePlayerStore.getState().queue.map((t) => t.urn));
+      const fresh = batch.tracks.filter((t) => !existing.has(t.urn) && (!filterFn || filterFn(t)));
+      if (fresh.length > 0) {
+        usePlayerStore.getState().addToQueue(fresh);
+        for (const t of fresh) tallyRef.current.owned.add(t.urn);
+      }
+    };
+
+    const unsubscribe = usePlayerStore.subscribe((state, prev) => {
       const { queue, queueIndex, currentTrack, isPlaying } = state;
-      // Narrowed: only react to refill-relevant fields.
+      const trackChanged = currentTrack?.urn !== prev.currentTrack?.urn;
       if (
+        !trackChanged &&
         queueIndex === prev.queueIndex &&
         queue.length === prev.queue.length &&
-        currentTrack?.urn === prev.currentTrack?.urn &&
         isPlaying === prev.isPlaying
       ) {
         return;
       }
-      if (!currentTrack) return;
-      if (!ownedRef.current.has(currentTrack.urn)) return;
-
-      const remaining = queue.length - queueIndex - 1;
-      if (remaining > minTail) return;
-      if (!isPlaying && remaining > 0) return;
       if (fetchingRef.current) return;
+
+      const owned = tallyRef.current.owned;
+      const onWave = !!currentTrack && owned.has(currentTrack.urn);
+      const leftWave = !!prev.currentTrack && owned.has(prev.currentTrack.urn);
+      const remaining = queue.length - queueIndex - 1;
+      const waveAhead = queue.slice(queueIndex + 1).filter((t) => owned.has(t.urn)).length;
+      const needsRefill = onWave && waveAhead <= minTail && (isPlaying || remaining <= 0);
+      const ping = trackChanged && (onWave || leftWave);
+      if (!needsRefill && !ping) return;
 
       fetchingRef.current = true;
       (async () => {
         try {
-          if (cursorRef.current && (negCountRef.current > 0 || posCountRef.current > 0)) {
-            const updated = await sendWaveFeedback({
-              cursor: cursorRef.current,
-              negatives: negCountRef.current,
-              positives: posCountRef.current,
-            });
-            negCountRef.current = 0;
-            posCountRef.current = 0;
-            if (updated) cursorRef.current = updated;
-          }
-          const batch = await fetchSmartWave({
-            seedKind,
-            seedId,
-            cursor: cursorRef.current || undefined,
-            limit: batchLimit,
-            languages: languagesRef.current,
-            hideListened: hideListenedRef.current,
-          });
-          if (batch.cursor) cursorRef.current = batch.cursor;
-          const filterFn = filterRef.current;
-          const existing = new Set(usePlayerStore.getState().queue.map((t) => t.urn));
-          const fresh = batch.tracks.filter(
-            (t) => !existing.has(t.urn) && (!filterFn || filterFn(t)),
-          );
-          if (fresh.length > 0) {
-            usePlayerStore.getState().addToQueue(fresh);
-            for (const t of fresh) ownedRef.current.add(t.urn);
-          }
+          const cursor = cursorRef.current || shelfCursorRef.current || '';
+          cursorRef.current = cursor;
+          await sendWaveFeedback(cursor, tallyRef.current);
+          if (needsRefill) await refill(cursor);
         } catch (e) {
           console.debug('[soundwave] infinite refill failed:', e);
         } finally {
@@ -127,15 +128,10 @@ export function useInfiniteWave(opts: {
         }
       })();
     });
-  }, [enabled, seedKind, seedId, minTail, batchLimit]);
 
-  return {
-    recordNegative: () => {
-      negCountRef.current += 1;
-    },
-    recordPositive: () => {
-      posCountRef.current += 1;
-    },
-    isOwned: (urn: string) => ownedRef.current.has(urn),
-  };
+    return () => {
+      live = false;
+      unsubscribe();
+    };
+  }, [enabled, seedKind, seedId, minTail, batchLimit]);
 }

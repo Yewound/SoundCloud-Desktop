@@ -11,6 +11,7 @@ import {RoomSleeve} from '../components/track/RoomSleeve';
 import {RoomVoices} from '../components/track/RoomVoices';
 import {useTrackAura} from '../components/track/useTrackAura';
 import {LoadErrorState, RefreshPendingHint} from '../components/ui/LoadErrorState';
+import {usePlayingCopy} from '../lib/alt-upload';
 import {api} from '../lib/api';
 import {playAt} from '../lib/audio';
 import {
@@ -83,10 +84,10 @@ export const TrackPage = React.memo(function TrackPage() {
     const favoriters = useMemo(() => favoritersData?.collection ?? [], [favoritersData]);
 
   const trackUrn = track?.urn;
-    const isThis = usePlayerStore((s) => !!trackUrn && s.currentTrack?.urn === trackUrn);
-    const isThisPlaying = usePlayerStore(
-        (s) => !!trackUrn && s.currentTrack?.urn === trackUrn && s.isPlaying,
-    );
+    const currentUrn = usePlayerStore((s) => s.currentTrack?.urn);
+    const playingCopy = usePlayingCopy(currentUrn ?? '');
+    const isThis = !!trackUrn && (currentUrn === trackUrn || playingCopy?.urn === trackUrn);
+    const isThisPlaying = usePlayerStore((s) => isThis && s.isPlaying);
 
     const aura = useTrackAura(track?.genre);
     const myUrn = useAuthStore((s) => s.user?.urn);
@@ -102,19 +103,20 @@ export const TrackPage = React.memo(function TrackPage() {
     const handlePlay = useCallback(() => {
         if (!track) return;
         const st = usePlayerStore.getState();
-        if (st.currentTrack?.urn === track.urn) {
+        if (isThis) {
             if (st.isPlaying) st.pause();
             else st.resume();
         } else {
             st.play(track, [track]);
         }
-    }, [track]);
+    }, [track, isThis]);
 
     const jumpTo = useCallback(
         (seconds: number) => {
-            if (track) playAt(track, seconds);
+            const current = usePlayerStore.getState().currentTrack;
+            if (track) playAt(isThis && current ? current : track, seconds);
         },
-        [track],
+        [track, isThis],
     );
 
     if (isLoading || (!track && !isError)) {

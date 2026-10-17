@@ -8,6 +8,7 @@ import {handlePrev} from '../../../lib/audio';
 import {forgetOfflineLike} from '../../../lib/cache';
 import {clearDislike, dislikeTrack} from '../../../lib/dislike-actions';
 import {useDislikeStatus} from '../../../lib/dislikes';
+import {trackTasteWrite} from '../../../lib/events';
 import {invalidateAllLikesCache} from '../../../lib/hooks';
 import {
     ExternalLink,
@@ -44,9 +45,11 @@ const FullscreenLikeButton = React.memo(({track}: { track: Track }) => {
         invalidateAllLikesCache();
         if (next) clearDislike(track.urn);
         try {
-            await api(`/likes/tracks/${encodeURIComponent(track.urn)}`, {
-                method: next ? 'POST' : 'DELETE',
-            });
+            await trackTasteWrite(
+                api(`/likes/tracks/${encodeURIComponent(track.urn)}`, {
+                    method: next ? 'POST' : 'DELETE',
+                }),
+            );
             void (next ? rememberLikedUrn(track.urn, track) : forgetOfflineLike(track.urn));
         } catch {
             optimisticToggleLike(qc, track, !next);

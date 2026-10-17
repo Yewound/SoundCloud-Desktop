@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Track } from '../stores/player';
 import { api } from './api';
+import { tasteWritesLanded } from './events';
 import { withoutHidden } from './feed-filter';
 import { type PagedResponse, pagedUrl } from './hooks';
 import { trackUrn } from './ids';
@@ -75,12 +76,6 @@ function smartWaveUrl(
   }
 }
 
-/**
- * Запрос порции бесконечной волны. Сервер держит state по cursor'у
- * (Redis, TTL 30 мин) — клиент эхает токен и получает свежие треки без
- * повторов. Если cursor отсутствует или Redis грохнули — сервер начнёт
- * новую сессию волны, для UX это незаметно.
- */
 export async function fetchSmartWave(opts: {
   seedKind: SmartWaveSeedKind;
   seedId?: string;
@@ -97,6 +92,7 @@ export async function fetchSmartWave(opts: {
   // Бэк дефолтит hide_listened=ON; шлём явный флаг только когда он задан.
   if (opts.hideListened !== undefined) qs.set('hide_listened', opts.hideListened ? '1' : '0');
 
+  await tasteWritesLanded();
   const payload = await api<SmartWavePayload>(smartWaveUrl(opts.seedKind, opts.seedId, qs)).catch(
     () => ({ tracks: [], cursor: '' }) as SmartWavePayload,
   );
@@ -107,36 +103,6 @@ export async function fetchSmartWave(opts: {
   return { tracks: withoutHidden(await resultTracks(results)), cursor };
 }
 
-/**
- * Сообщить серверу о dis/pos исходах в недавнем окне волны.
- * Cursor обновится на сервере и следующий fetchSmartWave получит выдачу
- * с адаптированными весами arm'ов.
- */
-export async function sendWaveFeedback(opts: {
-  cursor: string;
-  negatives: number;
-  positives: number;
-}): Promise<string | null> {
-  if (!opts.cursor) return null;
-  try {
-    const res = await api<{ ok: boolean; cursor?: string | null }>(
-      '/recommendations/wave/feedback',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(opts),
-      },
-    );
-    return res?.cursor ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * React-Query обёртка для первой порции волны. Дальше работает в паре с
- * `useInfiniteWave`, который сам шлёт `fetchSmartWave({ cursor })`.
- */
 export function useSmartWave(opts: {
   seedKind: SmartWaveSeedKind;
   seedId?: string;

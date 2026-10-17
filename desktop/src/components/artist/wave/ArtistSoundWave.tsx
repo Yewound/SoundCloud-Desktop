@@ -124,7 +124,7 @@ export const ArtistSoundWave = React.memo(function ArtistSoundWave({
     seedKind: 'artist',
     seedId: artistId,
     initialTracks: waveCluster?.tracks ?? [],
-    initialCursor: null,
+    initialCursor: waveCluster?.cursor ?? null,
     hideListened,
   });
 

@@ -8,6 +8,7 @@ import {
   useScrobbleStore,
 } from '../../stores/scrobble';
 import { useSettingsStore } from '../../stores/settings';
+import { playingCopyOf } from '../alt-upload';
 import { getDuration } from '../audio';
 import { isPreviewOnly } from '../track-access';
 import { getArtistDisplay, getDisplayTitle } from '../track-display';
@@ -34,13 +35,17 @@ function active(): boolean {
   );
 }
 
+function heard(track: Track): Track {
+  return playingCopyOf(track.urn) ?? track;
+}
+
 function durationOf(track: Track): number {
-  const fromTrack = track.duration / 1000;
+  const fromTrack = heard(track).duration / 1000;
   return fromTrack > 0 ? fromTrack : getDuration();
 }
 
 function eligible(track: Track): boolean {
-  return !isPreviewOnly(track) && isLongEnough(durationOf(track));
+  return !isPreviewOnly(heard(track)) && isLongEnough(durationOf(track));
 }
 
 function payload(track: Track, timestamp: number) {
@@ -55,7 +60,7 @@ function payload(track: Track, timestamp: number) {
 
 function phaseOf(track: Track, current: Session): ScrobblePhase {
   if (current.done) return 'scrobbled';
-  if (isPreviewOnly(track)) return 'preview';
+  if (isPreviewOnly(heard(track))) return 'preview';
   return isLongEnough(durationOf(track)) ? 'listening' : 'short';
 }
 
