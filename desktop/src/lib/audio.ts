@@ -604,17 +604,18 @@ function skipUnloadable(track: Track, stuck: boolean): boolean {
   if (!player.isPlaying || player.currentTrack?.urn !== track.urn) return false;
   if (!skipUnloadableEnabled() || !playbackAllowed('skip')) return false;
   if (!takeSkipAttempt()) {
-    toast.warning(i18n.t('track.skipHalted'), {
-      id: 'skip-halted',
+    const halted = toast.warning(i18n.t('track.skipHalted'), {
       description: i18n.t('track.skipHaltedHint'),
     });
     player.pause();
     void playbackServersDown().then((down) => {
       const latest = usePlayerStore.getState();
       if (!down || latest.isPlaying || latest.currentTrack?.urn !== track.urn) return;
+      toast.dismiss(halted);
       toast.dismiss('track-load-error');
       toast.error(i18n.t('track.serversDown'), {
-        id: 'skip-halted',
+        id: 'playback-servers-down',
+        duration: 10000,
         action: {
           label: i18n.t('hostStatus.actions.statusPage'),
           onClick: () => void openUrl(STATUS_PAGE_URL).catch(() => undefined),
