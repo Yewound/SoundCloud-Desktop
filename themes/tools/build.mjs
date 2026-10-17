@@ -31,7 +31,12 @@ if (tryGit(root, ['cat-file', '-t', rev]) !== 'commit') fatal(`${rev} is not a c
 const revoked = readRevoked(root);
 if (!revoked) fatal('themes/revoked.json must be a list of {id, hash, reason}');
 
-const previous = previousIndex(root, values.previous);
+let previous;
+try {
+  previous = previousIndex(root, values.previous);
+} catch (error) {
+  fatal(`previous index: ${error.message}`);
+}
 const before = new Map((previous?.themes ?? []).map((theme) => [theme.id, theme]));
 const present = listThemes(root);
 const ids = [...new Set([...present, ...before.keys()])].sort();

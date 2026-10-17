@@ -27,13 +27,10 @@ export function commitTime(root, rev) {
 }
 
 export function previousIndex(root, ref) {
-  if (!ref) return null;
+  if (!ref || !tryGit(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])) return null;
   const text = tryGit(root, ['show', `${ref}:v1/index.json`]);
-  if (!text) return null;
-  try {
-    const index = JSON.parse(text);
-    return Array.isArray(index?.themes) ? index : null;
-  } catch {
-    return null;
-  }
+  if (text === null) throw new Error(`${ref} has no v1/index.json`);
+  const index = JSON.parse(text);
+  if (!Array.isArray(index?.themes)) throw new Error(`${ref}:v1/index.json has no themes list`);
+  return index;
 }

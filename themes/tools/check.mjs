@@ -13,10 +13,17 @@ const { values, positionals } = parseArgs({
 
 const root = repoRoot();
 const buildRev = git(root, ['rev-parse', 'HEAD']);
-const previous = previousIndex(root, values.previous);
+let previous;
+try {
+  previous = previousIndex(root, values.previous);
+} catch (error) {
+  print(`error: previous index: ${error.message}`);
+  process.exit(1);
+}
 const before = new Map((previous?.themes ?? []).map((theme) => [theme.id, theme]));
 const present = listThemes(root);
-const ids = positionals.length > 0 ? positionals : [...new Set([...present, ...before.keys()])].sort();
+const ids =
+  positionals.length > 0 ? positionals : [...new Set([...present, ...before.keys()])].sort();
 const prAuthor = values['pr-author']?.trim() || null;
 
 const fingerprint = (entry) =>
@@ -31,34 +38,22 @@ const fingerprint = (entry) =>
     entry.preview?.sha256,
   ]);
 
-function describeChange(entry, old) {
-  if (!old) return 'new';
-  if (old.hash !== entry.hash) return `${old.version} -> ${entry.version}`;
-  return fingerprint(old) === fingerprint(entry) ? 'same' : 'metadata';
-}
-
-function reviewWarnings(entry, old) {
-  const warnings = [];
-  const github = entry.author.github ?? null;
-  const owners = [github, ...MAINTAINERS].filter(Boolean).map((login) => login.toLowerCase());
-  const changed = !old || fingerprint(old) !== fingerprint(entry);
-  if (changed && prAuthor && !owners.includes(prAuthor.toLowerCase())) {
-    warnings.push(`themes/${entry.id}: changed by ${prAuthor}, the author is ${github ?? 'not on GitHub'}`);
-  }
-  const oldGithub = old?.author?.github ?? null;
-  if (old && oldGithub !== github) {
-    warnings.push(`themes/${entry.id}/theme.json: author.github changed from ${oldGithub} to ${github}`);
-  }
-  return warnings;
-}
-
 const rows = [];
 let failures = 0;
 
 if (!readRevoked(root)) {
   failures++;
   print('error: themes/revoked.json must be a list of {id, hash, reason}');
-  rows.push(['revoked.json', '-', 'invalid', '-', '-', '-', ['must be a list of {id, hash, reason}'], []]);
+  rows.push([
+    'revoked.json',
+    '-',
+    'invalid',
+    '-',
+    '-',
+    '-',
+    ['must be a list of {id, hash, reason}'],
+    [],
+  ]);
 }
 
 for (const id of ids) {
@@ -75,14 +70,33 @@ for (const id of ids) {
     continue;
   }
   const { entry, errors, warnings } = loadTheme(join(root, 'themes', id), buildRev, old);
-  if (entry) warnings.push(...reviewWarnings(entry, old));
+  let change = 'failed';
+  if (entry) {
+    const github = entry.author.github ?? null;
+    const owners = [github, ...MAINTAINERS].filter(Boolean).map((login) => login.toLowerCase());
+    const same = old && fingerprint(old) === fingerprint(entry);
+    if (!same && prAuthor && !owners.includes(prAuthor.toLowerCase())) {
+      warnings.push(
+        `themes/${id}: changed by ${prAuthor}, the author is ${github ?? 'not on GitHub'}`,
+      );
+    }
+    const oldGithub = old?.author?.github ?? null;
+    if (old && oldGithub !== github) {
+      warnings.push(
+        `themes/${id}/theme.json: author.github changed from ${oldGithub} to ${github}`,
+      );
+    }
+    if (!old) change = 'new';
+    else if (old.hash !== entry.hash) change = `${old.version} -> ${entry.version}`;
+    else change = same ? 'same' : 'metadata';
+  }
   for (const line of errors) print(`error: ${line}`);
   for (const line of warnings) print(`warning: ${line}`);
   if (errors.length > 0) failures++;
   rows.push([
     id,
     entry?.version ?? '-',
-    entry ? describeChange(entry, old) : 'failed',
+    change,
     entry ? kib(entry.css.size) : '-',
     entry ? kib(entry.size - entry.css.size) : '-',
     entry ? kib(entry.preview.size) : '-',
