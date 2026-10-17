@@ -29,7 +29,12 @@ export function useInfiniteWave(opts: {
     batchLimit = 10,
   } = opts;
 
-  const tallyRef = useRef<WaveTally>({ owned: new Set(), negatives: 0, positives: 0 });
+  const tallyRef = useRef<WaveTally>({
+    owned: new Set(),
+    decided: new Map(),
+    negatives: 0,
+    positives: 0,
+  });
   const cursorRef = useRef('');
   const shelfCursorRef = useRef(initialCursor);
   const fetchingRef = useRef(false);
@@ -66,6 +71,7 @@ export function useInfiniteWave(opts: {
     cursorRef.current = '';
     tallyRef.current.negatives = 0;
     tallyRef.current.positives = 0;
+    tallyRef.current.decided.clear();
 
     const refill = async (cursor: string) => {
       const batch = await fetchSmartWave({

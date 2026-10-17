@@ -76,12 +76,6 @@ function smartWaveUrl(
   }
 }
 
-/**
- * Запрос порции бесконечной волны. Сервер держит state по cursor'у
- * (Redis, TTL 30 мин) — клиент эхает токен и получает свежие треки без
- * повторов. Если cursor отсутствует или Redis грохнули — сервер начнёт
- * новую сессию волны, для UX это незаметно.
- */
 export async function fetchSmartWave(opts: {
   seedKind: SmartWaveSeedKind;
   seedId?: string;
@@ -109,10 +103,6 @@ export async function fetchSmartWave(opts: {
   return { tracks: withoutHidden(await resultTracks(results)), cursor };
 }
 
-/**
- * React-Query обёртка для первой порции волны. Дальше работает в паре с
- * `useInfiniteWave`, который сам шлёт `fetchSmartWave({ cursor })`.
- */
 export function useSmartWave(opts: {
   seedKind: SmartWaveSeedKind;
   seedId?: string;

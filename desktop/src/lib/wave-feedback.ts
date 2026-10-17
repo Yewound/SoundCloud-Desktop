@@ -5,6 +5,7 @@ export const LATE_SKIP_SHARE = 0.7;
 
 export interface WaveTally {
   owned: Set<string>;
+  decided: Map<string, boolean>;
   negatives: number;
   positives: number;
 }
@@ -28,9 +29,10 @@ export function noteWaveOutcome(
   const positive = outcome === 'full_play' || outcome === 'like' || outcome === 'superlike';
   if (!negative && !positive) return;
   for (const tally of tallies) {
-    if (!tally.owned.has(urn)) continue;
-    if (negative) tally.negatives += 1;
-    else tally.positives += 1;
+    if (!tally.owned.has(urn) || tally.decided.get(urn) === positive) continue;
+    tally.decided.set(urn, positive);
+    if (positive) tally.positives += 1;
+    else tally.negatives += 1;
   }
 }
 
