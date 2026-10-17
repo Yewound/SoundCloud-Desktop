@@ -48,6 +48,9 @@ impl TrackCacheState {
         let path = match climbed {
             Ok(path) => path,
             Err(err) => {
+                if self.allowed_quality(wanted, req.session_id).rank() < wanted.rank() {
+                    self.release_upgrade(urn);
+                }
                 self.diag(
                     "INFO",
                     format!(
@@ -89,5 +92,11 @@ impl TrackCacheState {
         self.upgrade_attempts
             .lock()
             .is_ok_and(|mut set| set.insert(urn.to_string()))
+    }
+
+    fn release_upgrade(&self, urn: &str) {
+        if let Ok(mut set) = self.upgrade_attempts.lock() {
+            set.remove(urn);
+        }
     }
 }
