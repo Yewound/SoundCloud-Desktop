@@ -1177,6 +1177,8 @@
     "catStorage": "저장 공간",
     "catAccount": "계정",
     "wpSearch": "온라인",
+    "wpDesktop": "바탕화면",
+    "wpDesktopMissing": "바탕화면 배경을 찾지 못했어요",
     "wpSlideshow": "슬라이드쇼",
     "wpSlideshowDesc": "선택한 배경화면을 일정 시간마다 바꿔요",
     "wpSlideshowSelected": "{{count}}개 선택됨. 배경화면을 클릭해 추가하거나 제거하세요",

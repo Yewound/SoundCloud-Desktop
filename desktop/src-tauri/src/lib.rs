@@ -368,6 +368,8 @@ pub fn run() {
             network::netcheck::net_check_last,
             network::netcheck::net_check_report_text,
             network::wallpapers::wallpaper_search,
+            app::desktop_wallpaper::desktop_wallpaper_found,
+            app::desktop_wallpaper::desktop_wallpaper_sync,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

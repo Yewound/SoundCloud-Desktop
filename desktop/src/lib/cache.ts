@@ -11,6 +11,7 @@ import {useSettingsStore} from '../stores/settings';
 import {toScproxyUrl} from './asset-url';
 import {CACHE_UNLIMITED, isAudioCacheOff} from './cache-limit';
 import {getStaticPort} from './constants';
+import {isDesktopWallpaper} from './desktop-wallpaper';
 import {trackedInvoke as invoke} from './diagnostics';
 import {sanitizeFilename} from './filename';
 import {onIdle} from './idle';
@@ -386,7 +387,11 @@ export async function listWallpapers(): Promise<string[]> {
     const entries = await readDir(dir);
     const names: string[] = [];
     for (const entry of entries) {
-      if (entry.name && /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(entry.name)) {
+      if (
+        entry.name &&
+        !isDesktopWallpaper(entry.name) &&
+        /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(entry.name)
+      ) {
         names.push(entry.name);
       }
     }

@@ -6,6 +6,7 @@ import {useShallow} from 'zustand/shallow';
 import {getCurrentTime, getDuration, handlePrev, seek} from '../../lib/audio';
 import {getWallpaperUrl} from '../../lib/cache';
 import {customCssHotkeyLabel} from '../../lib/custom-css';
+import {useDesktopWallpaper} from '../../lib/desktop-wallpaper';
 import {art} from '../../lib/formatters';
 import {usePerfMode} from '../../lib/perf';
 import {isMac} from '../../lib/platform';
@@ -252,6 +253,7 @@ const CustomBackground = React.memo(() => {
 
 const WallpaperRotator = React.memo(() => {
     useWallpaperRotation();
+    useDesktopWallpaper();
     return null;
 });
 

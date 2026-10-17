@@ -21,7 +21,18 @@ fn content_type_for(filename: &str) -> &'static str {
         "image/avif"
     } else if filename.ends_with(".svg") {
         "image/svg+xml"
-    } else if filename.ends_with(".jpg") || filename.ends_with(".jpeg") {
+    } else if filename.ends_with(".heic") {
+        "image/heic"
+    } else if filename.ends_with(".jxl") {
+        "image/jxl"
+    } else if filename.ends_with(".bmp") {
+        "image/bmp"
+    } else if filename.ends_with(".tif") || filename.ends_with(".tiff") {
+        "image/tiff"
+    } else if filename.ends_with(".jpg")
+        || filename.ends_with(".jpeg")
+        || filename.ends_with(".jfif")
+    {
         "image/jpeg"
     } else if filename.ends_with(".woff2") {
         "font/woff2"

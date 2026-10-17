@@ -8,7 +8,13 @@ import {
     removeWallpaper,
     saveWallpaperFromBuffer,
 } from '../../../lib/cache';
-import {Check, Link, Loader2, Search, X} from '../../../lib/icons';
+import {
+    findDesktopWallpaper,
+    isDesktopWallpaper,
+    syncDesktopWallpaper,
+    useDesktopWallpaperLost,
+} from '../../../lib/desktop-wallpaper';
+import {Check, Link, Loader2, Monitor, MonitorOff, Search, X} from '../../../lib/icons';
 import {useSettingsStore} from '../../../stores/settings';
 import {Card, RangeSlider} from '../primitives';
 import {WallpaperSearch} from './WallpaperSearch';
@@ -36,7 +42,15 @@ export function WallpaperCard() {
     const [urlInput, setUrlInput] = useState('');
     const [showUrlInput, setShowUrlInput] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
+    const [desktopFound, setDesktopFound] = useState<boolean>();
+    const [brokenDesktop, setBrokenDesktop] = useState<string>();
+    const desktopLost = useDesktopWallpaperLost((s) => s.lost);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const followingDesktop = isDesktopWallpaper(backgroundImage);
+    const desktopMissing = followingDesktop
+        ? desktopLost || brokenDesktop === backgroundImage
+        : desktopFound === false;
+    const desktopUrl = followingDesktop && !desktopMissing ? getWallpaperUrl(backgroundImage) : null;
 
     const adopt = useCallback(
         (name: string) => {
@@ -65,6 +79,26 @@ export function WallpaperCard() {
         setBackgroundImage('');
     }, [setRotation, setBackgroundImage]);
 
+    const toggleDesktop = useCallback(async () => {
+        const before = useSettingsStore.getState();
+        if (isDesktopWallpaper(before.backgroundImage)) {
+            setBackgroundImage('');
+            return;
+        }
+        setDesktopFound(undefined);
+        const name = await syncDesktopWallpaper();
+        setDesktopFound(name !== null);
+        const now = useSettingsStore.getState();
+        if (
+            !name ||
+            now.backgroundImage !== before.backgroundImage ||
+            now.wallpaperRotation !== before.wallpaperRotation
+        )
+            return;
+        setRotation(false);
+        setBackgroundImage(name);
+    }, [setRotation, setBackgroundImage]);
+
     const handlePickOnline = useCallback(
         async (url: string) => {
             try {
@@ -84,6 +118,7 @@ export function WallpaperCard() {
             setWallpapers(names);
             setLoading(false);
         });
+        findDesktopWallpaper().then(setDesktopFound);
     }, []);
 
     const handleFileSelect = useCallback(
@@ -148,6 +183,53 @@ export function WallpaperCard() {
                         }`}
                     >
                         <span className="text-[10px] text-white/40 font-semibold">{t('settings.none')}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={toggleDesktop}
+                        disabled={!followingDesktop && desktopMissing}
+                        aria-pressed={followingDesktop}
+                        title={t(desktopMissing ? 'settings.wpDesktopMissing' : 'settings.wpDesktop')}
+                        className={`relative w-20 h-14 rounded-xl overflow-hidden border-2 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
+                            followingDesktop
+                                ? 'border-white/40 shadow-[0_0_12px_rgba(255,255,255,0.1)] cursor-pointer'
+                                : desktopMissing
+                                  ? 'border-dashed border-white/[0.06] cursor-not-allowed'
+                                  : 'border-white/[0.06] hover:border-white/[0.15] cursor-pointer'
+                        }`}
+                    >
+                        {desktopUrl ? (
+                            <>
+                                <img
+                                    src={desktopUrl}
+                                    alt=""
+                                    onError={() => setBrokenDesktop(backgroundImage)}
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                />
+                                <span
+                                    className="absolute inset-x-0 bottom-0 py-0.5 bg-black/60 flex items-center justify-center gap-1 text-[9px] text-white/80 font-medium">
+                                    <Monitor size={9}/>
+                                    {t('settings.wpDesktop')}
+                                </span>
+                            </>
+                        ) : (
+                            <>
+                                {desktopMissing ? (
+                                    <MonitorOff size={12} className="text-white/25"/>
+                                ) : desktopFound === undefined ? (
+                                    <Loader2 size={12} className="animate-spin text-white/20"/>
+                                ) : (
+                                    <Monitor size={12} className="text-white/30"/>
+                                )}
+                                <span className="text-[9px] text-white/25 font-medium">{t('settings.wpDesktop')}</span>
+                            </>
+                        )}
+                        {followingDesktop && (
+                            <div className="absolute inset-0 bg-white/10 flex items-center justify-center">
+                                <div className="w-4 h-4 rounded-full bg-white shadow-lg"/>
+                            </div>
+                        )}
                     </button>
 
                     {wallpapers.map((name) => {
