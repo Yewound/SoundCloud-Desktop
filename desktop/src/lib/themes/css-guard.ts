@@ -94,7 +94,7 @@ const KEPT_FRAGMENT = /^#[A-Za-z0-9_-]*$/;
 const KEPT_PATH = /^(?!\/\/)[A-Za-z0-9._~%/-]+$/;
 const CONTENT_TEXT_LIMIT = 40;
 
-const SVG_PREFIX = '(?:[\\w.:-]+:)?';
+const SVG_PREFIX = '(?:[^\\s<>/="\'&]*:)?';
 const SVG_ELEMENT = new RegExp(
   `<\\s*${SVG_PREFIX}(script|foreignobject|iframe|object|embed|handler|listener)\\b`,
   'gi',
@@ -103,7 +103,13 @@ const SVG_DECLARATION = /<!doctype|<!entity|<\?xml-stylesheet/gi;
 const SVG_ENTITY = /&(?!(?:amp|lt|gt|quot|apos);)/gi;
 const SVG_BACKSLASH = /\\/g;
 const SVG_HANDLER = new RegExp(`[\\s"'/](${SVG_PREFIX}on[a-z]+)\\s*=`, 'gi');
-const SVG_LINK = new RegExp(`(?:^|[^\\w.:-])(${SVG_PREFIX}(?:href|src))\\s*=\\s*["']?`, 'gi');
+const SVG_BANNED_ATTR = new RegExp(
+  `[\\s"'/](${SVG_PREFIX}(?:srcset|poster|base|http-equiv))\\s*=`,
+  'gi',
+);
+const SVG_NAMESPACE = /[\s"'/](xmlns(?::[^\s<>/="'&]*)?)\s*=\s*["']?([^"'\s<>]*)/gi;
+const SVG_NAMESPACES = ['http://www.w3.org/2000/svg', 'http://www.w3.org/1999/xlink'];
+const SVG_LINK = new RegExp(`(?:^|[\\s"'/])(${SVG_PREFIX}(?:href|src))\\s*=\\s*["']?`, 'gi');
 const SVG_ANIMATED_LINK = new RegExp(
   `attributename\\s*=\\s*["']?\\s*${SVG_PREFIX}(?:href|src)\\b`,
   'gi',
@@ -116,12 +122,6 @@ const SVG_NESTED = /data:image\/svg/gi;
 const SVG_TEXT = new RegExp(`<\\s*${SVG_PREFIX}text\\b`, 'gi');
 const SVG_SAFE_TARGET = /^(?:#|data:image\/)/i;
 
-function frameKind(name: string, parent: Frame | undefined): Frame['kind'] {
-  if (name === 'url') return 'url';
-  if (name === 'type' && parent && IMAGE_SET_FUNCTIONS.includes(parent.name)) return 'type';
-  return 'other';
-}
-
 function walk(tokens: Token[], end: number, visitor: Visitor) {
   const stack: Frame[] = [];
   tokens.forEach((token, index) => {
@@ -129,11 +129,13 @@ function walk(tokens: Token[], end: number, visitor: Visitor) {
     const close = CLOSERS[token.type];
     if (close) {
       const name = token.type === 'function' ? asciiLower(token.value) : '';
+      const typeArg =
+        name === 'type' && top !== undefined && IMAGE_SET_FUNCTIONS.includes(top.name);
       const frame: Frame = {
         open: token,
         name,
         close,
-        kind: frameKind(name, top),
+        kind: name === 'url' ? 'url' : typeArg ? 'type' : 'other',
         imageSet: top ? top.imageSet : null,
         parts: [],
       };
@@ -188,12 +190,6 @@ function isSingleString(parts: Token[]): boolean {
   return parts.length === 1 && parts[0].type === 'string';
 }
 
-function isPlainAttr(parts: Token[]): boolean {
-  if (parts[0]?.type !== 'ident') return false;
-  if (parts.length === 1) return true;
-  return parts.length === 3 && parts[1].type === 'comma' && parts[2].type === 'string';
-}
-
 function isBannedProperty(tokens: Token[], index: number): boolean {
   if (!BANNED_PROPERTIES.includes(asciiLower(tokens[index].value))) return false;
   let next = index + 1;
@@ -209,14 +205,6 @@ function firstControl(text: string): number {
   return -1;
 }
 
-function hasUnsafeChar(value: string): boolean {
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i);
-    if (c <= 0x20 || c === 0x7f || c === 0x5c) return true;
-  }
-  return false;
-}
-
 function assetName(value: string): string | null {
   if (!value.startsWith('assets/')) return null;
   const name = value.slice(7);
@@ -230,16 +218,8 @@ function isKeptUrl(raw: string): boolean {
   );
 }
 
-function decodeDataBody(body: string, base64: boolean): string | null {
-  try {
-    return base64 ? atob(body) : decodeURIComponent(body);
-  } catch {
-    return null;
-  }
-}
-
 function excerpt(text: string, from: number): string {
-  return text.slice(from, from + 40);
+  return text.slice(from, from + 40).split(/[\r\n]/)[0];
 }
 
 export function normalizeUrlValue(value: string): string {
@@ -282,8 +262,13 @@ export function inspectThemeCss(css: string, assetNames: readonly string[]): Gua
     if (!head) return error('data-uri', at, 'data: must be an image or woff2');
     if (value.length > THEME_LIMITS.dataUriChars) return error('data-uri', at, 'data: is too long');
     if (!/^data:image\/svg\+xml/i.test(value)) return;
-    const svg = decodeDataBody(value.slice(head[0].length), /;base64,$/i.test(head[0]));
-    if (svg === null) return error('data-uri', at, 'data: svg cannot be decoded');
+    const body = value.slice(head[0].length);
+    let svg: string;
+    try {
+      svg = /;base64,$/i.test(head[0]) ? atob(body) : decodeURIComponent(body);
+    } catch {
+      return error('data-uri', at, 'data: svg cannot be decoded');
+    }
     const result = inspectSvg(svg);
     if (result.errors.length > 0) error('data-uri', at, `data: svg: ${result.errors[0]}`);
     if (result.warnings.length > 0) warn('svg-text', at, 'data: svg has text');
@@ -292,7 +277,9 @@ export function inspectThemeCss(css: string, assetNames: readonly string[]): Gua
   const checkUrl = (raw: string, at: Token) => {
     const value = normalizeUrlValue(raw);
     if (/^data:/i.test(value)) return checkDataUri(value, at);
-    if (hasUnsafeChar(value)) return error('url', at, 'url has a space, control or backslash');
+    if (/[\0- \x7f\\]/.test(value)) {
+      return error('url', at, 'url has a space, control or backslash');
+    }
     const name = assetName(value);
     if (name) {
       assets.add(name);
@@ -331,8 +318,13 @@ export function inspectThemeCss(css: string, assetNames: readonly string[]): Gua
         if (!isSingleString(frame.parts) || !IMAGE_MIME.test(frame.parts[0].value)) {
           error('image-set', frame.open, 'type() must name an image type');
         }
-      } else if (frame.name === 'attr' && !isPlainAttr(frame.parts)) {
-        error('attr', frame.open, 'attr() takes a name and an optional string');
+      } else if (frame.name === 'attr') {
+        const [name, comma, fallback] = frame.parts;
+        const plain =
+          name?.type === 'ident' &&
+          (frame.parts.length === 1 ||
+            (frame.parts.length === 3 && comma.type === 'comma' && fallback.type === 'string'));
+        if (!plain) error('attr', frame.open, 'attr() takes a name and an optional string');
       }
       if (frame.close === '}') endDeclaration();
     },
@@ -396,6 +388,7 @@ export function stripRemoteCss(css: string): { css: string; blocked: number } {
   const { tokens } = tokenize(css);
   const cuts: Cut[] = [];
   const badImageSets = new Set<Frame>();
+  let importEnd = -1;
   walk(tokens, css.length, {
     open(frame, parent) {
       if (parent?.imageSet && DYNAMIC_FUNCTIONS.includes(frame.name)) {
@@ -412,7 +405,9 @@ export function stripRemoteCss(css: string): { css: string; blocked: number } {
     },
     token(token, top, index) {
       if (token.type === 'at-keyword' && asciiLower(token.value) === 'import') {
-        cuts.push({ start: token.start, end: atRuleEnd(tokens, index, css.length), text: '/**/' });
+        if (token.start < importEnd) return;
+        importEnd = atRuleEnd(tokens, index, css.length);
+        cuts.push({ start: token.start, end: importEnd, text: '/**/' });
       } else if (token.type === 'bad-url' || (token.type === 'url' && !isKeptUrl(token.value))) {
         cuts.push({ start: token.start, end: token.end, text: 'none' });
       } else if (token.type === 'string' && top?.imageSet && top.kind !== 'url') {
@@ -447,6 +442,10 @@ export function inspectSvg(text: string): { errors: string[]; warnings: string[]
   each(SVG_ENTITY, text, (hit) => errors.add(`entity ${excerpt(text, hit.index).slice(0, 8)}`));
   each(SVG_BACKSLASH, text, () => errors.add('backslash'));
   each(SVG_HANDLER, text, (hit) => errors.add(`${hit[1]} handler`));
+  each(SVG_BANNED_ATTR, text, (hit) => errors.add(`${hit[1]} is not allowed`));
+  each(SVG_NAMESPACE, text, (hit) => {
+    if (!SVG_NAMESPACES.includes(hit[2])) errors.add(`namespace ${excerpt(hit[2], 0)}`);
+  });
   each(SVG_LINK, text, linkTarget(text));
   each(SVG_ANIMATED_LINK, text, (hit) => errors.add(`animated link ${hit[0]}`));
   each(SVG_ENCODING, text, (hit) => {

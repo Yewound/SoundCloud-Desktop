@@ -69,6 +69,15 @@ const BAD_SVG = [
   '<?xml version="1.0" encoding="UTF-16"?><svg/>',
   '<svg>\0<\0s\0c\0r\0i\0p\0t\0></svg>',
   `<svg><image href="${svgBase64('<svg><script>1</script></svg>')}"/></svg>`,
+  '<svg><漢:script xmlns:漢="http://www.w3.org/2000/svg">1</漢:script></svg>',
+  '<svg xmlns:漢="http://www.w3.org/1999/xlink"><image 漢:href="https://x.test/a.png"/></svg>',
+  '<svg><set attributeName="漢:href" to="https://x.test/a.png"/></svg>',
+  '<svg><h:img xmlns:h="http://www.w3.org/1999/xhtml" srcset="https://x.test/a.png"/></svg>',
+  '<svg><video poster="https://x.test/a.png"/></svg>',
+  '<svg><meta http-equiv="refresh" content="0;url=https://x.test"/></svg>',
+  '<svg xml:base="https://x.test/"><use href="#a"/></svg>',
+  '<svg xmlns="http://www.w3.org/1999/xhtml"/>',
+  '<svg><a:b:script>1</a:b:script></svg>',
 ];
 
 const codes = (css, assets = ASSETS) => inspectThemeCss(css, assets).errors.map((e) => e.code);
@@ -298,4 +307,17 @@ test('the guard survives hostile input', () => {
   inspectSvg(`<svg ${'a'.repeat(300000)}${'<!--'.repeat(50000)}${'<'.repeat(50000)}`);
   inspectThemeCss(`a{b:url(data:image/png;${';a'.repeat(30000)}`, []);
   assert.ok(Date.now() - started < 2000);
+});
+
+test('stripRemoteCss stays linear on unclosed imports', () => {
+  const started = Date.now();
+  assert.deepEqual(stripRemoteCss('@import '.repeat(30000)), { css: '/**/', blocked: 1 });
+  assert.equal(stripRemoteCss(`a{${'@import{'.repeat(20000)}`).blocked, 1);
+  assert.ok(Date.now() - started < 2000);
+});
+
+test('svg error text has no line breaks', () => {
+  const { errors } = inspectSvg('<svg><image href="\n::error::x"/><a b="&\n::error::y"/></svg>');
+  assert.ok(errors.length >= 2);
+  for (const message of errors) assert.ok(!/[\r\n]/.test(message), message);
 });
