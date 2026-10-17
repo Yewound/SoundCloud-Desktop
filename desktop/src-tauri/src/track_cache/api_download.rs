@@ -131,6 +131,10 @@ async fn http_failure(status: wreq::StatusCode, response: wreq::Response) -> Dow
     }
 }
 
+pub(super) fn is_refusal(err: &str) -> bool {
+    err.starts_with("HTTP 403 ")
+}
+
 fn quality_from_url(url: &str) -> PlaybackQuality {
     let Ok(parsed) = Url::parse(url) else {
         return PlaybackQuality::Sq;
@@ -318,6 +322,14 @@ mod tests {
         format!("http://{addr}/stream")
     }
 
+    fn forbidding() -> String {
+        let route = warp::path("stream")
+            .map(|| warp::reply::with_status("forbidden", warp::http::StatusCode::FORBIDDEN));
+        let (addr, server) = warp::serve(route).bind_ephemeral(([127, 0, 0, 1], 0));
+        tokio::spawn(server);
+        format!("http://{addr}/stream")
+    }
+
     fn hop(url: String, tier: Tier) -> Hop {
         Hop {
             url,
@@ -364,6 +376,24 @@ mod tests {
             fetch_over(&hops).await,
             Err(DownloadError::Retryable(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn only_a_403_from_the_server_reads_as_a_refused_tier() {
+        let refused = match fetch_over(&[hop(forbidding(), Tier::Direct)]).await {
+            Err(DownloadError::Fatal(err)) => err,
+            _ => panic!("a 403 must be fatal"),
+        };
+        assert!(super::is_refusal(&refused), "{refused}");
+
+        let hops = [
+            hop(cut_after(16 * 1024).await, Tier::Direct),
+            hop(refusing(), Tier::Relay),
+        ];
+        let Err(DownloadError::Retryable(minted)) = fetch_over(&hops).await else {
+            panic!("a ticket refused on the next route is retried");
+        };
+        assert!(!super::is_refusal(&minted), "{minted}");
     }
 
     #[test]

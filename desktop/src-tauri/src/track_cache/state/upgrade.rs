@@ -18,7 +18,8 @@ impl TrackCacheState {
         };
         let entry = self.entry_at(&clean, read_cache_metadata(&clean));
         let current = PlaybackQuality::from_label(entry.quality.as_deref());
-        if current.rank() >= req.quality.rank()
+        let wanted = self.allowed_quality(req.quality, req.session_id);
+        if current.rank() >= wanted.rank()
             || entry.accepted_short
             || self.ffmpeg().is_none()
             || is_valid_file(&self.incoming_file_path(urn))
@@ -35,7 +36,7 @@ impl TrackCacheState {
                 download_urls: req.download_urls,
                 storage_urls: req.storage_urls,
                 session_id: req.session_id,
-                wanted: req.quality,
+                wanted,
                 stored: PlaybackQuality::from_label(req.storage_quality),
                 above: Some(current),
             })

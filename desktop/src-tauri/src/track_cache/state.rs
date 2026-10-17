@@ -20,7 +20,7 @@ use crate::network::edge::{Hop, Tier};
 use crate::network::fail::Fail;
 use crate::network::system_proxy::{self, follow};
 use crate::shared::urn::{canonical_track_urn, track_urn_from_storage_name};
-use crate::track_cache::api_download::{StreamJob, download_api, tier_url};
+use crate::track_cache::api_download::{StreamJob, download_api, is_refusal, tier_url};
 use crate::track_cache::direct_download::{Candidate, consume_at, fetch_candidates};
 use crate::track_cache::sc_anon::AnonClient;
 use crate::track_cache::transcode;
@@ -30,12 +30,14 @@ mod evict;
 mod ladder;
 mod export;
 mod pinned;
+mod refusal;
 mod storage;
 mod upgrade;
 
 pub use bulk::{BulkCacheEntry, BulkCacheStatus};
 pub use export::ExportOutcome;
 use ladder::Ladder;
+use refusal::Refusal;
 use storage::StorageCooldown;
 
 const MIN_AUDIO_SIZE: u64 = 8192;
@@ -539,6 +541,7 @@ pub struct TrackCacheState {
     mp3_encoder: Arc<tokio::sync::OnceCell<bool>>,
     storage_cooldowns: Arc<StdMutex<HashMap<String, StorageCooldown>>>,
     upgrade_attempts: Arc<StdMutex<HashSet<String>>>,
+    refusal: Arc<StdMutex<Option<Refusal>>>,
     anon: Arc<AnonClient>,
 }
 
@@ -610,6 +613,7 @@ pub fn init(audio_dir: PathBuf, liked_dir: PathBuf, incoming_dir: PathBuf) -> Tr
         mp3_encoder: Arc::new(tokio::sync::OnceCell::new()),
         storage_cooldowns: Arc::new(StdMutex::new(HashMap::new())),
         upgrade_attempts: Arc::new(StdMutex::new(HashSet::new())),
+        refusal: Arc::new(StdMutex::new(None)),
         anon,
     }
 }
@@ -1214,7 +1218,7 @@ impl TrackCacheState {
                 download_urls,
                 storage_urls,
                 session_id,
-                wanted: quality,
+                wanted: self.allowed_quality(quality, session_id),
                 stored: PlaybackQuality::from_label(storage_quality),
                 above: None,
             })
@@ -1669,6 +1673,7 @@ impl TrackCacheState {
             .collect();
 
         let mut last_err = String::from("api: all URLs failed");
+        let mut refused = true;
         while !futures.is_empty() {
             let ((idx, result), _select_idx, remaining) =
                 futures_util::future::select_all(futures).await;
@@ -1683,10 +1688,14 @@ impl TrackCacheState {
                 }
                 Err(err) => {
                     diagnostics::warn(format!("[TrackCache] {urn} URL #{} failed: {err}", idx + 1));
+                    refused &= is_refusal(&err);
                     last_err = err;
                     futures = remaining;
                 }
             }
+        }
+        if refused {
+            self.note_refused(job.quality, session_id);
         }
         Err(last_err)
     }
