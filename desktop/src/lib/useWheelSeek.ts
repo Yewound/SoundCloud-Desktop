@@ -4,7 +4,7 @@ import { formatTime } from './formatters';
 const STEP_SEC = 5;
 const SHIFT_STEP_SEC = 15;
 const WHEEL_NOTCH = 40;
-const WHEEL_IDLE_MS = 220;
+const WHEEL_IDLE_MS = 160;
 const COMMIT_DELAY_MS = 200;
 
 export interface WheelSeekSource {
@@ -30,8 +30,10 @@ export function useWheelSeek(
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    let lastWheelAt = 0;
+    let burstOnBar = false;
+    let burstFresh = false;
     let accumulated = 0;
-    let lastAt = 0;
     let timer = 0;
 
     const commit = () => {
@@ -42,21 +44,30 @@ export function useWheelSeek(
       if (target !== null) sourceRef.current.seek(target);
     };
 
+    const onAnyWheel = (e: WheelEvent) => {
+      const now = performance.now();
+      if (now - lastWheelAt > WHEEL_IDLE_MS) {
+        burstOnBar = e.target instanceof Node && root.contains(e.target);
+        burstFresh = true;
+        accumulated = 0;
+      }
+      lastWheelAt = now;
+    };
+
     const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) return;
+      if (!burstOnBar || e.ctrlKey || e.metaKey) return;
       const src = sourceRef.current;
       const duration = src.duration();
       if (duration <= 0 || src.dragging()) return;
       e.preventDefault();
 
-      const now = performance.now();
-      if (now - lastAt > WHEEL_IDLE_MS) accumulated = 0;
-      lastAt = now;
-      const delta = e.deltaY || e.deltaX;
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (delta === 0) return;
       accumulated += e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? delta : delta * WHEEL_NOTCH;
-      if (Math.abs(accumulated) < WHEEL_NOTCH) return;
+      if (!burstFresh && Math.abs(accumulated) < WHEEL_NOTCH) return;
 
       const step = (e.shiftKey ? SHIFT_STEP_SEC : STEP_SEC) * (accumulated < 0 ? 1 : -1);
+      burstFresh = false;
       accumulated = 0;
       const target = Math.max(0, Math.min(duration, (targetRef.current ?? src.position()) + step));
       targetRef.current = target;
@@ -72,8 +83,10 @@ export function useWheelSeek(
       timer = window.setTimeout(commit, COMMIT_DELAY_MS);
     };
 
+    window.addEventListener('wheel', onAnyWheel, { capture: true, passive: true });
     root.addEventListener('wheel', onWheel, { passive: false });
     return () => {
+      window.removeEventListener('wheel', onAnyWheel, { capture: true });
       root.removeEventListener('wheel', onWheel);
       window.clearTimeout(timer);
       targetRef.current = null;

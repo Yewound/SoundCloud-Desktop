@@ -8,8 +8,6 @@ import {
     LYRICS_SPLIT_MIN,
 } from '../../../stores/lyrics';
 
-const HINT_MS = 1600;
-
 export const SplitDivider = React.memo(
     ({
          splitRatio,
@@ -22,19 +20,13 @@ export const SplitDivider = React.memo(
     }) => {
         const {t} = useTranslation();
         const [active, setActive] = useState(false);
-        const [hint, setHint] = useState(true);
         const dividerRef = useRef<HTMLDivElement>(null);
         const draggingRef = useRef(false);
         const pointerXRef = useRef(0);
+        const grabOffsetRef = useRef(0);
         const frameRef = useRef(0);
         const dragRatioRef = useRef<number | null>(null);
         const splitPercent = splitRatio * 100;
-        const shown = active || hint;
-
-        useEffect(() => {
-            const id = window.setTimeout(() => setHint(false), HINT_MS);
-            return () => window.clearTimeout(id);
-        }, []);
 
         useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
 
@@ -57,7 +49,7 @@ export const SplitDivider = React.memo(
             if (!layout || !divider) return;
             const rect = layout.getBoundingClientRect();
             if (rect.width <= 0) return;
-            const ratio = clampLyricsSplit((pointerXRef.current - rect.left) / rect.width);
+            const ratio = clampLyricsSplit((pointerXRef.current - grabOffsetRef.current - rect.left) / rect.width);
             const percent = ratio * 100;
             layout.style.gridTemplateColumns = `${percent}% ${100 - percent}%`;
             divider.style.left = `${percent}%`;
@@ -96,10 +88,11 @@ export const SplitDivider = React.memo(
                 style={{left: `${splitPercent}%`}}
                 onPointerDown={(event) => {
                     event.preventDefault();
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    grabOffsetRef.current = event.clientX - (rect.left + rect.width / 2);
                     draggingRef.current = true;
                     setActive(true);
                     event.currentTarget.setPointerCapture(event.pointerId);
-                    followPointer(event.clientX);
                 }}
                 onDoubleClick={(event) => {
                     event.preventDefault();
@@ -124,7 +117,7 @@ export const SplitDivider = React.memo(
             >
                 <div
                     className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${
-                        shown
+                        active
                             ? 'opacity-100'
                             : 'opacity-0 group-hover/splitter:opacity-100 group-focus-visible/splitter:opacity-100'
                     }`}
