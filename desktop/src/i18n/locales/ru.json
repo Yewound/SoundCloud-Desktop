@@ -1239,6 +1239,8 @@
     "catStorage": "Хранилище",
     "catAccount": "Аккаунт",
     "wpSearch": "Онлайн",
+    "wpDesktop": "Рабочий стол",
+    "wpDesktopMissing": "Обои рабочего стола не найдены",
     "wpSlideshow": "Слайд-шоу",
     "wpSlideshowDesc": "Выбранные обои сменяют друг друга по таймеру",
     "wpSlideshowSelected": "Выбрано: {{count}}. Нажмите на обои, чтобы добавить или убрать их",

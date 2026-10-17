@@ -75,6 +75,8 @@ import {
   MessageCircle as _MessageCircle,
   MicVocal as _MicVocal,
   Minus as _Minus,
+  Monitor as _Monitor,
+  MonitorOff as _MonitorOff,
   MonitorPlay as _MonitorPlay,
   Moon as _Moon,
   Music as _Music,
@@ -223,6 +225,8 @@ export const Loader2 = memo(_Loader2);
 export const Lock = memo(_Lock);
 export const MapPin = memo(_MapPin);
 export const MicVocal = memo(_MicVocal);
+export const Monitor = memo(_Monitor);
+export const MonitorOff = memo(_MonitorOff);
 export const MonitorPlay = memo(_MonitorPlay);
 export const MessageCircle = memo(_MessageCircle);
 export const Minus = memo(_Minus);

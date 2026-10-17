@@ -1118,6 +1118,8 @@
     "catStorage": "Depolama",
     "catAccount": "Hesap",
     "wpSearch": "Cevrimici",
+    "wpDesktop": "Masaüstü",
+    "wpDesktopMissing": "Masaüstü duvar kağıdı bulunamadı",
     "wpSlideshow": "Slayt gosterisi",
     "wpSlideshowDesc": "Sectiginiz duvar kagitlari zamanlayiciyla degisir",
     "wpSlideshowSelected": "Secili: {{count}}. Eklemek veya cikarmak icin bir duvar kagidina tiklayin",

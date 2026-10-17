@@ -8,7 +8,8 @@ import {
     removeWallpaper,
     saveWallpaperFromBuffer,
 } from '../../../lib/cache';
-import {Check, Link, Loader2, Search, X} from '../../../lib/icons';
+import {isDesktopWallpaper, syncDesktopWallpaper} from '../../../lib/desktop-wallpaper';
+import {Check, Link, Loader2, Monitor, MonitorOff, Search, X} from '../../../lib/icons';
 import {useSettingsStore} from '../../../stores/settings';
 import {Card, RangeSlider} from '../primitives';
 import {WallpaperSearch} from './WallpaperSearch';
@@ -36,7 +37,11 @@ export function WallpaperCard() {
     const [urlInput, setUrlInput] = useState('');
     const [showUrlInput, setShowUrlInput] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
+    const [desktopName, setDesktopName] = useState<string | null>();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const followingDesktop = isDesktopWallpaper(backgroundImage);
+    const desktopShown = followingDesktop ? backgroundImage : desktopName;
+    const desktopUrl = desktopShown ? getWallpaperUrl(desktopShown) : null;
 
     const adopt = useCallback(
         (name: string) => {
@@ -65,6 +70,18 @@ export function WallpaperCard() {
         setBackgroundImage('');
     }, [setRotation, setBackgroundImage]);
 
+    const toggleDesktop = useCallback(async () => {
+        if (isDesktopWallpaper(useSettingsStore.getState().backgroundImage)) {
+            setBackgroundImage('');
+            return;
+        }
+        const name = await syncDesktopWallpaper();
+        setDesktopName(name);
+        if (!name) return;
+        setRotation(false);
+        setBackgroundImage(name);
+    }, [setRotation, setBackgroundImage]);
+
     const handlePickOnline = useCallback(
         async (url: string) => {
             try {
@@ -84,6 +101,7 @@ export function WallpaperCard() {
             setWallpapers(names);
             setLoading(false);
         });
+        syncDesktopWallpaper().then(setDesktopName);
     }, []);
 
     const handleFileSelect = useCallback(
@@ -148,6 +166,46 @@ export function WallpaperCard() {
                         }`}
                     >
                         <span className="text-[10px] text-white/40 font-semibold">{t('settings.none')}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={toggleDesktop}
+                        disabled={desktopShown === null}
+                        aria-pressed={followingDesktop}
+                        title={t(desktopShown === null ? 'settings.wpDesktopMissing' : 'settings.wpDesktop')}
+                        className={`relative w-20 h-14 rounded-xl overflow-hidden border-2 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
+                            followingDesktop
+                                ? 'border-white/40 shadow-[0_0_12px_rgba(255,255,255,0.1)] cursor-pointer'
+                                : desktopShown === null
+                                  ? 'border-dashed border-white/[0.06] cursor-not-allowed'
+                                  : 'border-white/[0.06] hover:border-white/[0.15] cursor-pointer'
+                        }`}
+                    >
+                        {desktopUrl ? (
+                            <>
+                                <img src={desktopUrl} alt="" className="absolute inset-0 w-full h-full object-cover"/>
+                                <span
+                                    className="absolute inset-x-0 bottom-0 py-0.5 bg-black/60 flex items-center justify-center gap-1 text-[9px] text-white/80 font-medium">
+                                    <Monitor size={9}/>
+                                    {t('settings.wpDesktop')}
+                                </span>
+                            </>
+                        ) : (
+                            <>
+                                {desktopShown === null ? (
+                                    <MonitorOff size={12} className="text-white/25"/>
+                                ) : (
+                                    <Loader2 size={12} className="animate-spin text-white/20"/>
+                                )}
+                                <span className="text-[9px] text-white/25 font-medium">{t('settings.wpDesktop')}</span>
+                            </>
+                        )}
+                        {followingDesktop && (
+                            <div className="absolute inset-0 bg-white/10 flex items-center justify-center">
+                                <div className="w-4 h-4 rounded-full bg-white shadow-lg"/>
+                            </div>
+                        )}
                     </button>
 
                     {wallpapers.map((name) => {
