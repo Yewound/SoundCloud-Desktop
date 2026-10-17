@@ -97,7 +97,6 @@ export interface SettingsState {
   wallpaperRotationNames: string[];
   wallpaperRotationMinutes: number;
   wallpaperRotationOrder: WallpaperRotationOrder;
-  glassBlur: number;
   audioCacheLimitMB: number;
   imageCacheLimitMB: number;
   hoverPreload: boolean;
@@ -174,7 +173,6 @@ export interface SettingsState {
   setWallpaperRotationNames: (names: string[]) => void;
   setWallpaperRotationMinutes: (minutes: number) => void;
   setWallpaperRotationOrder: (order: WallpaperRotationOrder) => void;
-  setGlassBlur: (blur: number) => void;
   setAudioCacheLimitMB: (limit: number) => void;
   setImageCacheLimitMB: (limit: number) => void;
   setHoverPreload: (enabled: boolean) => void;
@@ -268,7 +266,6 @@ const DEFAULTS = {
   wallpaperRotationNames: [] as string[],
   wallpaperRotationMinutes: 15,
   wallpaperRotationOrder: 'sequence' as WallpaperRotationOrder,
-  glassBlur: 40,
   audioCacheLimitMB: 1024,
   imageCacheLimitMB: 1024,
   hoverPreload: true,
@@ -358,7 +355,6 @@ export const useSettingsStore = create<SettingsState>()(
       setWallpaperRotationNames: (wallpaperRotationNames) => set({ wallpaperRotationNames }),
       setWallpaperRotationMinutes: (wallpaperRotationMinutes) => set({ wallpaperRotationMinutes }),
       setWallpaperRotationOrder: (wallpaperRotationOrder) => set({ wallpaperRotationOrder }),
-      setGlassBlur: (glassBlur) => set({ glassBlur }),
       setAudioCacheLimitMB: (audioCacheLimitMB) => set({ audioCacheLimitMB }),
       setImageCacheLimitMB: (imageCacheLimitMB) => set({ imageCacheLimitMB }),
       setHoverPreload: (hoverPreload) => set({ hoverPreload }),
@@ -516,7 +512,6 @@ export const useSettingsStore = create<SettingsState>()(
           wallpaperRotationNames: DEFAULTS.wallpaperRotationNames,
           wallpaperRotationMinutes: DEFAULTS.wallpaperRotationMinutes,
           wallpaperRotationOrder: DEFAULTS.wallpaperRotationOrder,
-          glassBlur: DEFAULTS.glassBlur,
           interfaceFont: DEFAULTS.interfaceFont,
           customFontName: DEFAULTS.customFontName,
           customFontFile: DEFAULTS.customFontFile,
@@ -569,7 +564,6 @@ export const useSettingsStore = create<SettingsState>()(
         wallpaperRotationNames: s.wallpaperRotationNames,
         wallpaperRotationMinutes: s.wallpaperRotationMinutes,
         wallpaperRotationOrder: s.wallpaperRotationOrder,
-        glassBlur: s.glassBlur,
         audioCacheLimitMB: s.audioCacheLimitMB,
         imageCacheLimitMB: s.imageCacheLimitMB,
         hoverPreload: s.hoverPreload,

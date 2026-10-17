@@ -269,7 +269,6 @@ style = {
 - **`scale` на blur запрещён** (пересчёт гаусса каждый кадр, см. коммент `sw-aurora` в `index.css`). Если дизайн требует
   «дыхание» орба в beauty — ДВА кейфрейма: `orb-drift` (со `scale`) для beauty, `orb-drift-lite` (только `translate3d`)
   для medium; компонент выбирает по `perf.mode === 'beauty'`. Образец — `AuraField` / `search/Atmosphere`.
-- `settings.glassBlur` — **мёртвый**, не использовать; блюр гонит только `perfMode`.
 
 ## Как верстать экран
 
