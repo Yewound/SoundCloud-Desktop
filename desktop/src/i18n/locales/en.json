@@ -142,7 +142,8 @@
     "scanQr": "Sign in with QR",
     "transferSession": "Transfer session to another device",
     "noPhoneApp": "No app on your phone?",
-    "getAndroid": "Get the Android app"
+    "getAndroid": "Android",
+    "getIos": "iPhone"
   },
   "search": {
     "globalPlaceholder": "What do you want to hear?",

@@ -117,7 +117,8 @@
     "scanQr": "QR ile giriş yap",
     "transferSession": "Oturumu başka bir cihaza aktar",
     "noPhoneApp": "Telefonunda uygulama yok mu?",
-    "getAndroid": "Android uygulamasını edin"
+    "getAndroid": "Android",
+    "getIos": "iPhone"
   },
   "search": {
     "globalPlaceholder": "Ne dinlemek istersin?",
