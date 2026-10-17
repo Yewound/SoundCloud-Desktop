@@ -1,4 +1,4 @@
-import { invoke as coreInvoke } from '@tauri-apps/api/core';
+import { type InvokeArgs, type InvokeOptions, invoke as coreInvoke } from '@tauri-apps/api/core';
 
 const EVENT_LOOP_TICK_MS = 1000;
 const EVENT_LOOP_WARN_MS = 500;
@@ -137,8 +137,9 @@ export async function trackAsync<T>(
 
 export function trackedInvoke<T>(
   command: string,
-  args?: Record<string, unknown>,
+  args?: InvokeArgs,
   warnMs = INVOKE_WARN_MS,
+  options?: InvokeOptions,
 ): Promise<T> {
-  return trackAsync(`invoke:${command}`, coreInvoke<T>(command, args), warnMs);
+  return trackAsync(`invoke:${command}`, coreInvoke<T>(command, args, options), warnMs);
 }
