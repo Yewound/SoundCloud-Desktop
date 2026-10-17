@@ -84,6 +84,7 @@ export async function probeTheme(root: ProbeRoot): Promise<string[]> {
   const sheet = style?.sheet;
   if (!sheet) return [];
   const list = targets(root);
+  const themed = passing(list);
   sheet.disabled = true;
   let baseline: Set<string>;
   try {
@@ -91,6 +92,5 @@ export async function probeTheme(root: ProbeRoot): Promise<string[]> {
   } finally {
     sheet.disabled = false;
   }
-  const themed = passing(list);
   return [...baseline].filter((check) => !themed.has(check));
 }
