@@ -30,8 +30,7 @@ fn content_type_for(filename: &str) -> &'static str {
     }
 }
 
-const SANDBOX_CSP: &str =
-    "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox";
+const SANDBOX_CSP: &str = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox";
 
 fn any_name(_: &str) -> bool {
     true
@@ -105,7 +104,11 @@ pub async fn start(
         .unify()
         .or(dir_route("css-assets", css_assets_dir, any_name))
         .unify()
-        .or(dir_route("theme-files", theme_files_dir, themes::is_served_name))
+        .or(dir_route(
+            "theme-files",
+            theme_files_dir,
+            themes::is_served_name,
+        ))
         .unify()
         .with(cors());
 

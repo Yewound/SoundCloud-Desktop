@@ -23,7 +23,10 @@ pub fn files_dir(data_dir: &Path) -> PathBuf {
 }
 
 fn is_sha(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 fn is_file_name(name: &str) -> bool {
@@ -42,7 +45,9 @@ pub fn is_served_name(name: &str) -> bool {
 }
 
 fn app_files_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(files_dir(&app.path().app_data_dir().map_err(|e| e.to_string())?))
+    Ok(files_dir(
+        &app.path().app_data_dir().map_err(|e| e.to_string())?,
+    ))
 }
 
 fn header(request: &Request<'_>, name: &str) -> Result<String, String> {
@@ -70,7 +75,11 @@ fn store(dir: &Path, sha: &str, ext: &str, body: &[u8]) -> Result<String, String
     if !is_sha(sha) || !EXTENSIONS.contains(&ext) {
         return Err("bad theme file name".into());
     }
-    let cap = if ext == "css" { CSS_MAX_BYTES } else { ASSET_MAX_BYTES };
+    let cap = if ext == "css" {
+        CSS_MAX_BYTES
+    } else {
+        ASSET_MAX_BYTES
+    };
     if body.len() > cap {
         return Err("theme file too large".into());
     }
@@ -244,7 +253,10 @@ mod tests {
         age(&old, Duration::from_secs(2 * 60 * 60));
         age(&foreign, Duration::from_secs(2 * 60 * 60));
 
-        assert_eq!(collect(&dir, std::slice::from_ref(&kept), SystemTime::now()), 2);
+        assert_eq!(
+            collect(&dir, std::slice::from_ref(&kept), SystemTime::now()),
+            2
+        );
         assert!(dir.join(&kept).exists());
         assert!(!dir.join(&dropped).exists());
         assert!(fresh.exists());
