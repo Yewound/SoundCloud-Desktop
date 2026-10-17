@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use crate::rt::AppHandle;
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 use tokio::sync::RwLock;
 
 use crate::app::diagnostics::log_native;
@@ -60,6 +60,12 @@ impl SessionStore {
 
 fn is_usable(token: &str) -> bool {
     !token.is_empty() && token != "undefined" && token != "null"
+}
+
+pub async fn session_token(app: Option<&AppHandle>) -> Option<String> {
+    let store = app?.try_state::<Arc<SessionStore>>()?.inner().clone();
+    let token = store.state.read().await.token.clone();
+    token.filter(|token| is_usable(token))
 }
 
 /// Token must be usable for the rest of the state to count: premium without a

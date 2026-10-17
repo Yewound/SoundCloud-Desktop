@@ -131,10 +131,11 @@ impl TrackCacheState {
         if download_urls.is_empty() && ladder.urls.is_empty() {
             return Err("no stream URLs provided".into());
         }
+        let session = crate::auth::session_token(self.app_handle.as_ref()).await;
         let job = RaceJob {
             target_dir: ladder.target_dir,
             urn: ladder.urn,
-            session_id: ladder.session_id,
+            session_id: session.as_deref().or(ladder.session_id),
             quality: tier,
             start: climb.start,
             receiving: climb.receiving.clone(),
