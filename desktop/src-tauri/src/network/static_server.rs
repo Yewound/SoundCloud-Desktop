@@ -7,7 +7,7 @@ use warp::http::{Response, StatusCode};
 use warp::hyper::Body;
 use warp::Filter;
 
-use crate::app::diagnostics;
+use crate::app::{diagnostics, themes};
 use crate::network::server::cors;
 
 fn content_type_for(filename: &str) -> &'static str {
@@ -23,14 +23,24 @@ fn content_type_for(filename: &str) -> &'static str {
         "image/svg+xml"
     } else if filename.ends_with(".jpg") || filename.ends_with(".jpeg") {
         "image/jpeg"
+    } else if filename.ends_with(".woff2") {
+        "font/woff2"
     } else {
         "application/octet-stream"
     }
 }
 
+const SANDBOX_CSP: &str =
+    "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox";
+
+fn any_name(_: &str) -> bool {
+    true
+}
+
 fn dir_route(
     prefix: &'static str,
     dir: PathBuf,
+    accept: fn(&str) -> bool,
 ) -> impl Filter<Extract = (Response<Body>,), Error = warp::Rejection> + Clone {
     warp::path(prefix)
         .and(warp::path::param::<String>())
@@ -45,6 +55,12 @@ fn dir_route(
                             .body(Body::empty())
                             .unwrap(),
                     );
+                }
+                if !accept(&filename) {
+                    return Ok(Response::builder()
+                        .status(StatusCode::NOT_FOUND)
+                        .body(Body::empty())
+                        .unwrap());
                 }
 
                 let path = dir.join(&filename);
@@ -70,6 +86,8 @@ fn dir_route(
                     .header("Content-Type", ct)
                     .header("Content-Length", total.to_string())
                     .header("Access-Control-Allow-Origin", "*")
+                    .header("Content-Security-Policy", SANDBOX_CSP)
+                    .header("X-Content-Type-Options", "nosniff")
                     .body(Body::from(buf))
                     .unwrap())
             }
@@ -80,11 +98,14 @@ pub async fn start(
     wallpapers_dir: PathBuf,
     local_covers_dir: PathBuf,
     css_assets_dir: PathBuf,
+    theme_files_dir: PathBuf,
 ) -> u16 {
-    let routes = dir_route("wallpapers", wallpapers_dir)
-        .or(dir_route("local-covers", local_covers_dir))
+    let routes = dir_route("wallpapers", wallpapers_dir, any_name)
+        .or(dir_route("local-covers", local_covers_dir, any_name))
         .unify()
-        .or(dir_route("css-assets", css_assets_dir))
+        .or(dir_route("css-assets", css_assets_dir, any_name))
+        .unify()
+        .or(dir_route("theme-files", theme_files_dir, themes::is_served_name))
         .unify()
         .with(cors());
 

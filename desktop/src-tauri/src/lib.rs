@@ -14,7 +14,7 @@ mod upload;
 
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use discord::DiscordState;
 use network::server::ServerState;
@@ -39,6 +39,9 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if app::launch_flags::has_no_custom_css(&args) {
+                let _ = app.emit_to("main", "safe-mode", ());
+            }
             if !app::autostart::is_login_launch(&args) {
                 app::visibility::show_main(app);
             }
@@ -93,6 +96,9 @@ pub fn run() {
             let css_assets_dir = data_dir.join("css-assets");
             std::fs::create_dir_all(&css_assets_dir).ok();
 
+            let theme_files_dir = app::themes::files_dir(&data_dir);
+            std::fs::create_dir_all(&theme_files_dir).ok();
+
             let images_dir = data_dir.join("images");
             std::fs::create_dir_all(&images_dir).ok();
 
@@ -129,6 +135,7 @@ pub fn run() {
                 wallpapers_dir,
                 local_covers_dir,
                 css_assets_dir,
+                theme_files_dir,
             ));
             let rt_handle = rt.handle().clone();
             network::dns::init(rt_handle.clone());
@@ -249,6 +256,8 @@ pub fn run() {
             app::updater::updater_install,
             app::diagnostics::diagnostics_reveal_log,
             app::launch_flags::custom_css_suppressed,
+            app::themes::theme_file_store,
+            app::themes::theme_files_gc,
             app::visibility::show_main_window,
             app::popover::tray_popover_hide,
             app::tray_labels::tray_set_labels,
