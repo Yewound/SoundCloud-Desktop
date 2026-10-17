@@ -9,18 +9,17 @@ import {sortTracks} from '../../lib/track-sort';
 import {useAppMode} from '../../stores/app-status';
 import {useSettingsStore} from '../../stores/settings';
 import {GripSpace} from '../ui/SortableVirtualList';
-import {SyncNotice, syncNoticeOf} from '../ui/SyncNotice';
+import {SyncNotice, type SyncNoticeKind, syncNoticeOf} from '../ui/SyncNotice';
 import {VirtualList} from '../ui/VirtualList';
 import {LibraryTrackRow} from './LibraryTrackRow';
 import {OrderableTracks} from './OrderableTracks';
 
 const GRIP_SPACE = <GripSpace/>;
 
-const LIKES_NOTICE_TEXT = {
+const LIKES_NOTICE_TEXT: Partial<Record<SyncNoticeKind, string>> = {
     failed: 'library.likesLoadFailed',
     syncing: 'library.likesSyncing',
-    stalled: 'library.likesSyncSlow',
-} as const;
+};
 
 export const LikesTab = React.memo(function LikesTab({filter}: { filter: string }) {
     const {t, i18n} = useTranslation();
@@ -28,7 +27,7 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
     const sorted = sort !== 'default';
     const online = useAppMode() === 'online';
     const likesQuery = useLikedTracks();
-    const {tracks: likedTracks, isLoading, syncState} = likesQuery;
+    const {tracks: likedTracks, isLoading, syncInfo} = likesQuery;
     const sentinelRef = useInfiniteScroll(
         !!likesQuery.hasNextPage,
         !!likesQuery.isFetchingNextPage,
@@ -61,7 +60,9 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
         if (!loadAllRef.current) armLikesContinuation();
     }, []);
 
-    const notice = syncNoticeOf({isError: likesQuery.isError && likedTracks.length === 0, syncState});
+    const notice = syncNoticeOf({isError: likesQuery.isError && likedTracks.length === 0, syncInfo});
+    const noticeKey = notice ? LIKES_NOTICE_TEXT[notice] : undefined;
+    const noticeText = noticeKey ? t(noticeKey) : undefined;
     const retry = () => {
         void likesQuery.refetch();
     };
@@ -99,7 +100,7 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
                     </div>
                 ) : notice ? (
                     <div className="py-20">
-                        <SyncNotice kind={notice} text={t(LIKES_NOTICE_TEXT[notice])} onRetry={retry}/>
+                        <SyncNotice kind={notice} text={noticeText} info={syncInfo} ownedByMe onRetry={retry}/>
                     </div>
                 ) : (
                     <div className="py-20 text-center text-white/20">{t('library.noLikedTracks')}</div>
@@ -118,7 +119,7 @@ export const LikesTab = React.memo(function LikesTab({filter}: { filter: string 
             ) : null}
             {!loadAll && notice && likedTracks.length > 0 && !likesQuery.hasNextPage && (
                 <div className="pb-6">
-                    <SyncNotice kind={notice} text={t(LIKES_NOTICE_TEXT[notice])} onRetry={retry}/>
+                    <SyncNotice kind={notice} text={noticeText} info={syncInfo} ownedByMe onRetry={retry}/>
                 </div>
             )}
         </div>

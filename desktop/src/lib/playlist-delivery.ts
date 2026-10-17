@@ -10,7 +10,9 @@ const PROBE_BUDGET_MS = 10 * 60_000;
 
 export function deliveryOf(sync: PlaylistSync | undefined): PlaylistDelivery | null {
   if (!sync || (sync.pendingOperations ?? 0) === 0) return null;
-  return sync.status === 'auth_required' ? 'blocked' : 'sending';
+  if (sync.status === 'auth_required') return 'blocked';
+  if (sync.errorCode === 'not_found' || sync.errorCode === 'forbidden') return null;
+  return 'sending';
 }
 
 export function usePlaylistDelivery(

@@ -7,6 +7,7 @@ import { X } from '../../lib/icons';
 import { useSettingsStore, type YmImportOrder } from '../../stores/settings';
 import { isYmImportBusy, useYmImportStore } from '../../stores/ym-import';
 import { Modal, ModalClose, ModalContent, ModalTitle } from '../ui/Modal';
+import { YMImportPending } from './YMImportPending';
 
 const ORDERS: { value: YmImportOrder; label: string }[] = [
   { value: 'newest', label: 'ym.orderNewest' },
@@ -67,7 +68,7 @@ function YMImportDialog({
     progress,
     playlist,
     playlistCount,
-    pending,
+    pendingState,
     error,
     startImport,
     stopImport,
@@ -79,7 +80,7 @@ function YMImportDialog({
       progress: state.progress,
       playlist: state.playlist,
       playlistCount: state.playlistCount,
-      pending: state.pending,
+      pendingState: state.pendingState,
       error: state.error,
       startImport: state.startImport,
       stopImport: state.stopImport,
@@ -167,7 +168,9 @@ function YMImportDialog({
                       : ''}
                   </p>
                   <p className="text-[11px] mt-1 text-green-400/80">{playlistStatus}</p>
-                  {pending && <p className="text-[11px] text-white/50 mt-0.5">{t('ym.pending')}</p>}
+                  <div className="mt-0.5">
+                    <YMImportPending live={open} />
+                  </div>
                 </div>
                 <button
                   onClick={handleGoToPlaylist}
@@ -177,10 +180,10 @@ function YMImportDialog({
                 </button>
               </div>
             </div>
-          ) : pending ? (
+          ) : pendingState ? (
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 space-y-1">
               <p className="text-[13px] font-semibold text-green-400/80">{playlistStatus}</p>
-              <p className="text-[12px] text-white/50">{t('ym.pending')}</p>
+              <YMImportPending live={open} />
             </div>
           ) : (
             <>
@@ -261,7 +264,7 @@ function YMImportDialog({
         </div>
 
         {/* Footer */}
-        {(running || (!playlist && !pending)) && (
+        {(running || (!playlist && !pendingState)) && (
           <div className="px-7 py-4 border-t border-white/[0.06] flex justify-end gap-3">
             {running ? (
               <>

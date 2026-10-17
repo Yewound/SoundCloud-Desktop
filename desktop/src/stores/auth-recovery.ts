@@ -15,17 +15,19 @@ import { create } from 'zustand';
  * Логика переходов живёт в `lib/auth-recovery.ts`, тут только стейт.
  */
 export type RecoveryPhase = 'idle' | 'silent' | 'modal';
+export type RecoveryReason = 'session' | 'writes';
 export type RenewFailure = 'dead' | 'transient';
 
 interface AuthRecoveryState {
   phase: RecoveryPhase;
+  reason: RecoveryReason;
   busy: boolean;
   lastFailure: RenewFailure | null;
   /** Идёт OAuth-поллинг в модалке — авто-закрытие по успеху не трогаем. */
   oauthActive: boolean;
   /** Момент последнего успешного восстановления — для cooldown. */
   recoveredAt: number;
-  setPhase: (phase: RecoveryPhase) => void;
+  setPhase: (phase: RecoveryPhase, reason?: RecoveryReason) => void;
   setBusy: (busy: boolean) => void;
   setLastFailure: (lastFailure: RenewFailure | null) => void;
   setOauthActive: (oauthActive: boolean) => void;
@@ -37,15 +39,22 @@ interface AuthRecoveryState {
 
 export const useAuthRecoveryStore = create<AuthRecoveryState>((set) => ({
   phase: 'idle',
+  reason: 'session',
   busy: false,
   lastFailure: null,
   oauthActive: false,
   recoveredAt: 0,
-  setPhase: (phase) => set({ phase }),
+  setPhase: (phase, reason = 'session') => set({ phase, reason }),
   setBusy: (busy) => set({ busy }),
   setLastFailure: (lastFailure) => set({ lastFailure }),
   setOauthActive: (oauthActive) => set({ oauthActive }),
   markRecovered: () =>
-    set({ phase: 'idle', busy: false, lastFailure: null, recoveredAt: Date.now() }),
-  reset: () => set({ phase: 'idle', busy: false, lastFailure: null }),
+    set({
+      phase: 'idle',
+      reason: 'session',
+      busy: false,
+      lastFailure: null,
+      recoveredAt: Date.now(),
+    }),
+  reset: () => set({ phase: 'idle', reason: 'session', busy: false, lastFailure: null }),
 }));

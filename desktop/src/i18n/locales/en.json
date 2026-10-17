@@ -122,7 +122,9 @@
     "signingIn": "Signing in...",
     "copyLink": "Copy link",
     "copied": "Copied!",
-    "logout": "Log out"
+    "logout": "Log out",
+    "writesTitle": "Sign in again",
+    "writesText": "SoundCloud does not accept changes through your current sign-in. Sign in again, it takes a minute."
   },
   "qrLink": {
     "pullTitle": "Sign in with another device",
@@ -462,7 +464,9 @@
     "noMatches": "No matches",
     "noLikedTracks": "No liked tracks yet",
     "likesSyncing": "Syncing your likes with SoundCloud...",
-    "likesSyncSlow": "Syncing with SoundCloud is taking longer than usual",
+    "offlineGate": "No connection to the server. Downloads are in Offline",
+    "openOffline": "Open Offline",
+    "profileFailed": "Could not load your profile",
     "likesLoadFailed": "Couldn't load your likes",
     "notFollowing": "You are not following anyone",
     "noPlaylists": "No playlists found",
@@ -1454,6 +1458,9 @@
     "backgroundHint": "Import continues in the background. You can close this window",
     "error": "Import failed",
     "pending": "The playlist is queued on the server and will appear in your library soon",
+    "delayed": "SoundCloud is limiting, the playlist will be created later",
+    "createFailed": "Could not create playlist \"{{title}}\"",
+    "relogin": "Sign in again or the playlist will not be created",
     "partial": "Part of the import was saved, see the reason below",
     "errors": "Errors",
     "nothingFound": "Nothing was found. Check your connection and token, then try again",
@@ -1520,7 +1527,8 @@
     "collapse": "Collapse",
     "loadFailed": "Couldn't load this",
     "syncing": "Syncing with SoundCloud...",
-    "syncSlow": "Syncing with SoundCloud is taking longer than usual",
+    "syncWaiting": "Syncing with SoundCloud · waiting {{time}}",
+    "syncQueue": "Server queue, this can take a few hours. You can keep listening.",
     "stillLoading": "Still loading from SoundCloud, try again in a moment",
     "loadingFromSoundcloud": "Loading this from SoundCloud, it can take a minute",
     "pageLoadFailed": "Couldn't load this page",
@@ -1973,20 +1981,34 @@
     "retryMinutes_other": "~{{count}} min",
     "retryHours_one": "~{{count}} h",
     "retryHours_other": "~{{count}} h",
+    "signIn": "Sign in",
     "chip": {
-      "synced": "Synced",
+      "synced": "Changes sent",
+      "relogin": "Sign in again",
       "syncing_one": "{{count}} syncing",
       "syncing_other": "{{count}} syncing",
       "delayed": "SoundCloud is limiting · retry in {{time}}",
-      "failed_one": "{{count}} not synced",
-      "failed_other": "{{count}} not synced"
+      "failed_one": "{{count}} with errors",
+      "failed_other": "{{count}} with errors",
+      "dead_one": "{{count}} not sent",
+      "dead_other": "{{count}} not sent"
     },
     "hint": {
-      "synced": "Likes and playlists sync with soundcloud.com automatically. Everything is up to date.",
-      "syncing": "Saved in the app. Your changes are on their way to soundcloud.com.",
-      "delayed_one": "SoundCloud is temporarily refusing changes from the app. {{count}} change is saved and will be sent automatically, next try in {{time}}.",
-      "delayed_other": "SoundCloud is temporarily refusing changes from the app. {{count}} changes are saved and will be sent automatically, next try in {{time}}.",
-      "failed": "SoundCloud rejected some changes. They stay in the app and are retried while SoundCloud allows it."
+      "synced": "Everything you changed in the app is already on soundcloud.com.",
+      "syncing": "Saved in the app, it goes to soundcloud.com in turn.",
+      "delayed_one": "SoundCloud is not accepting this from the app right now. {{count}} saved, it goes out on its own in {{time}}.",
+      "delayed_other": "SoundCloud is not accepting this from the app right now. {{count}} saved, it goes out on its own in {{time}}.",
+      "failed": "SoundCloud rejected some changes, we retry them on our own.",
+      "dead": "SoundCloud did not accept these changes, they will not be retried on their own.",
+      "relogin": "Changes do not reach SoundCloud until you sign in again."
+    },
+    "learnMore": "Learn more",
+    "retryIn": "retry in {{time}}",
+    "refused": {
+      "authRequired": "Sign in to SoundCloud again",
+      "notFound": "SoundCloud cannot find this list",
+      "forbidden": "SoundCloud closed access to this list",
+      "unavailable": "SoundCloud is not returning data"
     }
   },
   "upload": {

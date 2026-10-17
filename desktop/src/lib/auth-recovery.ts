@@ -1,5 +1,9 @@
 import { useAuthStore } from '../stores/auth';
-import { type RecoveryPhase, useAuthRecoveryStore } from '../stores/auth-recovery';
+import {
+  type RecoveryPhase,
+  type RecoveryReason,
+  useAuthRecoveryStore,
+} from '../stores/auth-recovery';
 import { ApiError } from './api';
 import { describeError, logInfo } from './diagnostics';
 import { queryClient } from './query-client';
@@ -45,6 +49,7 @@ let cancelledGen = -1;
 let silentAttempts = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let lastSuccessAt = 0;
+let userAsked = false;
 
 function clearRetryTimer(): void {
   if (retryTimer !== null) {
@@ -59,10 +64,11 @@ function clearRetryTimer(): void {
  * «модалки нет»), а из-за какого именно перехода её нет — не видно ниоткуда.
  * Каждый разбор упирался в это, так что переходы теперь в логе.
  */
-function movePhase(phase: RecoveryPhase, why: string): void {
+function movePhase(phase: RecoveryPhase, why: string, reason: RecoveryReason = 'session'): void {
   const s = useAuthRecoveryStore.getState();
   logInfo(`[Recovery] ${s.phase} → ${phase} (${why})`);
-  s.setPhase(phase);
+  userAsked = false;
+  s.setPhase(phase, reason);
 }
 
 async function runRenew(manual: boolean): Promise<void> {
@@ -131,7 +137,8 @@ async function runRenew(manual: boolean): Promise<void> {
 function startRecovery(): void {
   if (!useAuthStore.getState().hasSession) return;
   const s = useAuthRecoveryStore.getState();
-  if (s.phase !== 'idle') return; // renew уже идёт либо модалка уже висит
+  const writesModal = s.phase === 'modal' && s.reason === 'writes' && !s.oauthActive;
+  if (s.phase !== 'idle' && !writesModal) return; // renew уже идёт либо модалка уже висит
   if (Date.now() - s.recoveredAt < RECOVERED_COOLDOWN_MS) {
     logInfo('[Recovery] старт подавлен: только что успешно восстановились');
     return;
@@ -174,9 +181,17 @@ export function noteSuccess(authenticated: boolean): void {
   silentAttempts = 0;
   if (rlHits.length) rlHits = [];
   const s = useAuthRecoveryStore.getState();
-  if (s.phase === 'idle' || s.busy || s.oauthActive) return;
+  if (s.phase === 'idle' || s.busy || s.oauthActive || userAsked) return;
   cancelledGen = gen;
   s.markRecovered();
+}
+
+export function askRelogin(reason: RecoveryReason = 'writes'): void {
+  if (!useAuthStore.getState().hasSession) return;
+  if (useAuthRecoveryStore.getState().phase !== 'idle') return;
+  const what = reason === 'writes' ? 'writes' : 'reads';
+  movePhase('modal', `server: ${what} need a new login`, reason);
+  userAsked = true;
 }
 
 /** Ручной повтор renew из модалки. */

@@ -52,7 +52,12 @@ export const FollowingTab = React.memo(function FollowingTab({filter}: { filter:
                 />
             ) : !filter && notice ? (
                 <div className="py-20">
-                    <SyncNotice kind={notice} onRetry={() => void followingsQuery.refetch()}/>
+                    <SyncNotice
+                        kind={notice}
+                        info={followingsQuery.syncInfo}
+                        ownedByMe
+                        onRetry={() => void followingsQuery.refetch()}
+                    />
                 </div>
             ) : (
                 <div className="py-20 text-center text-white/20">

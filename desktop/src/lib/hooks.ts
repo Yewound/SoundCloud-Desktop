@@ -16,6 +16,7 @@ import {api, isRefreshPending} from './api';
 import type {ApiRequestOptions} from './api-client';
 import {
   type CollectionSync,
+  type CollectionSyncInfo,
   type CollectionSyncState,
   isPartialSync,
   useCollectionSync,
@@ -230,7 +231,7 @@ interface PagedQueryOptions<T> {
 export type PagedQueryResult<T> = UseInfiniteQueryResult<
   InfiniteData<PagedResponse<T>, number>,
   DefaultError
-> & { items: T[]; syncState: CollectionSyncState };
+> & { items: T[]; syncState: CollectionSyncState; syncInfo: CollectionSyncInfo };
 
 /**
  * Унифицированный page-based useInfiniteQuery helper. Бэк отдаёт
@@ -277,14 +278,18 @@ export function usePagedQuery<T>(opts: PagedQueryOptions<T>): PagedQueryResult<T
     return opts.dedupe ? dedupeByKey(flat, opts.dedupe) : flat;
   }, [query.data, opts.dedupe]);
 
-  const syncState = useCollectionSync(
+  const syncInfo = useCollectionSync(
     opts.queryKey,
     opts.url(0, 1),
     query.data?.pages[0],
     query.dataUpdatedAt,
   );
 
-  return Object.assign(query, { items, syncState }) as PagedQueryResult<T>;
+  return Object.assign(query, {
+    items,
+    syncState: syncInfo.state,
+    syncInfo,
+  }) as PagedQueryResult<T>;
 }
 
 export function pagedUrl(base: string, page: number, limit: number, extra?: string): string {
@@ -614,17 +619,19 @@ export function useUserPopularTracks(userUrn: string | undefined) {
     queryFn: async () => {
       const all: Track[] = [];
       let partial = false;
+      let sync: CollectionSync | undefined;
       const pageSize = 100;
       for (let page = 0; ; page++) {
         const data = await api<TrackPage>(
           pagedUrl(`/users/${encodeURIComponent(userUrn!)}/tracks`, page, pageSize),
         );
         partial ||= isPartialSync(data.sync);
+        sync ??= data.sync;
         for (const t of data.collection) all.push(t);
         if (!data.has_more) break;
       }
       all.sort((a, b) => (b.playback_count ?? 0) - (a.playback_count ?? 0));
-      return { tracks: all, partial };
+      return { tracks: all, partial, sync };
     },
     refetchInterval: (query) =>
       query.state.data?.partial && query.state.dataUpdateCount < PARTIAL_REFETCH_LIMIT
@@ -636,12 +643,22 @@ export function useUserPopularTracks(userUrn: string | undefined) {
   });
 
   const refetches = qc.getQueryState(queryKey)?.dataUpdateCount ?? 0;
-  const syncState: CollectionSyncState = !query.data?.partial
-    ? 'complete'
-    : refetches >= PARTIAL_REFETCH_LIMIT
-      ? 'stalled'
-      : 'syncing';
-  return { ...query, tracks: query.data?.tracks ?? EMPTY_TRACKS, syncState };
+  const sync = query.data?.sync;
+  const errorCode = sync?.errorCode ?? null;
+  const syncState: CollectionSyncState = errorCode
+    ? 'refused'
+    : !query.data?.partial
+      ? 'complete'
+      : refetches >= PARTIAL_REFETCH_LIMIT
+        ? 'stalled'
+        : 'syncing';
+  const syncInfo: CollectionSyncInfo = {
+    state: syncState,
+    errorCode,
+    queuedSince: sync?.queuedSince ?? null,
+    retryAfterSeconds: sync?.retryAfterSeconds ?? 0,
+  };
+  return { ...query, tracks: query.data?.tracks ?? EMPTY_TRACKS, syncState, syncInfo };
 }
 
 export function useUserPlaylists(userUrn: string | undefined) {

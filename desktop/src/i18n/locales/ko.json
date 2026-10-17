@@ -122,7 +122,9 @@
     "signingIn": "로그인 중...",
     "copyLink": "링크 복사",
     "copied": "복사했어요!",
-    "logout": "로그아웃"
+    "logout": "로그아웃",
+    "writesTitle": "다시 로그인하세요",
+    "writesText": "SoundCloud가 현재 로그인으로는 변경을 받지 않아요. 다시 로그인해 주세요. 1분이면 돼요."
   },
   "qrLink": {
     "pullTitle": "다른 기기로 로그인",
@@ -457,7 +459,9 @@
     "noMatches": "일치하는 항목이 없어요",
     "noLikedTracks": "아직 좋아요한 트랙이 없어요",
     "likesSyncing": "SoundCloud와 좋아요를 동기화하는 중...",
-    "likesSyncSlow": "SoundCloud 동기화가 평소보다 오래 걸려요",
+    "offlineGate": "서버에 연결할 수 없어요. 다운로드한 항목은 오프라인에 있어요",
+    "openOffline": "오프라인 열기",
+    "profileFailed": "프로필을 불러오지 못했어요",
     "likesLoadFailed": "좋아요를 불러오지 못했어요",
     "notFollowing": "아직 팔로우한 사람이 없어요",
     "noPlaylists": "재생 목록이 없어요",
@@ -1422,6 +1426,9 @@
     "backgroundHint": "가져오기는 백그라운드에서 계속돼요. 이 창을 닫아도 돼요",
     "error": "가져오기에 실패했어요",
     "pending": "재생 목록이 서버 대기열에 있어요. 곧 라이브러리에 나타나요",
+    "delayed": "SoundCloud가 제한 중이에요. 재생 목록은 나중에 만들어져요",
+    "createFailed": "재생 목록 \"{{title}}\"을(를) 만들지 못했어요",
+    "relogin": "다시 로그인하지 않으면 재생 목록이 만들어지지 않아요",
     "partial": "가져온 항목 중 일부만 저장됐어요. 아래에서 이유를 확인하세요",
     "errors": "오류",
     "nothingFound": "아무것도 찾지 못했어요. 연결과 토큰을 확인한 뒤 다시 시도해 주세요",
@@ -1488,7 +1495,8 @@
     "collapse": "접기",
     "loadFailed": "불러오지 못했어요",
     "syncing": "SoundCloud와 동기화 중...",
-    "syncSlow": "SoundCloud 동기화가 평소보다 오래 걸려요",
+    "syncWaiting": "SoundCloud와 동기화 중 · {{time}} 대기 중",
+    "syncQueue": "서버 대기열이에요. 몇 시간 걸릴 수 있어요. 그동안 평소처럼 들을 수 있어요.",
     "stillLoading": "아직 SoundCloud에서 불러오는 중이에요. 잠시 후 다시 시도해 주세요",
     "loadingFromSoundcloud": "SoundCloud에서 불러오는 중이에요. 1분 정도 걸릴 수 있어요",
     "pageLoadFailed": "페이지를 불러오지 못했어요",
@@ -1934,17 +1942,30 @@
     "retrySoon": "1분 이내",
     "retryMinutes_other": "약 {{count}}분",
     "retryHours_other": "약 {{count}}시간",
+    "signIn": "로그인",
     "chip": {
-      "synced": "동기화됨",
+      "synced": "변경 사항 전송됨",
+      "relogin": "다시 로그인하세요",
       "syncing_other": "{{count}}개 동기화 중",
       "delayed": "SoundCloud 제한 중 · {{time}} 후 재시도",
-      "failed_other": "{{count}}개 동기화 안 됨"
+      "failed_other": "{{count}}개 오류",
+      "dead_other": "{{count}}개 전송 안 됨"
     },
     "hint": {
-      "synced": "좋아요와 재생 목록이 soundcloud.com과 자동으로 동기화돼요. 모두 최신 상태예요.",
-      "syncing": "앱에 저장됐어요. 변경 사항을 soundcloud.com으로 보내고 있어요.",
-      "delayed_other": "SoundCloud가 일시적으로 앱의 변경 사항을 받지 않고 있어요. 변경 사항 {{count}}개는 저장되어 있으며 자동으로 전송돼요. {{time}} 후에 다시 시도해요.",
-      "failed": "SoundCloud가 일부 변경 사항을 거부했어요. 변경 사항은 앱에 남아 있으며 SoundCloud가 허용하는 동안 계속 다시 시도돼요."
+      "synced": "앱에서 바꾼 내용이 모두 soundcloud.com에 반영됐어요.",
+      "syncing": "앱에 저장됐어요. 순서대로 soundcloud.com에 전송돼요.",
+      "delayed_other": "SoundCloud가 지금은 앱에서 보낸 변경을 받지 않아요. {{count}}개는 저장되어 있고 {{time}} 후 자동으로 전송돼요.",
+      "failed": "SoundCloud가 일부 변경을 거부했어요. 자동으로 다시 시도해요.",
+      "dead": "SoundCloud가 이 변경을 받지 않았어요. 자동으로 다시 시도하지 않아요.",
+      "relogin": "다시 로그인할 때까지 변경 사항이 SoundCloud로 가지 않아요."
+    },
+    "learnMore": "자세히 보기",
+    "retryIn": "{{time}} 후 재시도",
+    "refused": {
+      "authRequired": "SoundCloud에 다시 로그인해야 해요",
+      "notFound": "SoundCloud에서 이 목록을 찾을 수 없어요",
+      "forbidden": "SoundCloud가 이 목록에 대한 접근을 막았어요",
+      "unavailable": "SoundCloud가 데이터를 주지 않아요"
     }
   },
   "upload": {

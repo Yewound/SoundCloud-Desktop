@@ -7,6 +7,7 @@ import {DislikesLink} from '../components/library/DislikesLink';
 import {FreshDrops} from '../components/library/FreshDrops';
 import {LibraryFrame} from '../components/library/LibraryFrame';
 import {LocalFilesRail} from '../components/library/LocalFilesRail';
+import {ProfileGate} from '../components/library/ProfileGate';
 import {SoundPrintMasthead} from '../components/library/SoundPrintMasthead';
 import {StatsTeaser} from '../components/library/stats/StatsTeaser';
 import {SuperlikesRail} from '../components/library/superlikes/SuperlikesRail';
@@ -53,7 +54,8 @@ export const Library = React.memo(() => {
     ...(showArtists ? [followingsQuery] : []),
   ];
   const libraryEmpty = collections.every((query) => !query.isLoading && query.items.length === 0);
-  const notice = collections.map(syncNoticeOf).find((kind) => kind !== null);
+  const noticeQuery = collections.find((query) => syncNoticeOf(query) !== null);
+  const notice = noticeQuery ? syncNoticeOf(noticeQuery) : null;
   const retryAll = () => {
     for (const query of collections) void query.refetch();
   };
@@ -73,7 +75,13 @@ export const Library = React.memo(() => {
     return base.slice(0, 12);
   }, [likedTracks, genre]);
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <LibraryFrame sound={sound}>
+        <ProfileGate />
+      </LibraryFrame>
+    );
+  }
 
   const sections: Record<LayoutId<'library'>, ReactNode> = {
     fresh: <FreshDrops genre={genre} />,
@@ -168,7 +176,12 @@ export const Library = React.memo(() => {
         {libraryEmpty && (
           <div className="py-6">
             {notice ? (
-              <SyncNotice kind={notice} onRetry={retryAll} />
+              <SyncNotice
+                kind={notice}
+                info={noticeQuery?.syncInfo}
+                ownedByMe
+                onRetry={retryAll}
+              />
             ) : (
               <p className="text-center text-[13px] text-white/30">{t('common.empty')}</p>
             )}

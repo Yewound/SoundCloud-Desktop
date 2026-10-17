@@ -16,6 +16,7 @@ import {
 import { Loader2, Music } from '../../lib/icons';
 import {usePerfMode} from '../../lib/perf';
 import { useCatalogPlaylists, useCatalogTracks } from '../../lib/search';
+import { useAuthStore } from '../../stores/auth';
 import { PlaylistCard } from '../music/PlaylistCard';
 import { SearchState } from '../search/SearchState';
 import { Avatar } from '../ui/Avatar';
@@ -31,6 +32,7 @@ interface TabWrapperProps {
   isError?: boolean;
   onRetry?: () => void;
   query?: SyncedQuery & { refetch: () => unknown };
+  ownerUrn?: string;
   children: React.ReactNode;
 }
 
@@ -42,8 +44,10 @@ function TabWrapperImpl({
   isError,
   onRetry,
   query,
+  ownerUrn,
 }: TabWrapperProps) {
   const { t } = useTranslation();
+  const ownedByMe = useAuthStore((s) => !!ownerUrn && s.user?.urn === ownerUrn);
   const notice = query ? syncNoticeOf(query) : null;
   return (
     <div className="min-h-[420px]">
@@ -53,7 +57,12 @@ function TabWrapperImpl({
         </div>
       ) : isEmpty && notice && query ? (
         <div className="py-24">
-          <SyncNotice kind={notice} onRetry={() => void query.refetch()} />
+          <SyncNotice
+            kind={notice}
+            info={query.syncInfo}
+            ownedByMe={ownedByMe}
+            onRetry={() => void query.refetch()}
+          />
         </div>
       ) : isEmpty && isError && onRetry ? (
         <SearchState
@@ -95,7 +104,7 @@ export function UserTracksTab({ urn, aura }: { urn: string; aura: Aura }) {
     [aura, q.tracks],
   );
   return (
-    <TabWrapper isLoading={q.isLoading} isEmpty={q.tracks.length === 0} query={q}>
+    <TabWrapper isLoading={q.isLoading} isEmpty={q.tracks.length === 0} query={q} ownerUrn={urn}>
       <VirtualList
         items={q.tracks}
         rowHeight={72}
@@ -121,7 +130,7 @@ export function UserPopularTab({ urn, aura }: { urn: string; aura: Aura }) {
     [aura, tracks],
   );
   return (
-    <TabWrapper isLoading={isLoading} isEmpty={tracks.length === 0} query={popular}>
+    <TabWrapper isLoading={isLoading} isEmpty={tracks.length === 0} query={popular} ownerUrn={urn}>
       <VirtualList
         items={tracks}
         rowHeight={72}
@@ -142,7 +151,7 @@ export function UserPlaylistsTab({ urn }: { urn: string }) {
     [],
   );
   return (
-    <TabWrapper isLoading={q.isLoading} isEmpty={q.playlists.length === 0} query={q}>
+    <TabWrapper isLoading={q.isLoading} isEmpty={q.playlists.length === 0} query={q} ownerUrn={urn}>
       <VirtualGrid
         items={q.playlists}
         itemHeight={320}
@@ -169,7 +178,7 @@ export function UserLikesTab({ urn, aura }: { urn: string; aura: Aura }) {
     [aura, q.tracks],
   );
   return (
-    <TabWrapper isLoading={q.isLoading} isEmpty={q.tracks.length === 0} query={q}>
+    <TabWrapper isLoading={q.isLoading} isEmpty={q.tracks.length === 0} query={q} ownerUrn={urn}>
       <VirtualList
         items={q.tracks}
         rowHeight={72}
@@ -329,6 +338,7 @@ export function UserConnectionsTab({
       isEmpty={q.users.length === 0}
       emptyText={emptyText}
       query={q}
+      ownerUrn={urn}
     >
       <VirtualGrid
         items={q.users}

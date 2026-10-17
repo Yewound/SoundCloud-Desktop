@@ -11,6 +11,7 @@ import { Modal, ModalClose, ModalContent, ModalTitle } from './ui/Modal';
 export const SessionRecoveryModal = React.memo(() => {
   const { t } = useTranslation();
   const phase = useAuthRecoveryStore((s) => s.phase);
+  const writes = useAuthRecoveryStore((s) => s.reason === 'writes');
   const busy = useAuthRecoveryStore((s) => s.busy);
   const lastFailure = useAuthRecoveryStore((s) => s.lastFailure);
   const reset = useAuthRecoveryStore((s) => s.reset);
@@ -97,10 +98,10 @@ export const SessionRecoveryModal = React.memo(() => {
               <Lock size={24} className="text-white/60" />
             </div>
             <ModalTitle className="text-lg font-bold text-white/90 tracking-tight">
-              {t('recovery.title')}
+              {t(writes ? 'recovery.writesTitle' : 'recovery.title')}
             </ModalTitle>
             <p className="text-[12.5px] text-white/35 mt-1.5 leading-relaxed max-w-[280px]">
-              {t('recovery.description')}
+              {t(writes ? 'recovery.writesText' : 'recovery.description')}
             </p>
           </div>
 
@@ -191,24 +192,36 @@ export const SessionRecoveryModal = React.memo(() => {
                   onClick={retry}
                   className="w-full py-3 rounded-xl bg-accent text-accent-contrast font-semibold text-[13px] hover:bg-accent-hover active:scale-[0.97] transition-all duration-200 cursor-pointer shadow-[0_0_30px_var(--color-accent-glow),0_2px_8px_rgba(0,0,0,0.3)]"
                 >
-                  {t('recovery.signIn')}
+                  {t(writes ? 'sync.signIn' : 'recovery.signIn')}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleRenew}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[12.5px] text-white/55 hover:text-white/80 transition-all cursor-pointer"
-                >
-                  <RefreshCw size={13} />
-                  {t('recovery.retry')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] text-white/25 hover:text-white/45 hover:bg-white/[0.03] transition-all cursor-pointer"
-                >
-                  <Power size={12} />
-                  {t('recovery.logout')}
-                </button>
+                {writes ? (
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="w-full py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[12.5px] text-white/55 hover:text-white/80 transition-all cursor-pointer"
+                  >
+                    {t('common.close')}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleRenew}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[12.5px] text-white/55 hover:text-white/80 transition-all cursor-pointer"
+                    >
+                      <RefreshCw size={13} />
+                      {t('recovery.retry')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] text-white/25 hover:text-white/45 hover:bg-white/[0.03] transition-all cursor-pointer"
+                    >
+                      <Power size={12} />
+                      {t('recovery.logout')}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
