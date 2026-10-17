@@ -45,8 +45,9 @@ function NowPlayingQuality() {
 
 export function StreamQualityPicker({ isPremium }: { isPremium: boolean }) {
   const { t } = useTranslation();
-  const streamQuality = useSettingsStore((s) => s.streamQuality);
+  const chosen = useSettingsStore((s) => s.streamQuality);
   const setStreamQuality = useSettingsStore((s) => s.setStreamQuality);
+  const streamQuality = chosen === 'uq' && !isPremium ? 'hq' : chosen;
 
   return (
     <div className="space-y-3 py-3 first:pt-0 last:pb-0">
@@ -67,14 +68,7 @@ export function StreamQualityPicker({ isPremium }: { isPremium: boolean }) {
         options={[
           { id: 'auto', label: t('settings.streamQualityAuto') },
           { id: 'sq', label: t('settings.streamQualitySq') },
-          {
-            id: 'hq',
-            label: t('settings.streamQualityHq'),
-            disabled: !isPremium,
-            adornment: isPremium ? undefined : (
-              <Star size={11} fill="currentColor" className="text-amber-400/80" />
-            ),
-          },
+          { id: 'hq', label: t('settings.streamQualityHq') },
           {
             id: 'uq',
             label: t('settings.streamQualityUq'),

@@ -1158,11 +1158,11 @@
     "streamQualitySq": "절약 · SQ",
     "streamQualityHq": "HQ",
     "streamQualityUq": "최고 · UQ",
-    "streamQualityAutoDesc": "Star가 있으면 트랙이 지원하는 최고 음질(UQ 또는 HQ)로 재생해요. 이미 저장된 트랙은 그대로 유지돼요",
+    "streamQualityAutoDesc": "트랙이 지원하는 최고 음질로 재생해요: HQ, Star가 있으면 UQ. 이미 저장된 트랙은 그대로 유지돼요",
     "streamQualitySqDesc": "표준 음질: 로딩이 빠르고 데이터와 디스크 공간을 덜 써요",
     "streamQualityHqDesc": "HQ만 사용: SQ로 저장된 트랙은 재생할 때 HQ로 다시 다운로드돼요",
     "streamQualityUqDesc": "UQ가 있으면 UQ, 없으면 HQ: 더 낮은 음질로 저장된 트랙은 재생할 때 다시 다운로드돼요",
-    "streamQualityLocked": "HQ와 UQ는 Star에 포함돼요. Star가 없으면 표준 음질(SQ)로 재생돼요.",
+    "streamQualityLocked": "UQ는 Star에 포함돼요. Star가 없으면 최대 HQ로 재생돼요.",
     "streamQualityNow": "지금 재생 중",
     "bypassWhitelist": "화이트리스트 우회",
     "bypassWhitelistDesc": "네트워크 제한과 장애에 대비한 대체 라우팅 (러시아)",
@@ -1518,7 +1518,6 @@
     "modalSub": "프로젝트를 후원하고 혜택을 받으세요",
     "perkGoPlus": "GO+ 트랙 이용",
     "perkServer": "전용 스트리밍 서버",
-    "perkHQ": "더 많은 HQ 트랙",
     "bypassWhitelist": "화이트리스트 우회 (러시아)",
     "perkSupport": "작은 후원으로 프로젝트를 응원할 수도 있어요.\n더 많은 혜택이 곧 추가돼요!",
     "howTo": "받는 방법",
@@ -1553,7 +1552,7 @@
     "eyebrow": "멤버 패스",
     "heroTitle1": "구독이 아니라,",
     "heroTitle2": "사운드로 들어가는 패스.",
-    "heroLead": "전용 서버, HQ, 전체 카탈로그까지. 타협 없는 개인 패스예요.",
+    "heroLead": "전용 서버, UQ, 전체 카탈로그까지. 타협 없는 개인 패스예요.",
     "choosePass": "패스 선택",
     "haveCode": "코드가 있어요",
     "plan": {
@@ -1575,9 +1574,9 @@
         "title": "빠른 서버",
         "tag": "대기 없음"
       },
-      "hq": {
-        "title": "HQ 사운드",
-        "tag": "고음질"
+      "uq": {
+        "title": "UQ 사운드",
+        "tag": "최고 음질"
       },
       "whitelist": {
         "title": "러시아 차단 없음",
@@ -1654,7 +1653,7 @@
     "successTitle": "패스가 활성화됐어요",
     "successSub": "모든 혜택이 켜졌어요. 이제 음악으로 돌아가요.",
     "welcome": "STAR에 오신 걸 환영해요, {{handle}} 님.",
-    "welcomeBody": "{{date}}까지 유효해요. 서버, HQ, SoundWave가 이미 켜져 있어요.",
+    "welcomeBody": "{{date}}까지 유효해요. 서버, UQ, SoundWave가 이미 켜져 있어요.",
     "until": "만료일",
     "backToMusic": "음악으로",
     "managePass": "관리",

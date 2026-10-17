@@ -26,13 +26,14 @@ export type ResolvedStreamingTrack = Partial<Track> & {
 
 export function requestedQuality(): PlaybackQuality {
   const mode = useSettingsStore.getState().streamQuality;
-  if (mode === 'sq' || !getIsPremium()) return 'sq';
-  return mode === 'hq' ? 'hq' : 'uq';
+  if (mode === 'sq') return 'sq';
+  if (mode === 'hq' || !getIsPremium()) return 'hq';
+  return 'uq';
 }
 
 export function wantsUpgrade(): boolean {
   const mode = useSettingsStore.getState().streamQuality;
-  return (mode === 'hq' || mode === 'uq') && getIsPremium();
+  return mode === 'hq' || mode === 'uq';
 }
 
 // ─── Host resolution ────────────────────────────────────────
