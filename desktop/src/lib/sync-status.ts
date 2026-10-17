@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useReducer } from 'react';
+import { toast } from 'sonner';
+import i18n from '../i18n';
 import { useAuthStore } from '../stores/auth';
 import { ApiError, api } from './api';
 import { onApiWrite } from './api-writes';
@@ -24,7 +26,7 @@ export interface SyncStatus {
 
 export type SyncState = 'synced' | 'syncing' | 'delayed' | 'failed' | 'dead' | 'relogin';
 
-const SYNC_KEY = ['me', 'sync'] as const;
+export const SYNC_KEY = ['me', 'sync'] as const;
 const POLL_MS = 30_000;
 export const SYNC_STATUS_CACHE_MS = 6_000;
 const RETRY_COOLDOWN_MS = 2 * 60_000;
@@ -82,8 +84,10 @@ export function useSyncRetry() {
       await api('/me/sync/retry', {
         method: 'POST',
         body: JSON.stringify(targetUrn ? { targetUrn } : {}),
+        quiet: true,
       });
     } catch {
+      toast.error(i18n.t('sync.retryFailed'), { id: 'sync-retry-failed' });
       return;
     }
     retriedAt = Date.now();

@@ -29,10 +29,11 @@ const MIN_PROBE_MS = 10_000;
 const MAX_PROBE_MS = 60_000;
 const PROBE_BUDGET_MS = 15 * 60_000;
 const STALLED_PROBE_MS = 5 * 60_000;
+const STALLED_PROBE_LIMIT = 12;
 const STALLED_QUEUE_MS = 15 * 60_000;
 const UNOBSERVED_PLAYLIST_STATUSES = ['unhydrated', 'legacy_review', 'retry_wait'];
 
-function isWaiting(sync: CollectionSync | undefined): boolean {
+export function isWaiting(sync: CollectionSync | undefined): boolean {
   if (sync?.errorCode) return false;
   if (sync?.status === 'conflict') return sync.conflictCode === 'catalog_incomplete';
   return sync?.status === 'refreshing' || UNOBSERVED_PLAYLIST_STATUSES.includes(sync?.status ?? '');
@@ -71,10 +72,14 @@ export function useCollectionSync(
     let timer: ReturnType<typeof setTimeout> | undefined;
     let delay = Math.min(Math.max(retryAfterSeconds * 1000, MIN_PROBE_MS), MAX_PROBE_MS);
     const deadline = Date.now() + PROBE_BUDGET_MS;
+    let stalledProbes = 0;
 
     function schedule() {
       const late = Date.now() + delay > deadline;
-      if (late) setStalledAt(updatedAt);
+      if (late) {
+        setStalledAt(updatedAt);
+        if (stalledProbes++ >= STALLED_PROBE_LIMIT) return;
+      }
       timer = setTimeout(probe, late ? STALLED_PROBE_MS : delay);
       delay = Math.min(delay * 1.5, MAX_PROBE_MS);
     }

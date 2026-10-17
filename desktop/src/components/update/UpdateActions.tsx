@@ -58,6 +58,7 @@ export function UpdateActions({
   const install = () => {
     lastProgressAt.current = Date.now();
     setPhase('downloading');
+    setStalled(false);
     setDownloaded(0);
     setTotal(null);
     installUpdate(onProgress).catch((error) => {

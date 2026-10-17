@@ -1968,6 +1968,7 @@
     },
     "learnMore": "자세히 보기",
     "retryIn": "{{time}} 후 재시도",
+    "retryFailed": "다시 보내지 못했어요. 1분 뒤에 다시 시도해 주세요",
     "refused": {
       "authRequired": "SoundCloud에 다시 로그인해야 해요",
       "notFound": "SoundCloud에서 이 목록을 찾을 수 없어요",

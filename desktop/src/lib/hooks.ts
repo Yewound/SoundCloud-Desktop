@@ -19,6 +19,7 @@ import {
   type CollectionSyncInfo,
   type CollectionSyncState,
   isPartialSync,
+  isWaiting,
   useCollectionSync,
 } from './collection-sync';
 import {type FeedFilter, useFeedFilter} from './feed-filter';
@@ -167,6 +168,7 @@ const COLD_CACHE_MS = Number.POSITIVE_INFINITY;
 const PARTIAL_REFETCH_MS = 30_000;
 const PARTIAL_REFETCH_LIMIT = 20;
 const STALLED_REFETCH_MS = 5 * 60_000;
+const STALLED_REFETCH_LIMIT = 12;
 const REFRESH_PENDING_RETRIES = 8;
 const QUEUED_CREATE_REFRESH_MS = [3_000, 10_000, 30_000];
 
@@ -260,10 +262,15 @@ export function usePagedQuery<T>(opts: PagedQueryOptions<T>): PagedQueryResult<T
     retryDelay: opts.retryDelay,
     // Списки рефрешатся только явными invalidate'ами из мутаций. Remount/
     // reconnect не должен перетягивать весь infinite-query: для SC cursor-лент
-    // это перепроходит сдвинувшийся курсор и тасует выдачу. Focus-рефетч уже
-    // выключен глобально в query-client.
+    // это перепроходит сдвинувшийся курсор и тасует выдачу. Focus-рефетч
+    // выключен глобально в query-client и включён только для списков с кодом
+    // ошибки или с ожидающей синхронизацией.
     refetchOnMount: (query) => query.state.isInvalidated,
     refetchOnReconnect: false,
+    refetchOnWindowFocus: (query) => {
+      const sync = query.state.data?.pages[0]?.sync;
+      return sync?.errorCode || isWaiting(sync) ? 'always' : false;
+    },
   });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: opts.autoFetchAll is stable, query is captured
@@ -634,12 +641,14 @@ export function useUserPopularTracks(userUrn: string | undefined) {
       all.sort((a, b) => (b.playback_count ?? 0) - (a.playback_count ?? 0));
       return { tracks: all, partial, sync };
     },
-    refetchInterval: (query) =>
-      !query.state.data?.partial
-        ? false
-        : query.state.dataUpdateCount < PARTIAL_REFETCH_LIMIT
-          ? PARTIAL_REFETCH_MS
-          : STALLED_REFETCH_MS,
+    refetchInterval: (query) => {
+      if (!query.state.data?.partial) return false;
+      const updates = query.state.dataUpdateCount;
+      if (updates < PARTIAL_REFETCH_LIMIT) return PARTIAL_REFETCH_MS;
+      return updates < PARTIAL_REFETCH_LIMIT + STALLED_REFETCH_LIMIT ? STALLED_REFETCH_MS : false;
+    },
+    refetchOnWindowFocus: (query) =>
+      query.state.data?.partial || query.state.data?.sync?.errorCode ? 'always' : false,
     enabled: !!userUrn,
     staleTime: COLD_CACHE_MS,
     gcTime: INFINITE_GC_MS,

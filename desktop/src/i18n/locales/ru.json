@@ -2062,6 +2062,7 @@
     },
     "learnMore": "Подробнее",
     "retryIn": "повтор через {{time}}",
+    "retryFailed": "Не удалось отправить повторно, попробуйте через минуту",
     "refused": {
       "authRequired": "Нужен повторный вход в SoundCloud",
       "notFound": "SoundCloud не нашел этот список",

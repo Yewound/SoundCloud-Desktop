@@ -2011,6 +2011,7 @@
     },
     "learnMore": "Learn more",
     "retryIn": "retry in {{time}}",
+    "retryFailed": "Couldn't resend, try again in a minute",
     "refused": {
       "authRequired": "Sign in to SoundCloud again",
       "notFound": "SoundCloud cannot find this list",

@@ -7,6 +7,7 @@ import {
 import { ApiError } from './api';
 import { describeError, logInfo } from './diagnostics';
 import { queryClient } from './query-client';
+import { SYNC_KEY, SYNC_STATUS_CACHE_MS } from './sync-status';
 
 /**
  * Оркестратор восстановления сессии.
@@ -203,5 +204,6 @@ export function completeReauth(sessionId: string): void {
     await auth.fetchUser().catch(() => {});
     useAuthRecoveryStore.getState().markRecovered();
     queryClient.invalidateQueries();
+    setTimeout(() => queryClient.invalidateQueries({ queryKey: SYNC_KEY }), SYNC_STATUS_CACHE_MS);
   })();
 }

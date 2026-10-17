@@ -1818,6 +1818,7 @@
     },
     "learnMore": "Daha fazla bilgi",
     "retryIn": "{{time}} sonra tekrar",
+    "retryFailed": "Tekrar gönderilemedi, bir dakika sonra deneyin",
     "refused": {
       "authRequired": "SoundCloud'a yeniden giriş yapmanız gerekiyor",
       "notFound": "SoundCloud bu listeyi bulamıyor",
