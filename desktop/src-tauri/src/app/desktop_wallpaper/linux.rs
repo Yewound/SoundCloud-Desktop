@@ -6,14 +6,18 @@ use tokio::fs;
 use tokio::process::Command;
 
 use super::parse::{
-    fehbg_image, gvariant_string, hyprpaper_image, largest_package_image, plasma_image,
-    slideshow_first, swww_image, uri_path, xfce_image_property,
+    fehbg_image, gvariant_string, hyprpaper_image, largest_package_image, plasma_activity,
+    plasma_image, slideshow_first, swww_image, uri_path, xfce_image_property,
 };
 use crate::rt::AppHandle;
 
 const GNOME_BACKGROUND: &str = "org.gnome.desktop.background";
 const GNOME_LIKE: [&str; 4] = ["gnome", "unity", "budgie", "pantheon"];
 const TOOL_TIMEOUT: Duration = Duration::from_secs(3);
+
+pub const FORMATS: &[&str] = &[
+    "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "avif", "jxl",
+];
 
 pub async fn current(_app: &AppHandle) -> Option<PathBuf> {
     if Path::new("/.flatpak-info").exists() {
@@ -59,14 +63,22 @@ async fn gsettings(schema: &str, key: &str) -> Option<PathBuf> {
 }
 
 async fn plasma() -> Option<PathBuf> {
-    let config = dirs::config_dir()?.join("plasma-org.kde.plasma.desktop-appletsrc");
-    let config = fs::read_to_string(config).await.ok()?;
-    uri_path(plasma_image(&config)?)
+    let config_dir = dirs::config_dir()?;
+    let activities = fs::read_to_string(config_dir.join("kactivitymanagerdrc"))
+        .await
+        .unwrap_or_default();
+    let config = fs::read_to_string(config_dir.join("plasma-org.kde.plasma.desktop-appletsrc"))
+        .await
+        .ok()?;
+    uri_path(plasma_image(&config, plasma_activity(&activities))?)
 }
 
 async fn xfce() -> Option<PathBuf> {
     let properties = output("xfconf-query", &["-c", "xfce4-desktop", "-l"]).await?;
-    let property = xfce_image_property(&properties)?;
+    let monitors = output("xrandr", &["--listactivemonitors"])
+        .await
+        .unwrap_or_default();
+    let property = xfce_image_property(&properties, &monitors)?;
     let value = output("xfconf-query", &["-c", "xfce4-desktop", "-p", property]).await?;
     uri_path(&value)
 }
@@ -109,6 +121,7 @@ async fn resolve(path: PathBuf) -> Option<PathBuf> {
 async fn output(program: &str, args: &[&str]) -> Option<String> {
     let run = Command::new(program)
         .args(args)
+        .env_remove("GSETTINGS_SCHEMA_DIR")
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(true)

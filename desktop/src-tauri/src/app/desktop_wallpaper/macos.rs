@@ -6,6 +6,10 @@ use tokio::sync::oneshot;
 
 use crate::rt::AppHandle;
 
+pub const FORMATS: &[&str] = &[
+    "jpg", "jpeg", "png", "gif", "webp", "bmp", "avif", "heic", "jxl",
+];
+
 pub async fn current(app: &AppHandle) -> Option<PathBuf> {
     let (sender, receiver) = oneshot::channel();
     app.run_on_main_thread(move || {

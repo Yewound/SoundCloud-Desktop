@@ -8,6 +8,8 @@ use crate::rt::AppHandle;
 
 const PATH_CHARS: usize = 1024;
 
+pub const FORMATS: &[&str] = &["jpg", "jpeg", "jfif", "png", "gif", "webp", "bmp", "avif"];
+
 pub async fn current(_app: &AppHandle) -> Option<PathBuf> {
     let mut wide = [0u16; PATH_CHARS];
     let read = unsafe {

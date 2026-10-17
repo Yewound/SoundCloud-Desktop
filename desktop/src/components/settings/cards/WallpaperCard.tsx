@@ -101,8 +101,14 @@ export function WallpaperCard() {
             setWallpapers(names);
             setLoading(false);
         });
-        syncDesktopWallpaper().then(setDesktopName);
+        if (!isDesktopWallpaper(useSettingsStore.getState().backgroundImage)) {
+            syncDesktopWallpaper().then(setDesktopName);
+        }
     }, []);
+
+    useEffect(() => {
+        if (followingDesktop) setDesktopName(backgroundImage);
+    }, [followingDesktop, backgroundImage]);
 
     const handleFileSelect = useCallback(
         async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,7 +190,12 @@ export function WallpaperCard() {
                     >
                         {desktopUrl ? (
                             <>
-                                <img src={desktopUrl} alt="" className="absolute inset-0 w-full h-full object-cover"/>
+                                <img
+                                    src={desktopUrl}
+                                    alt=""
+                                    onError={() => setDesktopName(null)}
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                />
                                 <span
                                     className="absolute inset-x-0 bottom-0 py-0.5 bg-black/60 flex items-center justify-center gap-1 text-[9px] text-white/80 font-medium">
                                     <Monitor size={9}/>

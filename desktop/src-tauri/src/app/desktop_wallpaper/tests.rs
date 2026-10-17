@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use super::cache_copy;
 use super::parse::{
-    fehbg_image, gvariant_string, hyprpaper_image, largest_package_image, plasma_image,
-    slideshow_first, swww_image, uri_path, xfce_image_property,
+    fehbg_image, gvariant_string, hyprpaper_image, largest_package_image, plasma_activity,
+    plasma_image, slideshow_first, swww_image, uri_path, xfce_image_property,
 };
 
 const PLASMA: &str = "
@@ -32,6 +32,35 @@ wallpaperplugin=org.kde.image
 [Containments][7][Wallpaper][org.kde.image][General]
 Image=file:///home/u/Pictures/main%20screen.jpg
 SlidePaths=/usr/share/wallpapers/
+
+[Containments][9]
+activityId=b7d0
+lastScreen=0
+plugin=org.kde.plasma.folder
+wallpaperplugin=org.kde.slideshow
+
+[Containments][9][Wallpaper][org.kde.image][General]
+Image=file:///home/u/Pictures/stale.jpg
+
+[Containments][9][Wallpaper][org.kde.slideshow][General]
+SlidePaths=/home/u/Pictures/
+";
+
+const PLASMA_UNTOUCHED: &str = "
+[Containments][1]
+activityId=f2c1
+lastScreen=0
+plugin=org.kde.plasma.folder
+wallpaperplugin=org.kde.image
+";
+
+const XFCE_PROPERTIES: &str = "
+/backdrop/screen0/monitor0/image-path
+/backdrop/screen0/monitor0/last-image
+/backdrop/screen0/monitorHDMI-1/workspace0/last-image
+/backdrop/screen0/monitoreDP-1/workspace0/color-style
+/backdrop/screen0/monitoreDP-1/workspace0/last-image
+/backdrop/screen0/monitoreDP-1/workspace1/last-image
 ";
 
 const GNOME_TIMED: &str = "<background>
@@ -109,25 +138,41 @@ fn fehbg_gives_the_first_quoted_path() {
 }
 
 #[test]
-fn xfce_picks_a_last_image_property() {
-    let list = "/backdrop/screen0/monitoreDP-1/workspace0/color-style\n/backdrop/screen0/monitoreDP-1/workspace0/last-image\n";
+fn xfce_prefers_a_connected_monitor() {
+    let monitors = "Monitors: 1\n 0: +*eDP-1 1920/344x1080/193+0+0  eDP-1\n";
     assert_eq!(
-        xfce_image_property(list),
+        xfce_image_property(XFCE_PROPERTIES, monitors),
         Some("/backdrop/screen0/monitoreDP-1/workspace0/last-image")
     );
-    assert_eq!(xfce_image_property("/desktop-icons/style\n"), None);
+    assert_eq!(
+        xfce_image_property(XFCE_PROPERTIES, ""),
+        Some("/backdrop/screen0/monitorHDMI-1/workspace0/last-image")
+    );
+    assert_eq!(
+        xfce_image_property("/desktop-icons/style\n", monitors),
+        None
+    );
 }
 
 #[test]
-fn plasma_prefers_the_first_screen() {
+fn plasma_follows_the_current_activity_and_screen() {
     assert_eq!(
-        plasma_image(PLASMA),
+        plasma_image(PLASMA, None),
         Some("file:///home/u/Pictures/main%20screen.jpg")
     );
-    let one =
-        "[Containments][3][Wallpaper][org.kde.image][General]\nImage=/usr/share/wallpapers/Next/\n";
-    assert_eq!(plasma_image(one), Some("/usr/share/wallpapers/Next/"));
-    assert_eq!(plasma_image("[Containments][1]\nlastScreen=0\n"), None);
+    assert_eq!(
+        plasma_image(PLASMA, plasma_activity("[main]\ncurrentActivity=f2c1\n")),
+        Some("file:///home/u/Pictures/main%20screen.jpg")
+    );
+    assert_eq!(plasma_image(PLASMA, Some("b7d0")), None);
+    assert_eq!(
+        plasma_image(PLASMA_UNTOUCHED, None),
+        Some("/usr/share/wallpapers/Next")
+    );
+    assert_eq!(
+        plasma_image("[Containments][1]\nlastScreen=0\n", None),
+        None
+    );
 }
 
 #[test]
@@ -168,6 +213,9 @@ fn cache_copy_keeps_one_copy_per_wallpaper() {
     assert!(!cache.join(&first).exists());
     assert!(cache.join("wallpaper_1.jpg").exists());
 
+    let movie = root.join("aerial.mov");
+    fs::write(&movie, b"frames").unwrap();
+    assert_eq!(cache_copy(&movie, &cache), None);
     assert_eq!(cache_copy(&root.join("missing.jpg"), &cache), None);
     assert_eq!(cache_copy(&root, &cache), None);
     fs::remove_dir_all(&root).unwrap();

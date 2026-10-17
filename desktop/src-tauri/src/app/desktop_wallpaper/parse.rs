@@ -1,4 +1,16 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
+
+const PLASMA_IMAGE_PLUGIN: &str = "org.kde.image";
+const PLASMA_DEFAULT_IMAGE: &str = "/usr/share/wallpapers/Next";
+
+#[derive(Default)]
+struct PlasmaContainment<'a> {
+    activity: &'a str,
+    primary: bool,
+    plugin: Option<&'a str>,
+    image: Option<&'a str>,
+}
 
 pub fn uri_path(value: &str) -> Option<PathBuf> {
     let value = value.trim();
@@ -44,36 +56,70 @@ pub fn fehbg_image(script: &str) -> Option<&str> {
         .find_map(|line| line.split('\'').nth(1))
 }
 
-pub fn xfce_image_property(properties: &str) -> Option<&str> {
+pub fn xfce_image_property<'a>(properties: &'a str, monitors: &str) -> Option<&'a str> {
+    let active: Vec<&str> = monitors
+        .lines()
+        .skip(1)
+        .filter_map(|line| line.split_whitespace().last())
+        .collect();
     properties
         .lines()
         .map(str::trim)
-        .find(|property| property.ends_with("/last-image"))
+        .filter(|property| property.ends_with("/last-image"))
+        .min_by_key(|property| {
+            let monitor = property
+                .split('/')
+                .find_map(|part| part.strip_prefix("monitor"))
+                .unwrap_or_default();
+            (
+                active
+                    .iter()
+                    .position(|name| *name == monitor)
+                    .unwrap_or(usize::MAX),
+                monitor.bytes().all(|byte| byte.is_ascii_digit()),
+                !property.ends_with("/workspace0/last-image"),
+            )
+        })
 }
 
-pub fn plasma_image(config: &str) -> Option<&str> {
-    let mut section = "";
-    let mut primary = Vec::new();
-    let mut images = Vec::new();
+pub fn plasma_activity(config: &str) -> Option<&str> {
+    config
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("currentActivity="))
+}
+
+pub fn plasma_image<'a>(config: &'a str, activity: Option<&str>) -> Option<&'a str> {
+    let mut containments: BTreeMap<&str, PlasmaContainment> = BTreeMap::new();
+    let mut section = None;
     for line in config.lines().map(str::trim) {
         if line.starts_with('[') {
-            section = line;
-        } else if let Some(rest) = section.strip_prefix("[Containments][") {
-            let id = rest.split(']').next().unwrap_or_default();
-            if line == "lastScreen=0" {
-                primary.push(id);
-            } else if let Some(image) = line.strip_prefix("Image=")
-                && section.ends_with("[Wallpaper][org.kde.image][General]")
-            {
-                images.push((id, image));
+            section = line
+                .strip_prefix("[Containments][")
+                .and_then(|rest| rest.split_once(']'));
+        } else if let Some((id, group)) = section
+            && let Some((key, value)) = line.split_once('=')
+        {
+            let containment = containments.entry(id).or_default();
+            match (group, key) {
+                ("", "activityId") => containment.activity = value,
+                ("", "lastScreen") => containment.primary = value == "0",
+                ("", "wallpaperplugin") => containment.plugin = Some(value),
+                ("[Wallpaper][org.kde.image][General]", "Image") => containment.image = Some(value),
+                _ => {}
             }
         }
     }
-    images
-        .iter()
-        .find(|(id, _)| primary.contains(id))
-        .or(images.first())
-        .map(|(_, image)| *image)
+    let desktop = containments
+        .values()
+        .filter(|containment| !containment.activity.is_empty())
+        .min_by_key(|containment| {
+            (
+                activity.is_some_and(|current| containment.activity != current),
+                !containment.primary,
+            )
+        })?;
+    matches!(desktop.plugin, None | Some(PLASMA_IMAGE_PLUGIN))
+        .then(|| desktop.image.unwrap_or(PLASMA_DEFAULT_IMAGE))
 }
 
 pub fn slideshow_first(xml: &str) -> Option<PathBuf> {

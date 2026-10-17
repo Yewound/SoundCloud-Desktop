@@ -27,7 +27,10 @@ fn content_type_for(filename: &str) -> &'static str {
         "image/jxl"
     } else if filename.ends_with(".bmp") {
         "image/bmp"
-    } else if filename.ends_with(".jpg") || filename.ends_with(".jpeg") {
+    } else if filename.ends_with(".jpg")
+        || filename.ends_with(".jpeg")
+        || filename.ends_with(".jfif")
+    {
         "image/jpeg"
     } else {
         "application/octet-stream"

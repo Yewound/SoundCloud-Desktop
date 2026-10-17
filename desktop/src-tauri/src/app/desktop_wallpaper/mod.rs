@@ -51,6 +51,9 @@ fn cache_copy(source: &Path, dir: &Path) -> Option<String> {
         .and_then(|ext| ext.to_str())
         .unwrap_or("jpg")
         .to_ascii_lowercase();
+    if !platform::FORMATS.contains(&ext.as_str()) {
+        return None;
+    }
     let name = format!("{PREFIX}{:016x}.{ext}", hasher.finish());
     let target = dir.join(&name);
 
