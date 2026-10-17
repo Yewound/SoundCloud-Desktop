@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use tokio::sync::{Notify, OnceCell};
+use tokio::sync::{Notify, OnceCell, OwnedSemaphorePermit};
 
 use super::storage::StorageJob;
 use super::{HQ_ANON_BACKUP_SECS, PlaybackQuality, RaceJob, TrackCacheState};
@@ -29,6 +29,7 @@ struct Climb<'a> {
     storage: &'a StorageJob<'a>,
     candidates: &'a [OnceCell<Vec<Candidate>>; 3],
     receiving: &'a Arc<AtomicBool>,
+    turn_taken: &'a Notify,
     start: Instant,
 }
 
@@ -56,17 +57,16 @@ fn download_urls_at(urls: &[String], tier: PlaybackQuality) -> Vec<String> {
     }
 }
 
+async fn silent_too_long(climb: &Climb<'_>) {
+    if climb.ladder.background.is_some() {
+        climb.turn_taken.notified().await;
+    }
+    tokio::time::sleep(Duration::from_secs(HQ_ANON_BACKUP_SECS)).await;
+}
+
 impl TrackCacheState {
     pub(super) async fn climb(&self, ladder: Ladder<'_>) -> Result<PathBuf, String> {
-        let floor = ladder.above.unwrap_or(PlaybackQuality::Sq);
-        let _turn = match ladder.background {
-            Some(playback_joined) if !upper_tiers(ladder.wanted, floor).is_empty() => {
-                self.background_turn(playback_joined).await
-            }
-            _ => None,
-        };
-        let wanted = self.allowed_quality(ladder.wanted, ladder.session_id);
-        let tiers = upper_tiers(wanted, floor);
+        let tiers = upper_tiers(ladder.wanted, ladder.above.unwrap_or(PlaybackQuality::Sq));
         let start = Instant::now();
         let storage = self.storage_job(
             ladder.target_dir,
@@ -77,11 +77,13 @@ impl TrackCacheState {
         );
         let candidates = Default::default();
         let receiving = Arc::new(AtomicBool::new(false));
+        let turn_taken = Notify::new();
         let climb = Climb {
             ladder: &ladder,
             storage: &storage,
             candidates: &candidates,
             receiving: &receiving,
+            turn_taken: &turn_taken,
             start,
         };
 
@@ -94,7 +96,7 @@ impl TrackCacheState {
         if tiers.is_empty() {
             return lower.await;
         }
-        self.with_backup(ladder.urn, &receiving, upper, lower).await
+        self.with_backup(&climb, upper, lower).await
     }
 
     async fn climb_upper(
@@ -103,6 +105,7 @@ impl TrackCacheState {
         tiers: &[PlaybackQuality],
     ) -> Result<PathBuf, String> {
         let mut storage_tried = false;
+        let mut turn = None;
         let mut last_err = String::from("no tier above sq asked");
         for &tier in tiers {
             if !storage_tried && climb.ladder.stored.rank() >= tier.rank() {
@@ -111,12 +114,28 @@ impl TrackCacheState {
                     return Ok(path);
                 }
             }
+            if turn.is_none() {
+                turn = Some(self.streaming_turn(climb).await);
+            }
+            if self.allowed_quality(tier, climb.ladder.session_id).rank() < tier.rank() {
+                last_err = format!("{}: refused", tier.label());
+                continue;
+            }
             match self.streaming_at(climb, tier).await {
                 Ok(path) => return Ok(path),
                 Err(err) => last_err = format!("{}: {err}", tier.label()),
             }
         }
         Err(last_err)
+    }
+
+    async fn streaming_turn(&self, climb: &Climb<'_>) -> Option<OwnedSemaphorePermit> {
+        let turn = match climb.ladder.background {
+            Some(playback_joined) => self.background_turn(playback_joined).await,
+            None => None,
+        };
+        climb.turn_taken.notify_one();
+        turn
     }
 
     async fn climb_sq(&self, climb: &Climb<'_>, with_storage: bool) -> Result<PathBuf, String> {
@@ -168,8 +187,7 @@ impl TrackCacheState {
 
     async fn with_backup(
         &self,
-        urn: &str,
-        receiving: &AtomicBool,
+        climb: &Climb<'_>,
         primary: impl Future<Output = Result<PathBuf, String>>,
         backup: impl Future<Output = Result<PathBuf, String>>,
     ) -> Result<PathBuf, String> {
@@ -177,12 +195,13 @@ impl TrackCacheState {
         tokio::pin!(backup);
         let finished = tokio::select! {
             res = &mut primary => Some(res),
-            () = tokio::time::sleep(Duration::from_secs(HQ_ANON_BACKUP_SECS)) => None,
+            () = silent_too_long(climb) => None,
         };
+        let urn = climb.ladder.urn;
         match finished {
             Some(Ok(path)) => Ok(path),
             Some(Err(_)) => backup.await,
-            None if receiving.load(Ordering::Relaxed) => match primary.await {
+            None if climb.receiving.load(Ordering::Relaxed) => match primary.await {
                 Ok(path) => Ok(path),
                 Err(_) => backup.await,
             },
@@ -239,5 +258,49 @@ mod tests {
             ["https://api.example/download/soundcloud%3Atracks%3A1?quality=sq"]
         );
         assert!(download_urls_at(&urls, Uq).is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_queued_background_climb_counts_silence_only_from_its_turn() {
+        let playback_joined = Notify::new();
+        let ladder = Ladder {
+            target_dir: Path::new("."),
+            urn: "soundcloud:tracks:1",
+            urls: &[],
+            download_urls: &[],
+            storage_urls: &[],
+            session_id: None,
+            wanted: PlaybackQuality::Hq,
+            stored: PlaybackQuality::Sq,
+            above: None,
+            background: Some(&playback_joined),
+        };
+        let storage = StorageJob {
+            target_dir: ladder.target_dir,
+            urn: ladder.urn,
+            urls: Vec::new(),
+            quality: PlaybackQuality::Sq,
+            start: Instant::now(),
+        };
+        let turn_taken = Notify::new();
+        let climb = Climb {
+            ladder: &ladder,
+            storage: &storage,
+            candidates: &Default::default(),
+            receiving: &Arc::new(AtomicBool::new(false)),
+            turn_taken: &turn_taken,
+            start: Instant::now(),
+        };
+        let backup_secs = Duration::from_secs(HQ_ANON_BACKUP_SECS);
+
+        let silence = silent_too_long(&climb);
+        tokio::pin!(silence);
+        let queued = tokio::time::timeout(backup_secs * 4, &mut silence).await;
+        assert!(queued.is_err());
+        turn_taken.notify_one();
+        let early = tokio::time::timeout(backup_secs / 2, &mut silence).await;
+        assert!(early.is_err());
+        let silent = tokio::time::timeout(backup_secs, &mut silence).await;
+        assert!(silent.is_ok());
     }
 }
