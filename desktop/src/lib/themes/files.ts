@@ -39,27 +39,26 @@ function decodeUtf8(bytes: Uint8Array): string {
   }
 }
 
-function checkFile(path: string, bytes: Uint8Array, assetNames: string[]) {
-  if (path === CSS_PATH) {
-    const report = inspectThemeCss(decodeUtf8(bytes), assetNames);
-    if (report.errors.length) throw new ThemeCheckError(report.errors[0].message);
-    return;
-  }
-  const ext = path.slice(path.lastIndexOf('.') + 1);
-  const type = sniffAssetType(bytes);
-  if (type !== (ext === 'jpg' ? 'jpeg' : ext)) throw new ThemeCheckError(`${path}: wrong type`);
-  if (type === 'svg' && inspectSvg(decodeUtf8(bytes)).errors.length) {
-    throw new ThemeCheckError(`${path}: unsafe svg`);
-  }
-}
-
 async function storeFile(id: string, rev: string, file: ThemeFile, assetNames: string[]) {
   const name = localName(file);
   if (await exists(filePath(name), APP_DATA)) return;
-  const bytes = await fetchBytes(fileUrl(THEMES_RAW_BASE, rev, id, file.path), file.size);
-  checkFile(file.path, bytes, assetNames);
+  const url = fileUrl(THEMES_RAW_BASE, rev, id, file.path);
+  const bytes = await fetchBytes(url, file.size, file.sha256);
+  const ext = name.slice(name.indexOf('.') + 1);
+  if (file.path === CSS_PATH) {
+    const report = inspectThemeCss(decodeUtf8(bytes), assetNames);
+    if (report.errors.length) throw new ThemeCheckError(report.errors[0].message);
+  } else {
+    const type = sniffAssetType(bytes);
+    if (type !== (ext === 'jpg' ? 'jpeg' : ext)) {
+      throw new ThemeCheckError(`${file.path}: wrong type`);
+    }
+    if (type === 'svg' && inspectSvg(decodeUtf8(bytes)).errors.length) {
+      throw new ThemeCheckError(`${file.path}: unsafe svg`);
+    }
+  }
   await invoke('theme_file_store', bytes, undefined, {
-    headers: { 'x-theme-sha256': file.sha256, 'x-theme-ext': name.slice(name.indexOf('.') + 1) },
+    headers: { 'x-theme-sha256': file.sha256, 'x-theme-ext': ext },
   });
 }
 
@@ -99,7 +98,14 @@ export async function downloadVersion(entry: CatalogTheme): Promise<InstalledVer
   };
 }
 
-function versionFiles(installed: InstalledVersion): ThemeFile[] {
+export async function missingFiles(installed: InstalledVersion): Promise<boolean> {
+  const found = await Promise.all(
+    versionNames(installed).map((name) => exists(filePath(name), APP_DATA)),
+  );
+  return found.includes(false);
+}
+
+export async function repair(id: string, installed: InstalledVersion): Promise<void> {
   const css = {
     path: CSS_PATH,
     sha256: installed.files.css.slice(0, 64),
@@ -110,18 +116,7 @@ function versionFiles(installed: InstalledVersion): ThemeFile[] {
     sha256: local.slice(0, 64),
     size: THEME_LIMITS.assetBytes,
   }));
-  return [css, ...assets];
-}
-
-export async function missingFiles(installed: InstalledVersion): Promise<boolean> {
-  const found = await Promise.all(
-    versionNames(installed).map((name) => exists(filePath(name), APP_DATA)),
-  );
-  return found.includes(false);
-}
-
-export async function repair(id: string, installed: InstalledVersion): Promise<void> {
-  await storeFiles(id, installed.rev, versionFiles(installed));
+  await storeFiles(id, installed.rev, [css, ...assets]);
 }
 
 export async function readThemeCss(name: string): Promise<string> {
