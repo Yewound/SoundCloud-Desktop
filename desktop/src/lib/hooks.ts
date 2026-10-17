@@ -260,11 +260,6 @@ export function usePagedQuery<T>(opts: PagedQueryOptions<T>): PagedQueryResult<T
     enabled: opts.enabled,
     retry: opts.retry,
     retryDelay: opts.retryDelay,
-    // Списки рефрешатся только явными invalidate'ами из мутаций. Remount/
-    // reconnect не должен перетягивать весь infinite-query: для SC cursor-лент
-    // это перепроходит сдвинувшийся курсор и тасует выдачу. Focus-рефетч
-    // выключен глобально в query-client и включён только для списков с кодом
-    // ошибки или с ожидающей синхронизацией.
     refetchOnMount: (query) => query.state.isInvalidated,
     refetchOnReconnect: false,
     refetchOnWindowFocus: (query) => {

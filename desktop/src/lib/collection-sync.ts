@@ -85,6 +85,10 @@ export function useCollectionSync(
     }
 
     async function probe() {
+      if (document.visibilityState === 'hidden') {
+        timer = setTimeout(probe, STALLED_PROBE_MS);
+        return;
+      }
       const latest = await api<SyncedPage>(probeUrl).catch(() => null);
       if (cancelled) return;
       const moved =
