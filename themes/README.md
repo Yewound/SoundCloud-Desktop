@@ -13,7 +13,7 @@ The theme catalog for SoundCloud Desktop. A theme installs in one click: **Setti
    themes/<id>/
      theme.json      metadata
      theme.css       styles
-     preview.webp    screenshot, preview.png also works
+     preview.webp    screenshot, optional
      assets/         images and fonts, if you need them
    ```
 
@@ -79,7 +79,8 @@ Long text in `content:` and `<text>` in SVG get a look in review.
 
 ## Preview
 
-- A screenshot of the window with the theme, 1280x800 works best.
+- Optional: after the merge CI takes a shot of the window with the theme.
+- Your own screenshot: the window with the theme, 1280x800 works best.
 - `preview.webp` or `preview.png`, 960-1600 wide, about 16:10, up to 256 KB.
 
 ## Try it in the app
