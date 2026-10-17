@@ -31,7 +31,7 @@ const SortableTrackRow = React.memo(function SortableTrackRow({
 }) {
   const sortable = useSortableRow(track.urn);
   return (
-    <div ref={sortable.ref} style={sortable.style}>
+    <div ref={sortable.ref} data-ui="track-row" style={sortable.style}>
       <LibraryTrackRow
         track={track}
         index={index}

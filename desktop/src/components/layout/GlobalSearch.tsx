@@ -52,7 +52,7 @@ export const GlobalSearch = memo(function GlobalSearch() {
     };
 
     return (
-        <div className="relative w-full max-w-[600px]" style={{isolation: 'isolate'}}>
+        <div data-ui="search" className="relative w-full max-w-[600px]" style={{isolation: 'isolate'}}>
             <div
                 className="relative flex items-center gap-2.5 h-11 pl-4 pr-2 rounded-full overflow-hidden"
                 style={{

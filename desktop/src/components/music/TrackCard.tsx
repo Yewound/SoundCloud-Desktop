@@ -48,6 +48,7 @@ export const TrackCard = React.memo(
 
     return (
       <div
+        data-ui="track-card"
         className="group relative select-none"
         onMouseEnter={() => preloadTrack(track)}
         onMouseLeave={cancelPreload}
