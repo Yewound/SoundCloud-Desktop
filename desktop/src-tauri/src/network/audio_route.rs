@@ -299,7 +299,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_hedge_winner_is_recorded_as_hedge() {
-        let origin = "hedge-recorded.scnative.space";
+        let origin = "hedge-recorded.scnative.dev";
         let slow = warp::path::end().and_then(|| async {
             tokio::time::sleep(Duration::from_secs(2)).await;
             Ok::<_, Infallible>("slow")

@@ -73,7 +73,7 @@ fn serving(node: Node) -> String {
 fn asked() -> Asked {
     Asked {
         method: "GET".to_string(),
-        url: "https://storage.scnative.space/track".to_string(),
+        url: "https://storage.scnative.dev/track".to_string(),
         headers: Vec::new(),
         body: None,
     }

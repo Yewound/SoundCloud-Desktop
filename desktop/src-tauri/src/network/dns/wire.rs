@@ -153,7 +153,7 @@ mod tests {
     const TYPE_CNAME: u16 = 5;
 
     fn response(rcode: u8, answers: &[(u16, u32, &[u8])]) -> Vec<u8> {
-        let mut wire = build_query("api.scnative.space").unwrap();
+        let mut wire = build_query("api.scnative.dev").unwrap();
         wire[2] = 0x81;
         wire[3] = 0x80 | rcode;
         wire[7] = answers.len() as u8;
@@ -174,11 +174,11 @@ mod tests {
 
     #[test]
     fn a_query_follows_the_rfc_1035_layout() {
-        let query = build_query("api.scnative.space").unwrap();
+        let query = build_query("api.scnative.dev").unwrap();
         assert_eq!(&query[..12], &[0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
         assert_eq!(&query[12..16], &[3, b'a', b'p', b'i']);
         assert_eq!(&query[query.len() - 5..], &[0, 0, 1, 0, 1]);
-        assert_eq!(build_query("api.scnative.space."), Some(query));
+        assert_eq!(build_query("api.scnative.dev."), Some(query));
         assert!(build_query("bad..name").is_none());
         assert!(build_query(&"a".repeat(64)).is_none());
         assert!(build_query("пример.рф").is_none());
@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn a_captured_cloudflare_answer_parses() {
         let mut wire = vec![0x00, 0x00, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0];
-        for label in ["api", "scnative", "space"] {
+        for label in ["api", "scnative", "dev"] {
             wire.push(label.len() as u8);
             wire.extend_from_slice(label.as_bytes());
         }

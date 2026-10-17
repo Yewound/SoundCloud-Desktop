@@ -13,30 +13,30 @@ const STATE_FILE: &str = "edge_state.json";
 const CONFIG_EVENT: &str = "edge:config";
 const REVALIDATE: Duration = Duration::from_secs(600);
 
-const RELAY_ZONE: &str = "relay.scnative.space";
-const PRO_ZONE: &str = "pro.scnative.space";
+const ORIGIN_ZONE: &str = "scnative.dev";
+const LEGACY_ZONE: &str = "scnative.space";
+const RELAY_ZONE: &str = "relay.scnative.dev";
+const PRO_ZONE: &str = "pro.scnative.dev";
 
 const BOOTSTRAP_NODE: &str = "r1";
 const BOOTSTRAP_PRO_NODE: &str = "p1";
 
-const RELAYS: &[(&str, &str)] = &[
-    ("api.scnative.space", "api"),
-    ("api-star.scnative.space", "api-star"),
-    ("stream.scnative.space", "stream"),
-    ("stream-star.scnative.space", "stream-star"),
-    ("images.scnative.space", "images"),
-    ("storage.scnative.space", "storage"),
-    ("storage-star.scnative.space", "storage-star"),
-    ("s3.scnative.space", "s3"),
-    ("pay.scnative.space", "pay"),
+const RELAYS: [&str; 9] = [
+    "api",
+    "api-star",
+    "stream",
+    "stream-star",
+    "images",
+    "storage",
+    "storage-star",
+    "s3",
+    "pay",
 ];
 
-const SERVICE_HOSTS: [&str; 2] = ["health.scnative.space", "status.soundcloud-desktop.fun"];
+const HEALTH: &str = "health";
+const STATUS_HOST: &str = "status.getsoundcloud.app";
 
-const INHERIT: &[(&str, &str)] = &[
-    ("storage.scnative.space", "stream.scnative.space"),
-    ("storage-star.scnative.space", "stream-star.scnative.space"),
-];
+const INHERIT: &[(&str, &str)] = &[("storage", "stream"), ("storage-star", "stream-star")];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -390,8 +390,15 @@ fn host_of(url: &str) -> Option<String> {
         .map(|h| h.to_ascii_lowercase())
 }
 
+fn label_of(host: &str) -> Option<&str> {
+    [ORIGIN_ZONE, LEGACY_ZONE]
+        .into_iter()
+        .find_map(|zone| host.strip_suffix(zone)?.strip_suffix('.'))
+}
+
 fn relay_label(origin: &str) -> Option<&'static str> {
-    RELAYS.iter().find(|(o, _)| *o == origin).map(|(_, r)| *r)
+    let label = label_of(origin)?;
+    RELAYS.into_iter().find(|service| *service == label)
 }
 
 pub fn set_pool(relays: Vec<String>, calls: Vec<(String, f64)>) {
@@ -530,21 +537,24 @@ fn relay_hosts_over(origin: &str, pool: &[String]) -> Vec<String> {
         .collect()
 }
 
-pub fn routed_origins() -> impl Iterator<Item = &'static str> {
-    RELAYS.iter().map(|(origin, _)| *origin)
+pub fn routed_origins() -> impl Iterator<Item = String> {
+    [ORIGIN_ZONE, LEGACY_ZONE]
+        .into_iter()
+        .flat_map(|zone| RELAYS.map(|service| format!("{service}.{zone}")))
 }
 
 pub fn zone_hosts() -> Vec<String> {
-    routed_origins()
-        .chain(SERVICE_HOSTS)
-        .map(str::to_string)
-        .collect()
+    let mut hosts: Vec<String> = routed_origins().collect();
+    hosts.push(format!("{HEALTH}.{ORIGIN_ZONE}"));
+    hosts.push(format!("{HEALTH}.{LEGACY_ZONE}"));
+    hosts.push(STATUS_HOST.to_string());
+    hosts
 }
 
 pub fn is_known_host(host: &str) -> bool {
-    if routed_origins()
-        .chain(SERVICE_HOSTS)
-        .any(|known| known == host)
+    if relay_label(host).is_some()
+        || label_of(host) == Some(HEALTH)
+        || host == STATUS_HOST
         || pro_hosts().iter().any(|known| known == host)
     {
         return true;
@@ -567,8 +577,9 @@ fn resolved_state<'a>(inner: &'a Inner, origin: &str) -> Option<&'a OriginState>
     if let Some(s) = inner.origins.get(origin) {
         return Some(s);
     }
-    let src = INHERIT.iter().find(|(o, _)| *o == origin).map(|(_, s)| *s)?;
-    inner.origins.get(src)
+    let label = relay_label(origin)?;
+    let src = INHERIT.iter().find(|(o, _)| *o == label).map(|(_, s)| *s)?;
+    inner.origins.get(&format!("{src}.{ORIGIN_ZONE}"))
 }
 
 fn swap_host(url: &str, host: &str) -> Option<String> {
@@ -711,8 +722,8 @@ fn announce_change() {
 
 pub fn escalate_all() {
     for origin in routed_origins() {
-        record(origin, false, |inner, now| {
-            inner.conclude(origin, Tier::Pro, now)
+        record(&origin, false, |inner, now| {
+            inner.conclude(&origin, Tier::Pro, now)
         });
     }
 }
@@ -910,9 +921,11 @@ pub fn edge_config() -> EdgeConfig {
     };
     let now = Instant::now();
     EdgeConfig {
-        relays: RELAYS
-            .iter()
-            .map(|(o, _)| (o.to_string(), relay_hosts_over(o, &pool)))
+        relays: routed_origins()
+            .map(|origin| {
+                let hosts = relay_hosts_over(&origin, &pool);
+                (origin, hosts)
+            })
             .collect(),
         pro: gateways(&inner),
         hints: inner
@@ -955,12 +968,12 @@ mod tests {
 
     use super::{
         Change, Event, INHERIT, Inner, PROVEN_BYTES, Persisted, RELAYS, REVALIDATE, Tier,
-        audio_tier_order, is_known_host, pro_hops, relay_hosts_over, restore, set_pool, snapshot,
-        transport_failure, zone_hosts,
+        audio_tier_order, host_of, is_known_host, is_routed, pro_hops, relay_hosts_over, restore,
+        set_pool, snapshot, swap_host, transport_failure, zone_hosts,
     };
     use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD as BASE64_URL};
 
-    const ORIGIN: &str = "stream.scnative.space";
+    const ORIGIN: &str = "stream.scnative.dev";
 
     fn tier(inner: &Inner) -> Option<Tier> {
         inner.origins.get(ORIGIN).map(|s| s.tier)
@@ -992,11 +1005,11 @@ mod tests {
     fn every_inherit_pair_is_a_domain_we_route() {
         for (origin, source) in INHERIT {
             assert!(
-                !hosts(origin).is_empty(),
+                RELAYS.contains(origin),
                 "origin {origin} наследует вердикт, но сам не в RELAYS"
             );
             assert!(
-                !hosts(source).is_empty(),
+                RELAYS.contains(source),
                 "{origin} наследует у {source}, которого нет в RELAYS"
             );
         }
@@ -1005,18 +1018,48 @@ mod tests {
     #[test]
     fn relay_host_is_built_per_pool_node() {
         assert_eq!(
-            hosts("api.scnative.space"),
-            ["api.r1.relay.scnative.space", "api.r2.relay.scnative.space"]
+            hosts("api.scnative.dev"),
+            ["api.r1.relay.scnative.dev", "api.r2.relay.scnative.dev"]
         );
         assert!(hosts("soundcloud.com").is_empty());
+    }
+
+    #[test]
+    fn a_space_url_from_the_backend_keeps_path_and_query_through_a_dev_relay() {
+        for (url, relayed) in [
+            (
+                "https://storage.scnative.space/tracks/a1/hq.m4a?sig=x%2By",
+                "https://storage.r1.relay.scnative.dev/tracks/a1/hq.m4a?sig=x%2By",
+            ),
+            (
+                "https://s3.scnative.space/audio/a1.m4a?X-Amz-Date=20261017T000000Z&X-Amz-SignedHeaders=host&X-Amz-Signature=ab%2Fcd",
+                "https://s3.r1.relay.scnative.dev/audio/a1.m4a?X-Amz-Date=20261017T000000Z&X-Amz-SignedHeaders=host&X-Amz-Signature=ab%2Fcd",
+            ),
+        ] {
+            assert!(is_routed(url), "{url}");
+            let relay = &hosts(&host_of(url).unwrap())[0];
+            assert_eq!(swap_host(url, relay).as_deref(), Some(relayed));
+        }
+        assert!(hosts("call-1.scnative.space").is_empty());
+        assert!(hosts("api.scnative.space.example").is_empty());
+    }
+
+    #[test]
+    fn a_space_storage_origin_follows_the_pin_of_the_dev_stream_origin() {
+        let mut inner = Inner::default();
+        let now = Instant::now();
+        inner.conclude("stream.scnative.dev", Tier::Relay, now);
+        assert!(inner.pinned("storage.scnative.space", now));
+        assert!(inner.pinned("storage.scnative.dev", now));
+        assert!(!inner.pinned("s3.scnative.space", now));
     }
 
     #[test]
     fn a_node_the_server_publishes_needs_no_code_change() {
         set_pool(vec!["r1".into(), "r7".into()], vec![("call-1".into(), 1.0)]);
         assert_eq!(
-            super::relay_hosts("api.scnative.space"),
-            ["api.r1.relay.scnative.space", "api.r7.relay.scnative.space"]
+            super::relay_hosts("api.scnative.dev"),
+            ["api.r1.relay.scnative.dev", "api.r7.relay.scnative.dev"]
         );
         assert_eq!(super::call_pool(), [("call-1".to_string(), 1.0)]);
     }
@@ -1025,25 +1068,30 @@ mod tests {
     fn our_hosts_and_pooled_relays_are_known_to_the_resolver() {
         set_pool(vec!["r1".into(), "r7".into()], Vec::new());
         for host in [
-            "api.scnative.space",
+            "api.scnative.dev",
+            "s3.scnative.dev",
             "s3.scnative.space",
+            "storage.scnative.space",
+            "health.scnative.dev",
             "health.scnative.space",
-            "status.soundcloud-desktop.fun",
-            "api.r7.relay.scnative.space",
-            "r1.relay.scnative.space",
+            "status.getsoundcloud.app",
+            "api.r7.relay.scnative.dev",
+            "r1.relay.scnative.dev",
         ] {
             assert!(is_known_host(host), "{host}");
         }
         for host in [
-            "api.r9.relay.scnative.space",
-            "nx-1f2e.relay.scnative.space",
-            "relay.scnative.space",
-            "call-1.scnative.space",
+            "api.r9.relay.scnative.dev",
+            "api.r1.relay.scnative.space",
+            "nx-1f2e.relay.scnative.dev",
+            "relay.scnative.dev",
+            "call-1.scnative.dev",
+            "status.soundcloud-desktop.fun",
             "soundcloud.com",
         ] {
             assert!(!is_known_host(host), "{host}");
         }
-        assert_eq!(zone_hosts().len(), RELAYS.len() + 2);
+        assert_eq!(zone_hosts().len(), 2 * RELAYS.len() + 3);
     }
 
     #[test]
@@ -1062,8 +1110,7 @@ mod tests {
 
     #[test]
     fn no_legacy_domain_survives_in_the_relay_table() {
-        for (origin, label) in RELAYS {
-            assert!(!origin.contains("scdinternal"), "legacy origin {origin}");
+        for label in RELAYS {
             assert!(!label.contains('.'), "label {label} must be a bare service");
         }
     }
@@ -1175,42 +1222,42 @@ mod tests {
 
     #[test]
     fn a_route_pinned_to_the_relay_is_not_tried_direct_before_revalidation() {
-        super::note("s3.scnative.space", Tier::Relay, true);
-        assert!(super::direct_first("https://s3.scnative.space/a"));
-        super::note("s3.scnative.space", Tier::Relay, true);
-        assert!(!super::direct_first("https://s3.scnative.space/a"));
+        super::note("s3.scnative.dev", Tier::Relay, true);
+        assert!(super::direct_first("https://s3.scnative.dev/a"));
+        super::note("s3.scnative.dev", Tier::Relay, true);
+        assert!(!super::direct_first("https://s3.scnative.dev/a"));
         assert!(super::direct_first("https://example.org/a"));
     }
 
     #[test]
     fn the_webview_learns_how_long_a_relay_pin_still_holds() {
-        super::note("pay.scnative.space", Tier::Relay, true);
-        super::note("pay.scnative.space", Tier::Relay, true);
+        super::note("pay.scnative.dev", Tier::Relay, true);
+        super::note("pay.scnative.dev", Tier::Relay, true);
         let config = super::edge_config();
-        assert_eq!(config.hints.get("pay.scnative.space"), Some(&Tier::Relay));
-        let left = config.revalidate_in_ms["pay.scnative.space"];
+        assert_eq!(config.hints.get("pay.scnative.dev"), Some(&Tier::Relay));
+        let left = config.revalidate_in_ms["pay.scnative.dev"];
         assert!(left > 0 && left <= REVALIDATE.as_millis() as u64);
     }
 
     #[test]
     fn the_webview_hears_direct_for_an_origin_that_is_not_pinned() {
-        super::note("api-star.scnative.space", Tier::Relay, true);
+        super::note("api-star.scnative.dev", Tier::Relay, true);
         let config = super::edge_config();
         assert_eq!(
-            config.hints.get("api-star.scnative.space"),
+            config.hints.get("api-star.scnative.dev"),
             Some(&Tier::Direct)
         );
-        assert_eq!(config.revalidate_in_ms["api-star.scnative.space"], 0);
-        assert!(super::is_direct("https://api-star.scnative.space/x"));
+        assert_eq!(config.revalidate_in_ms["api-star.scnative.dev"], 0);
+        assert!(super::is_direct("https://api-star.scnative.dev/x"));
     }
 
     #[test]
     fn a_relay_body_never_counts_as_proof_for_direct() {
-        super::note("images.scnative.space", Tier::Relay, true);
-        super::note("images.scnative.space", Tier::Relay, true);
-        super::note_delivered("images.scnative.space", Tier::Relay, PROVEN_BYTES * 4);
+        super::note("images.scnative.dev", Tier::Relay, true);
+        super::note("images.scnative.dev", Tier::Relay, true);
+        super::note_delivered("images.scnative.dev", Tier::Relay, PROVEN_BYTES * 4);
         assert_eq!(
-            super::current_tier("https://images.scnative.space/a.jpg"),
+            super::current_tier("https://images.scnative.dev/a.jpg"),
             Tier::Relay
         );
     }
@@ -1339,7 +1386,7 @@ mod tests {
 
     #[test]
     fn a_pro_hop_goes_through_the_local_gateway() {
-        let url = "https://stream.scnative.space/track?id=1";
+        let url = "https://stream.scnative.dev/track?id=1";
         let mut inner = Inner::default();
         assert!(pro_hops(&inner, url, ORIGIN).is_empty());
         inner.gateway_port = Some(4321);
@@ -1348,7 +1395,7 @@ mod tests {
         assert_eq!(hops[0].tier, Tier::Pro);
         let encoded = hops[0]
             .url
-            .strip_prefix("http://127.0.0.1:4321/pro/p1.pro.scnative.space/")
+            .strip_prefix("http://127.0.0.1:4321/pro/p1.pro.scnative.dev/")
             .unwrap();
         assert_eq!(BASE64_URL.decode(encoded).unwrap(), url.as_bytes());
     }
@@ -1427,9 +1474,9 @@ mod tests {
     fn a_storage_origin_follows_the_pin_of_its_stream_origin() {
         let mut inner = Inner::default();
         let now = Instant::now();
-        inner.conclude("stream.scnative.space", Tier::Relay, now);
-        assert!(inner.pinned("storage.scnative.space", now));
-        assert!(!inner.pinned("storage-star.scnative.space", now));
+        inner.conclude("stream.scnative.dev", Tier::Relay, now);
+        assert!(inner.pinned("storage.scnative.dev", now));
+        assert!(!inner.pinned("storage-star.scnative.dev", now));
     }
 
     #[test]
@@ -1438,17 +1485,17 @@ mod tests {
         let now = start + REVALIDATE;
         let now_ms = 1_000_000_000;
         let mut inner = pinned_inner(now);
-        inner.conclude("api.scnative.space", Tier::Relay, start);
-        inner.conclude("pay.scnative.space", Tier::Relay, start + REVALIDATE / 2);
+        inner.conclude("api.scnative.dev", Tier::Relay, start);
+        inner.conclude("pay.scnative.dev", Tier::Relay, start + REVALIDATE / 2);
         let saved = snapshot(&inner, now, now_ms);
         assert_eq!(saved.pins.len(), 2);
         assert_eq!(saved.pins[ORIGIN], now_ms + REVALIDATE.as_millis() as u64);
-        assert!(!saved.pins.contains_key("api.scnative.space"));
+        assert!(!saved.pins.contains_key("api.scnative.dev"));
 
         let mut pins = saved.pins;
-        pins.insert("s3.scnative.space".into(), now_ms - 1);
+        pins.insert("s3.scnative.dev".into(), now_ms - 1);
         pins.insert(
-            "images.scnative.space".into(),
+            "images.scnative.dev".into(),
             now_ms + 100 * REVALIDATE.as_millis() as u64,
         );
         let later = now + Duration::from_secs(60);
@@ -1462,20 +1509,20 @@ mod tests {
             later,
             now_ms + 60_000,
         );
-        assert!(!restored.origins.contains_key("s3.scnative.space"));
+        assert!(!restored.origins.contains_key("s3.scnative.dev"));
         assert!(restored.pinned(ORIGIN, later));
         assert!(!restored.pinned(ORIGIN, now + REVALIDATE));
-        assert!(restored.pinned("pay.scnative.space", later));
-        assert!(!restored.pinned("pay.scnative.space", now + REVALIDATE / 2));
-        assert!(restored.pinned("images.scnative.space", later));
-        assert!(!restored.pinned("images.scnative.space", later + REVALIDATE));
+        assert!(restored.pinned("pay.scnative.dev", later));
+        assert!(!restored.pinned("pay.scnative.dev", now + REVALIDATE / 2));
+        assert!(restored.pinned("images.scnative.dev", later));
+        assert!(!restored.pinned("images.scnative.dev", later + REVALIDATE));
         assert_eq!(restored.origins[ORIGIN].direct_fails, 0);
     }
 
     #[test]
     fn an_old_state_file_loads_as_no_pins() {
         let old: Persisted =
-            serde_json::from_str(r#"{"tiers":{"api.scnative.space":"relay"}}"#).unwrap();
+            serde_json::from_str(r#"{"tiers":{"api.scnative.dev":"relay"}}"#).unwrap();
         assert!(old.pins.is_empty());
         let mut inner = Inner::default();
         restore(&mut inner, old, Instant::now(), 1);

@@ -71,7 +71,7 @@ const ZAPRET_KEYS: [&str; 10] = [
     "NFQWS2_PORTS_TCP",
     "DISABLE_IPV6",
 ];
-const PROXY_PROBE: &str = "https://api.scnative.space/";
+const PROXY_PROBE: &str = "https://api.scnative.dev/";
 const MAX_DPI: usize = 4;
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]

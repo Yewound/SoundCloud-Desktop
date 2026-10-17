@@ -476,13 +476,13 @@ mod tests {
         let mut report = sample(1);
         report.verdict = Verdict::Cut;
         report.volume = Some(VolumeProbe {
-            host: "storage.scnative.space".to_string(),
+            host: "storage.scnative.dev".to_string(),
             shape: "blackhole".to_string(),
             bytes: 12_000,
             ms: 6_200,
             cut: true,
         });
-        let line = "volume: cut at storage.scnative.space · blackhole after 11 KB · 6200 ms";
+        let line = "volume: cut at storage.scnative.dev · blackhole after 11 KB · 6200 ms";
         let text = text(&report);
         assert!(text.contains("verdict: cut"), "{text}");
         assert!(text.contains(line), "{text}");

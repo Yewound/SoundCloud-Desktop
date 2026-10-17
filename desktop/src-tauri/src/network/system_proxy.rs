@@ -311,7 +311,7 @@ mod tests {
             .no("localhost,example.org")
             .build();
         assert_eq!(
-            proxy_url(&matcher, "https://api.scnative.space/me").as_deref(),
+            proxy_url(&matcher, "https://api.scnative.dev/me").as_deref(),
             Some("http://127.0.0.1:10809/")
         );
         assert_eq!(proxy_url(&matcher, "https://example.org/x"), None);
@@ -321,7 +321,7 @@ mod tests {
     fn a_socks_proxy_keeps_its_scheme() {
         let matcher = Matcher::builder().all("socks5://127.0.0.1:10808").build();
         assert_eq!(
-            proxy_url(&matcher, "https://api.scnative.space/").as_deref(),
+            proxy_url(&matcher, "https://api.scnative.dev/").as_deref(),
             Some("socks5://127.0.0.1:10808/")
         );
     }
@@ -330,11 +330,11 @@ mod tests {
     fn a_per_protocol_windows_setting_sends_each_scheme_to_its_own_proxy() {
         let matcher = registry_matcher("http=127.0.0.1:8080;https=127.0.0.1:8081", "");
         assert_eq!(
-            proxy_url(&matcher, "https://api.scnative.space/").as_deref(),
+            proxy_url(&matcher, "https://api.scnative.dev/").as_deref(),
             Some("http://127.0.0.1:8081/")
         );
         assert_eq!(
-            proxy_url(&matcher, "http://api.scnative.space/").as_deref(),
+            proxy_url(&matcher, "http://api.scnative.dev/").as_deref(),
             Some("http://127.0.0.1:8080/")
         );
     }
@@ -343,23 +343,23 @@ mod tests {
     fn a_windows_setting_for_one_scheme_leaves_the_other_direct() {
         let matcher = registry_matcher("https=127.0.0.1:8080", "");
         assert_eq!(
-            proxy_url(&matcher, "https://api.scnative.space/").as_deref(),
+            proxy_url(&matcher, "https://api.scnative.dev/").as_deref(),
             Some("http://127.0.0.1:8080/")
         );
-        assert_eq!(proxy_url(&matcher, "http://api.scnative.space/"), None);
+        assert_eq!(proxy_url(&matcher, "http://api.scnative.dev/"), None);
     }
 
     #[test]
     fn a_socks_only_windows_setting_means_no_proxy() {
         let matcher = registry_matcher("socks=127.0.0.1:1080", "");
-        assert_eq!(proxy_url(&matcher, "https://api.scnative.space/"), None);
+        assert_eq!(proxy_url(&matcher, "https://api.scnative.dev/"), None);
     }
 
     #[test]
     fn a_plain_windows_setting_covers_both_schemes_except_the_overrides() {
         let matcher = registry_matcher("127.0.0.1:10809", "localhost;*.example.org;<local>");
         assert_eq!(
-            proxy_url(&matcher, "https://api.scnative.space/").as_deref(),
+            proxy_url(&matcher, "https://api.scnative.dev/").as_deref(),
             Some("http://127.0.0.1:10809/")
         );
         assert_eq!(proxy_url(&matcher, "https://cdn.example.org/x"), None);
@@ -375,7 +375,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let body = body_of(&client, "http://api.scnative.space/health").await;
+        let body = body_of(&client, "http://api.scnative.dev/health").await;
 
         assert_eq!(body, "via proxy");
     }
@@ -406,7 +406,7 @@ mod tests {
     #[tokio::test]
     async fn a_bypassed_host_redirecting_to_a_proxied_one_takes_the_proxy_on_that_hop() {
         let proxy = serve("via proxy");
-        let first = serve_redirect("bypassed", "http://api.scnative.space/health".into());
+        let first = serve_redirect("bypassed", "http://api.scnative.dev/health".into());
         let client = registry_client(proxy.to_string(), "localhost");
 
         let body = body_of(&client, &format!("http://localhost:{}/start", first.port())).await;
@@ -423,7 +423,7 @@ mod tests {
         );
         let client = registry_client(proxy.to_string(), "localhost");
 
-        let body = body_of(&client, "http://api.scnative.space/start").await;
+        let body = body_of(&client, "http://api.scnative.dev/start").await;
 
         assert_eq!(body, "direct");
     }
@@ -433,7 +433,7 @@ mod tests {
         let http = serve("via http proxy");
         let client = registry_client(format!("http={http};https=127.0.0.1:9"), "");
 
-        let body = body_of(&client, "http://api.scnative.space/health").await;
+        let body = body_of(&client, "http://api.scnative.dev/health").await;
 
         assert_eq!(body, "via http proxy");
     }

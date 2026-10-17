@@ -57,7 +57,7 @@ fn failed_probe(kind: FailKind, phase: Phase) -> PhaseProbe {
 }
 
 fn healthy(id: TargetId) -> TargetCheck {
-    let mut check = TargetCheck::pending(id, None, format!("{}.scnative.space", id.as_str()));
+    let mut check = TargetCheck::pending(id, None, format!("{}.scnative.dev", id.as_str()));
     check.system = answer(&["188.165.221.195"]);
     check.dns = DnsState::Sane;
     check.probe = Some(passed_probe());
@@ -411,7 +411,7 @@ fn a_volume_cut_beside_a_running_winws_gets_its_own_hint() {
 #[test]
 fn the_pro_relay_is_for_links_where_neither_direct_nor_relays_carry() {
     let probe = |cut| VolumeProbe {
-        host: "r1.relay.scnative.space".to_string(),
+        host: "r1.relay.scnative.dev".to_string(),
         shape: "blackhole".to_string(),
         bytes: 13_000,
         ms: 6_000,
@@ -693,7 +693,7 @@ fn a_probe_that_passed_while_the_app_failed_warns_at_http() {
 
 fn volume(cut: bool) -> VolumeProbe {
     VolumeProbe {
-        host: "storage.scnative.space".to_string(),
+        host: "storage.scnative.dev".to_string(),
         shape: if cut { "blackhole" } else { "clear" }.to_string(),
         bytes: if cut { 12_000 } else { 65_536 },
         ms: 6_200,

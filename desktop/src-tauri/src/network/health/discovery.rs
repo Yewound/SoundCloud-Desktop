@@ -6,7 +6,7 @@ use crate::network::edge;
 
 pub const MAX_INDEX: usize = 16;
 const STOP_AFTER_MISSES: usize = 2;
-const ORIGIN_ZONE: &str = "scnative.space";
+const ORIGIN_ZONE: &str = "scnative.dev";
 
 pub async fn relays(known: &[String]) -> Vec<String> {
     let zone = edge::relay_zone();
@@ -151,7 +151,7 @@ mod tests {
         let found = scan(
             &["r1".to_string()],
             |index| format!("r{index}"),
-            |node| format!("{node}.relay.scnative.space"),
+            |node| format!("{node}.relay.scnative.dev"),
             |_| async { true },
         )
         .await;
@@ -163,8 +163,8 @@ mod tests {
         let found = scan(
             &["r1".to_string()],
             |index| format!("r{index}"),
-            |node| format!("{node}.relay.scnative.space"),
-            |host| async move { host == "r2.relay.scnative.space" },
+            |node| format!("{node}.relay.scnative.dev"),
+            |host| async move { host == "r2.relay.scnative.dev" },
         )
         .await;
         assert_eq!(found, ["r2"]);

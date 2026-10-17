@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 
 const FLAG_FILE: &str = "call_enabled.json";
 const DEVICE_FILE: &str = "call_device.json";
-const ORIGIN_ZONE: &str = "scnative.space";
+const ORIGIN_ZONE: &str = "scnative.dev";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]

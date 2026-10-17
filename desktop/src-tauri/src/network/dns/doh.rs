@@ -345,7 +345,7 @@ mod tests {
     }
 
     fn response(rcode: u8, addr: Option<[u8; 4]>) -> Vec<u8> {
-        let mut wire = wire::build_query("api.scnative.space").unwrap();
+        let mut wire = wire::build_query("api.scnative.dev").unwrap();
         wire[2] = 0x81;
         wire[3] = 0x80 | rcode;
         if let Some(addr) = addr {
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn garbage_for_our_name_is_a_failure_and_a_foreign_name_keeps_private_addresses() {
-        let ours = "API.scnative.space";
+        let ours = "API.scnative.dev";
         let fail = sane(ours, answer(&["2.26.93.81", "10.0.0.1"])).unwrap_err();
         assert_eq!(fail.kind, FailKind::DnsBogus);
         assert_eq!(
@@ -423,7 +423,7 @@ mod tests {
                 _ => (10, &["1.2.3.4"]),
             };
             tokio::time::sleep(Duration::from_millis(delay)).await;
-            sane("api.scnative.space", answer(addrs))
+            sane("api.scnative.dev", answer(addrs))
         })
         .await
         .unwrap();

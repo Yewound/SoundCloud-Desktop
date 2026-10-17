@@ -41,7 +41,7 @@ cat > "$site/soundcloud-desktop.flatpakrepo" <<REPO
 [Flatpak Repo]
 Title=$title
 Url=$repo_url
-Homepage=https://soundcloud-desktop.fun/
+Homepage=https://getsoundcloud.app/
 Comment=SoundCloud Desktop updates
 DefaultBranch=$branch
 GPGKey=$gpg_key
@@ -53,7 +53,7 @@ Name=$FLATPAK_APP_ID
 Branch=$branch
 Title=$title
 Url=$repo_url
-Homepage=https://soundcloud-desktop.fun/
+Homepage=https://getsoundcloud.app/
 RuntimeRepo=$runtime_repo
 SuggestRemoteName=soundcloud-desktop
 IsRuntime=false

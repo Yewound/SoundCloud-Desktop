@@ -68,7 +68,7 @@ fn the_home_folder_becomes_a_tilde() {
 #[test]
 fn secrets_are_redacted() {
     let text = scrub(
-        "GET https://api.scnative.space/me?session_id=abc123 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.x",
+        "GET https://api.scnative.dev/me?session_id=abc123 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.x",
     );
     assert!(!text.contains("abc123"), "{text}");
     assert!(!text.contains("eyJhbGciOiJIUzI1NiJ9"), "{text}");
@@ -81,8 +81,8 @@ fn proxy_credentials_are_masked() {
         "proxy http://***@10.0.0.1:3128/ failed"
     );
     assert_eq!(
-        scrub("https://api.scnative.space/health"),
-        "https://api.scnative.space/health"
+        scrub("https://api.scnative.dev/health"),
+        "https://api.scnative.dev/health"
     );
     assert_eq!(scrub("socks5://u@h"), "socks5://***@h");
 }

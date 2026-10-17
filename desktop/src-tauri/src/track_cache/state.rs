@@ -49,7 +49,7 @@ const STORAGE_RESOLVE_TIMEOUT_SECS: u64 = 10;
 const STORAGE_COOLDOWN_SECS: u64 = 60;
 const STORAGE_COOLDOWN_AFTER: u8 = 2;
 const PRESIGN_HEADERS_SECS: u64 = 5;
-const PRESIGN_ORIGIN: &str = "https://s3.scnative.space/";
+const PRESIGN_ORIGINS: [&str; 2] = ["https://s3.scnative.dev/", "https://s3.scnative.space/"];
 const DOWNLOAD_CONNECT_TIMEOUT_MS: u64 = 3_000;
 const DOWNLOAD_READ_TIMEOUT_SECS: u64 = 130;
 const BODY_STALL_SECS: u64 = 15;
@@ -1101,7 +1101,7 @@ impl TrackCacheState {
             Ok(Err(err)) => {
                 let failed_at = err
                     .uri()
-                    .map_or_else(|| PRESIGN_ORIGIN.to_string(), ToString::to_string);
+                    .map_or_else(|| redirect_url.to_string(), ToString::to_string);
                 crate::network::edge::note_url(&failed_at, Tier::Direct, false);
                 Err(err.to_string())
             }

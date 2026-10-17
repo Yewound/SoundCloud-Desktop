@@ -13,7 +13,7 @@ interface CutStepsProps {
   backups: boolean;
 }
 
-const DOMAIN = 'scnative.space';
+const DOMAINS = ['scnative.dev', 'scnative.space'];
 
 export const CutSteps = React.memo(({ env, addrs, running, backups }: CutStepsProps) => {
   const { t } = useTranslation();
@@ -46,7 +46,7 @@ export const CutSteps = React.memo(({ env, addrs, running, backups }: CutStepsPr
         ))}
       </ol>
       <div className="w-full mt-2.5 text-left space-y-2">
-        <CopyLine text={DOMAIN} />
+        <CopyLine text={DOMAINS.join('\n')} />
         {addrsFile && <ListLines list={{ file: addrsFile, lines: addrs }} />}
       </div>
     </>

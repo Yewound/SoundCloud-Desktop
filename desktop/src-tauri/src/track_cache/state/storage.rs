@@ -8,7 +8,7 @@ use crate::network::netcheck::model::Role;
 use crate::network::netcheck::paths;
 
 use super::{
-    DownloadError, DownloadSource, PRESIGN_ORIGIN, PlaybackQuality, STORAGE_COOLDOWN_AFTER,
+    DownloadError, DownloadSource, PRESIGN_ORIGINS, PlaybackQuality, STORAGE_COOLDOWN_AFTER,
     STORAGE_COOLDOWN_SECS, TrackCacheState, file_len, host_of, make_redirect_url,
     write_response_to_cache,
 };
@@ -93,7 +93,9 @@ impl TrackCacheState {
                 continue;
             };
             if !crate::network::edge::is_direct(storage_url)
-                || !crate::network::edge::direct_first(PRESIGN_ORIGIN)
+                || !PRESIGN_ORIGINS
+                    .iter()
+                    .all(|origin| crate::network::edge::direct_first(origin))
             {
                 continue;
             }

@@ -4,7 +4,7 @@
 </a>
 </p>
 
-<h1 align="center"><a href="https://soundcloud-desktop.fun/">SoundCloud Desktop</a></h1>
+<h1 align="center"><a href="https://getsoundcloud.app/">SoundCloud Desktop</a></h1>
 
 <p align="center">
 <b>[<a href="https://github.com/okeydw/SoundCloud-Android">Android</a>] · iOS в разработке</b><br>
@@ -90,7 +90,7 @@ SoundCloud заблокирован Роскомнадзором — веб-ве
 
 ## Скачать
 
-> Стоит zapret, а треки или обложки не грузятся? Добавьте `scnative.space` в его `lists/list-general-user.txt`. Подробно: [zapret, VPN и списки доменов](#zapret-vpn-и-списки-доменов).
+> Стоит zapret, а треки или обложки не грузятся? Добавьте `scnative.dev` и `scnative.space` в его `lists/list-general-user.txt`. Подробно: [zapret, VPN и списки доменов](#zapret-vpn-и-списки-доменов).
 
 ### Windows
 
@@ -113,7 +113,7 @@ SoundCloud заблокирован Роскомнадзором — веб-ве
 | `.flatpak` | amd64 | Песочница |
 | AUR `soundcloud-bin` | amd64, arm64 | Arch, Manjaro, EndeavourOS |
 
-Скачай нужный формат со [страницы релизов](https://github.com/zxcloli666/SoundCloud-Desktop/releases/latest) или с [сайта](https://soundcloud-desktop.fun/download), если GitHub не открывается.
+Скачай нужный формат со [страницы релизов](https://github.com/zxcloli666/SoundCloud-Desktop/releases/latest) или с [сайта](https://getsoundcloud.app/download), если GitHub не открывается.
 
 Arch и производные: официальный пакет [`soundcloud-bin`](https://aur.archlinux.org/packages/soundcloud-bin) публикуется в AUR автоматически через минуту после каждого релиза.
 ```bash
@@ -153,13 +153,13 @@ chmod +x soundcloud-desktop_*.AppImage
 
 ## zapret, VPN и списки доменов
 
-Приложение ходит на свои домены в зоне `scnative.space` и напрямую к SoundCloud за треками. Если провайдер режет прямой путь к `scnative.space`, приложение само переключается на резервные маршруты `*.relay.scnative.space`.
+Приложение ходит на свои домены в зоне `scnative.dev` (часть файлов треков пока приходит со старой `scnative.space`) и напрямую к SoundCloud за треками. Если провайдер режет прямой путь к нашим доменам, приложение само переключается на резервные маршруты `*.relay.scnative.dev`.
 
 Треки или обложки не грузятся:
 1. Откройте «Настройки → Сеть → Проверка сети». Там видно, что сломано, и есть кнопка «Скопировать отчёт».
 2. zapret включён: выключите его и нажмите «Проверить снова».
-3. Заработало: мешал zapret. Добавьте `scnative.space` и `soundcloud-desktop.fun` в `lists/list-exclude-user.txt` и включите zapret обратно.
-4. Не заработало: режет провайдер. Добавьте `scnative.space` в `lists/list-general-user.txt`, включите zapret и проверьте снова. Стало хуже — уберите строку.
+3. Заработало: мешал zapret. Добавьте `scnative.dev`, `scnative.space` и `getsoundcloud.app` в `lists/list-exclude-user.txt` и включите zapret обратно.
+4. Не заработало: режет провайдер. Добавьте `scnative.dev` и `scnative.space` в `lists/list-general-user.txt`, включите zapret и проверьте снова. Стало хуже — уберите строки.
 5. Всё равно не работает или zapret нет: поможет только VPN.
 
 Пути выше для Windows (winws, сборка Flowseal). После правки списков перезапустите zapret.
@@ -171,18 +171,19 @@ chmod +x soundcloud-desktop_*.AppImage
 - Если системный DNS выдаёт неверный адрес, приложение само спрашивает DoH (1.1.1.1, 8.8.8.8 и другие).
 - Провайдер блокирует SoundCloud — добавьте `soundcloud.com` и `sndcdn.com` в `list-general`, иначе треки идут через сервер и грузятся дольше.
 
-Каждая запись покрывает все поддомены: `scnative.space` включает резервные маршруты, `soundcloud.com` включает `api-v2.soundcloud.com`.
+Каждая запись покрывает все поддомены: `scnative.dev` включает резервные маршруты, `soundcloud.com` включает `api-v2.soundcloud.com`.
 
 | Домен | Для чего |
 |---|---|
-| `api.scnative.space`, `api-star.scnative.space` | API |
-| `stream.scnative.space`, `stream-star.scnative.space` | аудио |
-| `storage.scnative.space`, `storage-star.scnative.space`, `s3.scnative.space` | хранилище треков |
-| `images.scnative.space` | обложки |
-| `pay.scnative.space` | оплата STAR |
-| `health.scnative.space` | проверка связи |
-| `call-*.scnative.space` | «Сеть пользователей» |
-| `*.relay.scnative.space` | резервные маршруты |
+| `api.scnative.dev`, `api-star.scnative.dev` | API |
+| `stream.scnative.dev`, `stream-star.scnative.dev` | аудио |
+| `storage.scnative.dev`, `storage-star.scnative.dev`, `s3.scnative.dev` | хранилище треков |
+| `images.scnative.dev` | обложки |
+| `pay.scnative.dev` | оплата STAR |
+| `health.scnative.dev`, `status.getsoundcloud.app` | проверка связи |
+| `call-*.scnative.dev` | «Сеть пользователей» |
+| `*.relay.scnative.dev` | резервные маршруты |
+| `*.scnative.space` | старая зона, с неё пока приходят файлы треков |
 | `soundcloud.com`, `api-v2.soundcloud.com`, `*.sndcdn.com` | прямая загрузка трека с SoundCloud |
 
 ---

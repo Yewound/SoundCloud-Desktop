@@ -385,7 +385,7 @@ mod tests {
                 .build()
                 .unwrap();
             let err = client
-                .get("http://api.scnative.space/health")
+                .get("http://api.scnative.dev/health")
                 .send()
                 .await
                 .expect_err("the lookup must fail");

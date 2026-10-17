@@ -76,7 +76,7 @@ docker exec <name> sh -c 'cat /proc/net/tcp | awk "NR>1 {print \$3, \$4}"'
 
 ```bash
 # DNS-резолюция с хоста
-dig +short api.scnative.space
+dig +short api.scnative.dev
 getent hosts infra.scnative.space
 
 # DNS изнутри контейнера + /etc/hosts

@@ -1,20 +1,18 @@
-export const API_BASE = import.meta.env.VITE_API_BASE || 'https://api.scnative.space';
+export const API_BASE = import.meta.env.VITE_API_BASE || 'https://api.scnative.dev';
 /** Резервный star-хост API для премиума (роутинг в `api-client.ts`). */
-export const API_STAR_BASE =
-  import.meta.env.VITE_API_STAR_BASE || 'https://api-star.scnative.space';
-export const STREAMING_BASE =
-  import.meta.env.VITE_STREAMING_BASE || 'https://stream.scnative.space';
+export const API_STAR_BASE = import.meta.env.VITE_API_STAR_BASE || 'https://api-star.scnative.dev';
+export const STREAMING_BASE = import.meta.env.VITE_STREAMING_BASE || 'https://stream.scnative.dev';
 export const STREAMING_PREMIUM_BASE =
-  import.meta.env.VITE_STREAMING_PREMIUM_BASE || 'https://stream-star.scnative.space';
-export const IMAGES_BASE = import.meta.env.VITE_IMAGES_BASE || 'https://images.scnative.space';
-export const STORAGE_BASE = import.meta.env.VITE_STORAGE_BASE || 'https://storage.scnative.space';
+  import.meta.env.VITE_STREAMING_PREMIUM_BASE || 'https://stream-star.scnative.dev';
+export const IMAGES_BASE = import.meta.env.VITE_IMAGES_BASE || 'https://images.scnative.dev';
+export const STORAGE_BASE = import.meta.env.VITE_STORAGE_BASE || 'https://storage.scnative.dev';
 /** Резервная точка отдачи медиа для премиума (S3 read-only на star-host). */
 export const STORAGE_PREMIUM_BASE =
-  import.meta.env.VITE_STORAGE_PREMIUM_BASE || 'https://storage-star.scnative.space';
+  import.meta.env.VITE_STORAGE_PREMIUM_BASE || 'https://storage-star.scnative.dev';
 /** STAR payment backend (separate service; not host-routed like the catalog API). */
-export const PAY_BASE = import.meta.env.VITE_PAY_BASE || 'https://pay.scnative.space';
+export const PAY_BASE = import.meta.env.VITE_PAY_BASE || 'https://pay.scnative.dev';
 export const STATUS_PAGE_URL =
-  import.meta.env.VITE_STATUS_PAGE_URL || 'https://status.soundcloud-desktop.fun';
+  import.meta.env.VITE_STATUS_PAGE_URL || 'https://status.getsoundcloud.app';
 
 export const GITHUB_OWNER = 'zxcloli666';
 export const GITHUB_REPO = 'SoundCloud-Desktop';

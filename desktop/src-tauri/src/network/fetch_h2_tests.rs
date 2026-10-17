@@ -168,7 +168,7 @@ async fn a_get_with_another_hop_left_is_not_replayed() {
     let mut first_hop = get(&url);
     first_hop.route = Some(Route {
         tier: Tier::Direct,
-        origin: "fetch-h2-test.scnative.space".to_string(),
+        origin: "fetch-h2-test.scnative.dev".to_string(),
         attempt: 0,
         last: false,
     });

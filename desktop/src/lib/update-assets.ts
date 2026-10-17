@@ -2,7 +2,7 @@ import { IMAGES_BASE } from './constants';
 import type { GithubAsset } from './update-check';
 import type { InstallKind, UpdaterInfo } from './updater';
 
-export const DOWNLOAD_PAGE_URL = 'https://soundcloud-desktop.fun/download';
+export const DOWNLOAD_PAGE_URL = 'https://getsoundcloud.app/download';
 const FLATPAK_APP_ID = 'io.github.zxcloli666.SoundcloudDesktop';
 const AUR_PACKAGE = 'soundcloud-bin';
 

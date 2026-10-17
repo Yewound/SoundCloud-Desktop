@@ -84,7 +84,7 @@ fn a_frame_is_a_length_a_json_head_and_the_body() {
         status: 200,
         status_text: "OK".to_string(),
         headers: vec![("content-type".to_string(), "text/plain".to_string())],
-        url: "https://api.scnative.space/health".to_string(),
+        url: "https://api.scnative.dev/health".to_string(),
         stalled: false,
     };
     let bytes = frame(&head, b"fine");
@@ -95,7 +95,7 @@ fn a_frame_is_a_length_a_json_head_and_the_body() {
             "status": 200,
             "statusText": "OK",
             "headers": [["content-type", "text/plain"]],
-            "url": "https://api.scnative.space/health"
+            "url": "https://api.scnative.dev/health"
         })
     );
     assert_eq!(body, b"fine");
@@ -187,7 +187,7 @@ async fn an_answer_comes_back_whole_and_the_route_is_recorded() {
     let mut ask = request(url.clone(), "post", Some(5_000));
     ask.route = Some(Route {
         tier: Tier::Relay,
-        origin: "fetch-test.scnative.space".to_string(),
+        origin: "fetch-test.scnative.dev".to_string(),
         attempt: 1,
         last: true,
     });
@@ -206,7 +206,7 @@ async fn an_answer_comes_back_whole_and_the_route_is_recorded() {
     assert_eq!(sent.matches("content-length: 0").count(), 1);
     let event = paths::recent(100)
         .into_iter()
-        .find(|event| event.origin == "fetch-test.scnative.space")
+        .find(|event| event.origin == "fetch-test.scnative.dev")
         .unwrap();
     assert_eq!(event.role, Role::Failover);
     assert_eq!(event.source, "api");
@@ -267,7 +267,7 @@ async fn a_body_that_breaks_off_is_a_body_failure() {
     let mut ask = request(url, "GET", Some(5_000));
     ask.route = Some(Route {
         tier: Tier::Direct,
-        origin: "fetch-body-test.scnative.space".to_string(),
+        origin: "fetch-body-test.scnative.dev".to_string(),
         attempt: 0,
         last: false,
     });
@@ -279,7 +279,7 @@ async fn a_body_that_breaks_off_is_a_body_failure() {
     assert!(body.is_empty());
     let events: Vec<_> = paths::recent(100)
         .into_iter()
-        .filter(|event| event.origin == "fetch-body-test.scnative.space")
+        .filter(|event| event.origin == "fetch-body-test.scnative.dev")
         .collect();
     assert_eq!(events.len(), 2);
     assert!(!events[0].ok);

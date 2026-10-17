@@ -1,17 +1,14 @@
 import { getProxyPort, IMAGES_BASE } from './constants';
 import { isMac } from './platform';
 
+const OUR_ZONES = ['scnative.dev', 'scnative.space'];
+const OUR_HOSTS = ['images', 'api', 'api-star', 'stream', 'stream-star', 'storage'];
 const WHITELIST = [
   'localhost',
   '127.0.0.1',
   'tauri.localhost',
   'scproxy.localhost',
-  'images.scnative.space',
-  'api.scnative.space',
-  'api-star.scnative.space',
-  'stream.scnative.space',
-  'stream-star.scnative.space',
-  'storage.scnative.space',
+  ...OUR_ZONES.flatMap((zone) => OUR_HOSTS.map((host) => `${host}.${zone}`)),
   'unpkg.com',
 ];
 const RETRY_BYPASS_CACHE_PARAM = '__scproxy_bust';

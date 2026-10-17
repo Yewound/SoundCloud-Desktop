@@ -18,7 +18,7 @@ mod tests {
     fn decodes_the_mirrored_github_url() {
         let origin = "https://github.com/zxcloli666/SoundCloud-Desktop/releases/latest/download/app_1.0.0_x64-setup.exe";
         let mirrored = Url::parse(&format!(
-            "https://images.scnative.space/x-target/{}",
+            "https://images.scnative.dev/x-target/{}",
             STANDARD.encode(origin)
         ))
         .unwrap();

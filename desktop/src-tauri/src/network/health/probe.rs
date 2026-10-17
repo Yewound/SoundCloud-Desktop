@@ -11,7 +11,7 @@ use crate::network::{fail, pro, system_proxy};
 const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_PARALLEL: usize = 4;
 const MAX_IN_FLIGHT: usize = 8;
-const ORIGIN_ZONE: &str = "scnative.space";
+const ORIGIN_ZONE: &str = "scnative.dev";
 const DIRECT_EP: &str = "@direct";
 const CUT_SHAPES: [Shape; 4] = [Shape::Cut, Shape::Blackhole, Shape::Reset, Shape::Throttled];
 
@@ -140,7 +140,7 @@ pub fn note_direct_cut(paths: &[Sample]) -> bool {
     }
     for origin in edge::routed_origins() {
         if !system_proxy::proxied(&format!("https://{origin}/")) {
-            edge::note(origin, Tier::Direct, false);
+            edge::note(&origin, Tier::Direct, false);
         }
     }
     true
@@ -463,7 +463,7 @@ mod tests {
 
     #[test]
     fn one_round_with_a_cut_direct_route_does_not_pin_the_origin_alone() {
-        let url = "https://stream-star.scnative.space/health";
+        let url = "https://stream-star.scnative.dev/health";
         let round = [
             (route("direct", url), outcome(false)),
             (route("relay:r1", url), outcome(true)),

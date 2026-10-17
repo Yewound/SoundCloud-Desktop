@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn outcomes_keep_their_role_status_and_failure() {
-        let origin = "paths-roles.scnative.space";
+        let origin = "paths-roles.scnative.dev";
         let ms = Duration::from_millis(12);
         record(
             &hop(origin, Tier::Direct),
@@ -149,7 +149,7 @@ mod tests {
         let mut ring = Ring(VecDeque::new());
         let template = PathEvent {
             at_ms: 0,
-            origin: "api.scnative.space".to_string(),
+            origin: "api.scnative.dev".to_string(),
             tier: Tier::Direct,
             role: Role::Primary,
             ok: true,

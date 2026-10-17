@@ -118,13 +118,13 @@ mod tests {
     fn a_short_ttl_still_holds_a_minute() {
         let now = Instant::now();
         let mut cache = Cache::default();
-        cache.put("api.scnative.space", addrs(), 5, now);
+        cache.put("api.scnative.dev", addrs(), 5, now);
         assert_eq!(
-            cache.fresh("api.scnative.space", now + Duration::from_secs(59)),
+            cache.fresh("api.scnative.dev", now + Duration::from_secs(59)),
             Some(addrs())
         );
         assert_eq!(
-            cache.fresh("api.scnative.space", now + Duration::from_secs(61)),
+            cache.fresh("api.scnative.dev", now + Duration::from_secs(61)),
             None
         );
     }
@@ -133,15 +133,15 @@ mod tests {
     fn a_long_ttl_is_cut_to_fifteen_minutes() {
         let now = Instant::now();
         let mut cache = Cache::default();
-        cache.put("api.scnative.space", addrs(), 86_400, now);
+        cache.put("api.scnative.dev", addrs(), 86_400, now);
         assert!(
             cache
-                .fresh("api.scnative.space", now + Duration::from_secs(899))
+                .fresh("api.scnative.dev", now + Duration::from_secs(899))
                 .is_some()
         );
         assert!(
             cache
-                .fresh("api.scnative.space", now + Duration::from_secs(901))
+                .fresh("api.scnative.dev", now + Duration::from_secs(901))
                 .is_none()
         );
     }
@@ -150,12 +150,12 @@ mod tests {
     fn an_expired_answer_serves_as_stale_for_an_hour() {
         let now = Instant::now();
         let mut cache = Cache::default();
-        cache.put("api.scnative.space", addrs(), 60, now);
+        cache.put("api.scnative.dev", addrs(), 60, now);
         let later = now + Duration::from_secs(60 + 3599);
-        assert_eq!(cache.fresh("api.scnative.space", later), None);
-        assert_eq!(cache.stale("api.scnative.space", later), Some(addrs()));
+        assert_eq!(cache.fresh("api.scnative.dev", later), None);
+        assert_eq!(cache.stale("api.scnative.dev", later), Some(addrs()));
         assert_eq!(
-            cache.stale("api.scnative.space", later + Duration::from_secs(2)),
+            cache.stale("api.scnative.dev", later + Duration::from_secs(2)),
             None
         );
     }
@@ -164,13 +164,13 @@ mod tests {
     fn a_failure_is_remembered_for_fifteen_seconds_and_keeps_the_stale_answer() {
         let now = Instant::now();
         let mut cache = Cache::default();
-        cache.put("api.scnative.space", addrs(), 60, now);
+        cache.put("api.scnative.dev", addrs(), 60, now);
         let later = now + Duration::from_secs(120);
-        cache.fail("api.scnative.space", later);
-        assert!(cache.failed_recently("api.scnative.space", later + Duration::from_secs(14)));
-        assert!(!cache.failed_recently("api.scnative.space", later + Duration::from_secs(15)));
-        assert_eq!(cache.stale("api.scnative.space", later), Some(addrs()));
-        assert!(!cache.failed_recently("images.scnative.space", later));
+        cache.fail("api.scnative.dev", later);
+        assert!(cache.failed_recently("api.scnative.dev", later + Duration::from_secs(14)));
+        assert!(!cache.failed_recently("api.scnative.dev", later + Duration::from_secs(15)));
+        assert_eq!(cache.stale("api.scnative.dev", later), Some(addrs()));
+        assert!(!cache.failed_recently("images.scnative.dev", later));
     }
 
     #[test]

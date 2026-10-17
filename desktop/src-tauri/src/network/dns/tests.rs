@@ -26,12 +26,12 @@ fn ips(texts: &[&str]) -> Vec<IpAddr> {
 fn known(host: &str) -> bool {
     matches!(
         host,
-        "api.scnative.space" | "images.scnative.space" | "status.soundcloud-desktop.fun"
+        "api.scnative.dev" | "images.scnative.dev" | "status.getsoundcloud.app"
     )
 }
 
 fn zone() -> Vec<String> {
-    vec!["images.scnative.space".to_string()]
+    vec!["images.scnative.dev".to_string()]
 }
 
 #[derive(Clone, Default)]
@@ -199,17 +199,21 @@ fn names_fall_into_local_ours_and_foreign() {
         assert_eq!(scope(host), Scope::Local, "{host}");
     }
     for host in [
-        "api.scnative.space",
-        "api.r1.relay.scnative.space",
-        "scnative.space",
-        "status.soundcloud-desktop.fun",
+        "api.scnative.dev",
+        "api.r1.relay.scnative.dev",
+        "scnative.dev",
+        "status.getsoundcloud.app",
+        "storage.scnative.space",
+        "s3.scnative.space",
     ] {
         assert_eq!(scope(host), Scope::Ours, "{host}");
     }
     for host in [
         "soundcloud.com",
+        "evilscnative.dev",
+        "scnative.dev.example",
         "evilscnative.space",
-        "scnative.space.example",
+        "status.soundcloud-desktop.fun",
     ] {
         assert_eq!(scope(host), Scope::Foreign, "{host}");
     }
@@ -223,7 +227,7 @@ async fn a_garbage_answer_falls_back_to_doh_and_is_cached() {
         system(Ok(ips(&["0.0.0.0"])), 0, &sys_calls),
         doh(Ok(ips(&["188.165.221.195"])), 60, &doh_calls),
     );
-    let host = "status.soundcloud-desktop.fun";
+    let host = "status.getsoundcloud.app";
     assert_eq!(fetch(&resolver, host, port).await.unwrap(), "ok");
     assert_eq!(fetch(&resolver, host, port).await.unwrap(), "ok");
     assert_eq!(sys_calls.count(), 1);
@@ -248,7 +252,7 @@ async fn a_known_name_without_an_answer_asks_doh() {
             doh(Ok(ips(&["188.165.221.195"])), 60, &Calls::default()),
         );
         assert_eq!(
-            fetch(&resolver, "api.scnative.space", port).await.unwrap(),
+            fetch(&resolver, "api.scnative.dev", port).await.unwrap(),
             "ok"
         );
     }
@@ -262,7 +266,7 @@ async fn nxdomain_for_an_unknown_name_of_ours_is_the_truth() {
         doh(Ok(ips(&["188.165.221.195"])), 60, &doh_calls),
     );
     let error = resolver
-        .lookup("nx-5d1c.relay.scnative.space")
+        .lookup("nx-5d1c.relay.scnative.dev")
         .await
         .unwrap_err();
     assert_eq!(error.kind, FailKind::Dns);
@@ -302,8 +306,8 @@ async fn a_sane_answer_never_asks_doh() {
         doh(Ok(ips(&["1.2.3.4"])), 60, &doh_calls),
     );
     for host in [
-        "api.scnative.space",
-        "api.r9.relay.scnative.space",
+        "api.scnative.dev",
+        "api.r9.relay.scnative.dev",
         "soundcloud.com",
     ] {
         assert_eq!(
@@ -337,7 +341,7 @@ async fn a_hanging_system_resolver_gives_way_to_doh_within_a_second() {
     );
     let started = std::time::Instant::now();
     assert_eq!(
-        fetch(&resolver, "api.scnative.space", port).await.unwrap(),
+        fetch(&resolver, "api.scnative.dev", port).await.unwrap(),
         "ok"
     );
     assert!(
@@ -353,7 +357,7 @@ async fn a_timeout_for_an_unknown_name_of_ours_also_asks_doh() {
         system(nxdomain(), 5_000, &Calls::default()),
         doh(Ok(ips(&["188.165.221.195"])), 60, &Calls::default()),
     );
-    let found = resolver.lookup("r9.relay.scnative.space").await.unwrap();
+    let found = resolver.lookup("r9.relay.scnative.dev").await.unwrap();
     assert_eq!(found, ips(&["188.165.221.195"]));
 }
 
@@ -376,19 +380,19 @@ async fn when_both_fail_the_request_carries_a_dns_error() {
         system(nxdomain(), 0, &Calls::default()),
         doh(blocked.clone(), 60, &Calls::default()),
     );
-    let error = fetch(&resolver, "api.scnative.space", port)
+    let error = fetch(&resolver, "api.scnative.dev", port)
         .await
         .unwrap_err();
     assert_eq!(of_wreq(&error), FailKind::Dns);
     let found = dns_error_in(&error).expect("dns error in the source chain");
-    assert_eq!(found.host, "api.scnative.space");
+    assert_eq!(found.host, "api.scnative.dev");
     assert!(found.reason.contains("reset"), "{}", found.reason);
 
     let resolver = fallback(
         system(Ok(ips(&["2.26.93.81"])), 0, &Calls::default()),
         doh(blocked, 60, &Calls::default()),
     );
-    let error = fetch(&resolver, "api.scnative.space", port)
+    let error = fetch(&resolver, "api.scnative.dev", port)
         .await
         .unwrap_err();
     assert_eq!(of_wreq(&error), FailKind::DnsBogus);
@@ -408,7 +412,7 @@ async fn a_doh_answer_for_our_names_drops_garbage() {
         system(nxdomain(), 0, &Calls::default()),
         doh(Ok(answer.clone()), 60, &Calls::default()),
     );
-    let found = resolver.lookup("api.scnative.space").await.unwrap();
+    let found = resolver.lookup("api.scnative.dev").await.unwrap();
     assert_eq!(found, ips(&["188.165.221.195", "1.2.3.4"]));
 
     let resolver = fallback(
@@ -448,7 +452,7 @@ async fn a_garbage_doh_answer_for_our_name_is_a_failure_and_keeps_the_stale_entr
         system(Ok(ips(&["2.26.93.81"])), 0, &Calls::default()),
         flipped(&good, &doh_calls),
     );
-    let host = "api.scnative.space";
+    let host = "api.scnative.dev";
     let expected = ips(&["188.165.221.195"]);
     assert_eq!(resolver.lookup(host).await.unwrap(), expected);
     good.store(false, Ordering::SeqCst);
@@ -482,7 +486,7 @@ async fn a_check_that_gets_garbage_from_doh_keeps_trusting_the_zone() {
             system(Ok(ips(&["5.45.192.1"])), 0, &Calls::default()),
             doh(Ok(ips(answer)), 60, &Calls::default()),
         );
-        let host = "api.scnative.space";
+        let host = "api.scnative.dev";
         resolver.lookup(host).await.unwrap();
         assert!(!suspicion(&resolver, host).await, "{answer:?}");
         assert!(!distrusted(&resolver), "{answer:?}");
@@ -516,11 +520,8 @@ async fn a_garbage_answer_for_a_known_host_moves_the_zone_to_doh() {
         doh(Ok(ips(&["188.165.221.195"])), 60, &doh_calls),
     );
     let expected = ips(&["188.165.221.195"]);
-    assert_eq!(
-        resolver.lookup("api.scnative.space").await.unwrap(),
-        expected
-    );
-    let found = resolver.lookup("status.soundcloud-desktop.fun").await;
+    assert_eq!(resolver.lookup("api.scnative.dev").await.unwrap(), expected);
+    let found = resolver.lookup("status.getsoundcloud.app").await;
     assert_eq!(found.unwrap(), expected);
     assert_eq!(
         sys_calls.count(),
@@ -529,7 +530,7 @@ async fn a_garbage_answer_for_a_known_host_moves_the_zone_to_doh() {
     );
     tokio::time::sleep(Duration::from_millis(50)).await;
     assert_eq!(
-        resolver.lookup("images.scnative.space").await.unwrap(),
+        resolver.lookup("images.scnative.dev").await.unwrap(),
         expected
     );
     assert_eq!(
@@ -554,19 +555,16 @@ async fn a_disjoint_doh_answer_moves_the_zone_to_doh() {
         doh(Ok(ips(&["188.165.221.195"])), 60, &doh_calls),
     );
     assert_eq!(
-        resolver.lookup("api.scnative.space").await.unwrap(),
+        resolver.lookup("api.scnative.dev").await.unwrap(),
         ips(&["2.26.99.107"])
     );
-    assert!(suspicion(&resolver, "api.scnative.space").await);
+    assert!(suspicion(&resolver, "api.scnative.dev").await);
     assert_eq!(
-        resolver.lookup("api.scnative.space").await.unwrap(),
+        resolver.lookup("api.scnative.dev").await.unwrap(),
         ips(&["188.165.221.195"])
     );
     assert_eq!(
-        resolver
-            .lookup("status.soundcloud-desktop.fun")
-            .await
-            .unwrap(),
+        resolver.lookup("status.getsoundcloud.app").await.unwrap(),
         ips(&["188.165.221.195"])
     );
     assert_eq!(
@@ -574,7 +572,7 @@ async fn a_disjoint_doh_answer_moves_the_zone_to_doh() {
         1,
         "the distrusted zone skips the system resolver"
     );
-    assert!(!suspicion(&resolver, "api.scnative.space").await);
+    assert!(!suspicion(&resolver, "api.scnative.dev").await);
 }
 
 fn slow_doh(addrs: Vec<IpAddr>, delay_ms: u64, calls: &Calls) -> Lookup<DohAnswer> {
@@ -596,7 +594,7 @@ async fn a_failed_connection_can_wait_for_the_running_check_and_retry() {
         system(Ok(ips(&["5.45.192.1"])), 0, &Calls::default()),
         slow_doh(ips(&["188.165.221.195"]), 400, &doh_calls),
     );
-    let host = "api.scnative.space";
+    let host = "api.scnative.dev";
     resolver.lookup(host).await.unwrap();
     let epoch = resolver.epoch();
     resolver.suspect(host);
@@ -618,7 +616,7 @@ async fn a_check_that_finds_the_same_answer_reports_no_change() {
         system(Ok(ips(&["188.165.221.195"])), 0, &Calls::default()),
         slow_doh(ips(&["188.165.221.195"]), 400, &Calls::default()),
     );
-    let host = "api.scnative.space";
+    let host = "api.scnative.dev";
     resolver.lookup(host).await.unwrap();
     let epoch = resolver.epoch();
     resolver.suspect(host);
@@ -639,12 +637,12 @@ async fn a_change_made_elsewhere_is_seen_without_waiting() {
         doh(Ok(ips(&["188.165.221.195"])), 60, &Calls::default()),
     );
     let epoch = resolver.epoch();
-    resolver.lookup("api.scnative.space").await.unwrap();
-    assert!(suspicion(&resolver, "api.scnative.space").await);
-    assert!(resolver.changed_since("images.scnative.space", epoch).await);
+    resolver.lookup("api.scnative.dev").await.unwrap();
+    assert!(suspicion(&resolver, "api.scnative.dev").await);
+    assert!(resolver.changed_since("images.scnative.dev", epoch).await);
     assert!(
         !resolver
-            .changed_since("images.scnative.space", resolver.epoch())
+            .changed_since("images.scnative.dev", resolver.epoch())
             .await
     );
 }
@@ -657,10 +655,10 @@ async fn a_distrusted_zone_still_uses_a_sane_system_answer_when_doh_is_down() {
         system(Ok(ips(&["2.26.99.107"])), 0, &sys_calls),
         switched(&doh_up, ips(&["188.165.221.195"]), 60, &doh_calls),
     );
-    resolver.lookup("api.scnative.space").await.unwrap();
-    assert!(suspicion(&resolver, "api.scnative.space").await);
+    resolver.lookup("api.scnative.dev").await.unwrap();
+    assert!(suspicion(&resolver, "api.scnative.dev").await);
     doh_up.store(false, Ordering::SeqCst);
-    let found = resolver.lookup("status.soundcloud-desktop.fun").await;
+    let found = resolver.lookup("status.getsoundcloud.app").await;
     assert_eq!(found.unwrap(), ips(&["2.26.99.107"]));
     assert_eq!(sys_calls.count(), 2);
 }
@@ -672,12 +670,12 @@ async fn an_equal_doh_answer_changes_nothing() {
         system(Ok(ips(&["188.165.221.195"])), 0, &sys_calls),
         doh(Ok(ips(&["188.165.221.195"])), 60, &doh_calls),
     );
-    resolver.lookup("api.scnative.space").await.unwrap();
-    assert!(!suspicion(&resolver, "api.scnative.space").await);
+    resolver.lookup("api.scnative.dev").await.unwrap();
+    assert!(!suspicion(&resolver, "api.scnative.dev").await);
     assert_eq!(doh_calls.count(), 1);
-    assert!(!suspicion(&resolver, "api.scnative.space").await);
+    assert!(!suspicion(&resolver, "api.scnative.dev").await);
     assert_eq!(doh_calls.count(), 1, "one check per five minutes");
-    resolver.lookup("images.scnative.space").await.unwrap();
+    resolver.lookup("images.scnative.dev").await.unwrap();
     assert_eq!(sys_calls.count(), 2);
 }
 
@@ -688,14 +686,11 @@ async fn a_fake_ip_tunnel_or_an_unknown_name_is_never_suspected() {
         system(Ok(ips(&["198.18.0.42"])), 0, &Calls::default()),
         doh(Ok(ips(&["188.165.221.195"])), 60, &doh_calls),
     );
-    resolver.lookup("api.scnative.space").await.unwrap();
-    resolver
-        .lookup("api.r9.relay.scnative.space")
-        .await
-        .unwrap();
-    assert!(!suspicion(&resolver, "api.scnative.space").await);
-    assert!(!suspicion(&resolver, "api.r9.relay.scnative.space").await);
-    assert!(!suspicion(&resolver, "images.scnative.space").await);
+    resolver.lookup("api.scnative.dev").await.unwrap();
+    resolver.lookup("api.r9.relay.scnative.dev").await.unwrap();
+    assert!(!suspicion(&resolver, "api.scnative.dev").await);
+    assert!(!suspicion(&resolver, "api.r9.relay.scnative.dev").await);
+    assert!(!suspicion(&resolver, "images.scnative.dev").await);
     assert_eq!(doh_calls.count(), 0);
 }
 
@@ -799,7 +794,7 @@ async fn a_temporary_failure_uses_doh_once_and_keeps_trusting_the_zone() {
         system(temporary(), 0, &sys_calls),
         doh(Ok(ips(&["188.165.221.195"])), 60, &doh_calls),
     );
-    let found = resolver.lookup("api.scnative.space").await.unwrap();
+    let found = resolver.lookup("api.scnative.dev").await.unwrap();
     assert_eq!(found, ips(&["188.165.221.195"]));
     assert!(!distrusted(&resolver));
     tokio::time::sleep(Duration::from_millis(50)).await;
@@ -812,7 +807,7 @@ async fn a_slow_resolver_uses_doh_once_and_keeps_trusting_the_zone() {
         system(Ok(ips(&["188.165.221.195"])), 5_000, &Calls::default()),
         doh(Ok(ips(&["188.165.221.195"])), 60, &Calls::default()),
     );
-    resolver.lookup("api.scnative.space").await.unwrap();
+    resolver.lookup("api.scnative.dev").await.unwrap();
     assert!(!distrusted(&resolver));
 }
 
@@ -822,7 +817,7 @@ async fn a_name_both_resolvers_deny_never_distrusts_the_zone() {
         system(nxdomain(), 0, &Calls::default()),
         doh(Ok(Vec::new()), 60, &Calls::default()),
     );
-    let error = resolver.lookup("api.scnative.space").await.unwrap_err();
+    let error = resolver.lookup("api.scnative.dev").await.unwrap_err();
     assert_eq!(error.kind, FailKind::Dns);
     assert!(!distrusted(&resolver));
 }
@@ -833,7 +828,7 @@ async fn a_name_the_system_denies_but_doh_knows_distrusts_the_zone() {
         system(nxdomain(), 0, &Calls::default()),
         doh(Ok(ips(&["188.165.221.195"])), 60, &Calls::default()),
     );
-    resolver.lookup("api.scnative.space").await.unwrap();
+    resolver.lookup("api.scnative.dev").await.unwrap();
     assert!(distrusted(&resolver));
 }
 
@@ -927,17 +922,17 @@ async fn a_host_the_system_tunnels_keeps_its_fake_ip_while_the_zone_is_distruste
     let resolver = fallback(
         system_by(
             vec![
-                ("status.soundcloud-desktop.fun", Ok(ips(&["198.18.0.42"]))),
-                ("api.scnative.space", Ok(ips(&["2.26.93.81"]))),
+                ("status.getsoundcloud.app", Ok(ips(&["198.18.0.42"]))),
+                ("api.scnative.dev", Ok(ips(&["2.26.93.81"]))),
             ],
             &Calls::default(),
         ),
         doh(Ok(ips(&["188.165.221.195"])), 60, &doh_calls),
     );
     let tunnel = ips(&["198.18.0.42"]);
-    let host = "status.soundcloud-desktop.fun";
+    let host = "status.getsoundcloud.app";
     assert_eq!(resolver.lookup(host).await.unwrap(), tunnel);
-    resolver.lookup("api.scnative.space").await.unwrap();
+    resolver.lookup("api.scnative.dev").await.unwrap();
     assert!(distrusted(&resolver));
     assert_eq!(resolver.lookup(host).await.unwrap(), tunnel);
     tokio::time::sleep(Duration::from_millis(50)).await;
@@ -979,7 +974,7 @@ async fn an_abandoned_lookup_still_finishes_for_the_next_caller() {
         system(temporary(), 0, &Calls::default()),
         stepped_doh(ips(&["188.165.221.195"]), &doh_calls),
     );
-    let host = "api.scnative.space";
+    let host = "api.scnative.dev";
     let abandoned = tokio::time::timeout(Duration::from_millis(100), resolver.lookup(host)).await;
     assert!(abandoned.is_err());
     tokio::time::sleep(Duration::from_millis(1_500)).await;
@@ -995,7 +990,7 @@ async fn a_slow_but_sane_system_answer_wins_when_doh_is_down() {
         system(Ok(ips(&["188.165.221.195"])), 600, &Calls::default()),
         doh(Err(Fail::timeout_after(3000)), 60, &Calls::default()),
     );
-    let found = resolver.lookup("api.scnative.space").await.unwrap();
+    let found = resolver.lookup("api.scnative.dev").await.unwrap();
     assert_eq!(found, ips(&["188.165.221.195"]));
 }
 
@@ -1006,7 +1001,7 @@ async fn a_system_resolver_gets_eight_seconds_when_doh_is_down() {
         doh(Err(Fail::timeout_after(3000)), 60, &Calls::default()),
     );
     let started = tokio::time::Instant::now();
-    let error = resolver.lookup("api.scnative.space").await.unwrap_err();
+    let error = resolver.lookup("api.scnative.dev").await.unwrap_err();
     assert_eq!(error.kind, FailKind::Dns);
     let waited = started.elapsed();
     assert!(waited >= Duration::from_secs(8), "{waited:?}");
@@ -1047,7 +1042,7 @@ fn tight(resolver: &Fallback) -> wreq::Client {
 #[tokio::test]
 async fn a_host_resolved_first_keeps_a_slow_doh_answer_out_of_the_connect_budget() {
     let port = server().await;
-    let url = format!("http://api.scnative.space:{port}/health");
+    let url = format!("http://api.scnative.dev:{port}/health");
 
     let cold = sinkholed();
     let error = tight(&cold).get(&url).send().await.unwrap_err();
@@ -1055,7 +1050,7 @@ async fn a_host_resolved_first_keeps_a_slow_doh_answer_out_of_the_connect_budget
 
     let resolver = sinkholed();
     resolver
-        .ready("api.scnative.space", Duration::from_secs(2))
+        .ready("api.scnative.dev", Duration::from_secs(2))
         .await
         .unwrap();
     let response = tight(&resolver).get(&url).send().await.unwrap();
@@ -1065,7 +1060,7 @@ async fn a_host_resolved_first_keeps_a_slow_doh_answer_out_of_the_connect_budget
 #[tokio::test]
 async fn a_lookup_slower_than_its_budget_is_a_dns_timeout() {
     let fail = sinkholed()
-        .ready("api.scnative.space", Duration::from_millis(100))
+        .ready("api.scnative.dev", Duration::from_millis(100))
         .await
         .unwrap_err();
     assert_eq!(fail.kind, FailKind::Timeout);
@@ -1107,17 +1102,17 @@ async fn a_sane_system_answer_for_our_name_is_reused_for_half_a_minute() {
         system(Ok(ips(&["10.0.0.5", "188.165.221.195"])), 0, &sys_calls),
         doh(Ok(ips(&["1.2.3.4"])), 60, &doh_calls),
     );
-    assert!(!resolver.trusts("storage.scnative.space"));
+    assert!(!resolver.trusts("storage.scnative.dev"));
     for _ in 0..3 {
         assert_eq!(
-            resolver.lookup("storage.scnative.space").await.unwrap(),
+            resolver.lookup("storage.scnative.dev").await.unwrap(),
             ips(&["188.165.221.195"])
         );
     }
     assert_eq!(sys_calls.count(), 1);
-    assert!(resolver.trusts("storage.scnative.space"));
+    assert!(resolver.trusts("storage.scnative.dev"));
     tokio::time::advance(Duration::from_secs(31)).await;
-    resolver.lookup("storage.scnative.space").await.unwrap();
+    resolver.lookup("storage.scnative.dev").await.unwrap();
     assert_eq!(sys_calls.count(), 2);
     assert_eq!(doh_calls.count(), 0);
 
@@ -1134,12 +1129,12 @@ async fn a_distrusted_zone_skips_the_trusted_system_answer() {
         system(Ok(ips(&["188.165.221.195"])), 0, &Calls::default()),
         doh(Ok(ips(&["192.95.29.82"])), 60, &doh_calls),
     );
-    resolver.lookup("api.scnative.space").await.unwrap();
-    assert!(resolver.trusts("api.scnative.space"));
+    resolver.lookup("api.scnative.dev").await.unwrap();
+    assert!(resolver.trusts("api.scnative.dev"));
     resolver.distrust(Duration::from_secs(600));
-    assert!(!resolver.trusts("api.scnative.space"));
+    assert!(!resolver.trusts("api.scnative.dev"));
     assert_eq!(
-        resolver.lookup("api.scnative.space").await.unwrap(),
+        resolver.lookup("api.scnative.dev").await.unwrap(),
         ips(&["192.95.29.82"])
     );
     assert_eq!(doh_calls.count(), 1);
@@ -1153,7 +1148,7 @@ async fn only_a_wrong_system_answer_takes_the_trust_back() {
         changing_system(answers.clone(), delay.clone(), &Calls::default()),
         doh(Ok(ips(&["188.165.221.195"])), 60, &Calls::default()),
     );
-    let host = "storage.scnative.space";
+    let host = "storage.scnative.dev";
     resolver.lookup(host).await.unwrap();
     assert!(resolver.trusts(host));
 

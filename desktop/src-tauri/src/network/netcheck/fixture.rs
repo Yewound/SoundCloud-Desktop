@@ -95,14 +95,14 @@ pub fn troubled() -> NetReport {
     report.remote = Remote::Up;
     report.internet = Internet::Online;
     report.targets = vec![
-        reset_target(TargetId::Main, None, "api.scnative.space"),
-        reset_target(TargetId::Star, None, "api-star.scnative.space"),
-        reset_target(TargetId::Storage, None, "storage.scnative.space"),
-        reset_target(TargetId::Images, None, "images.scnative.space"),
-        reset_target(TargetId::Relay, Some("r1"), "api.r1.relay.scnative.space"),
-        reset_target(TargetId::Relay, Some("r2"), "api.r2.relay.scnative.space"),
-        reset_target(TargetId::Relay, Some("r3"), "api.r3.relay.scnative.space"),
-        reset_target(TargetId::Relay, Some("r4"), "api.r4.relay.scnative.space"),
+        reset_target(TargetId::Main, None, "api.scnative.dev"),
+        reset_target(TargetId::Star, None, "api-star.scnative.dev"),
+        reset_target(TargetId::Storage, None, "storage.scnative.dev"),
+        reset_target(TargetId::Images, None, "images.scnative.dev"),
+        reset_target(TargetId::Relay, Some("r1"), "api.r1.relay.scnative.dev"),
+        reset_target(TargetId::Relay, Some("r2"), "api.r2.relay.scnative.dev"),
+        reset_target(TargetId::Relay, Some("r3"), "api.r3.relay.scnative.dev"),
+        reset_target(TargetId::Relay, Some("r4"), "api.r4.relay.scnative.dev"),
     ];
     report.doh = ["cloudflare", "google", "quad9", "adguard", "yandex"]
         .into_iter()
@@ -132,14 +132,14 @@ pub fn troubled() -> NetReport {
         ..EnvInfo::default()
     });
     report.edge = EdgeSnapshot {
-        pins: vec![("api.scnative.space".to_string(), 480_000)],
+        pins: vec![("api.scnative.dev".to_string(), 480_000)],
         pool: vec!["r1".to_string(), "r2".to_string()],
         pro: Vec::new(),
     };
     report.recent = (0..40)
         .map(|at| PathEvent {
             at_ms: report.at_ms - at * 1000,
-            origin: "api.scnative.space".to_string(),
+            origin: "api.scnative.dev".to_string(),
             tier: Tier::Direct,
             role: Role::Primary,
             ok: false,

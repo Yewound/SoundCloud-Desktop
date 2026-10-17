@@ -25,13 +25,13 @@ const CAP_MARGIN: Duration = Duration::from_secs(1);
 const EXTERNAL_TIMEOUT: Duration = Duration::from_secs(10);
 const RELAY_TARGETS: usize = 4;
 const PRO_TARGETS: usize = 2;
-const DOH_SAMPLE_HOST: &str = "api.scnative.space";
-const STATUS_VERDICT_URL: &str = "https://status.soundcloud-desktop.fun/api/verdict";
+const DOH_SAMPLE_HOST: &str = "api.scnative.dev";
+const STATUS_VERDICT_URL: &str = "https://status.getsoundcloud.app/api/verdict";
 const CORE: [(TargetId, &str); 4] = [
-    (TargetId::Main, "api.scnative.space"),
-    (TargetId::Star, "api-star.scnative.space"),
-    (TargetId::Storage, "storage.scnative.space"),
-    (TargetId::Images, "images.scnative.space"),
+    (TargetId::Main, "api.scnative.dev"),
+    (TargetId::Star, "api-star.scnative.dev"),
+    (TargetId::Storage, "storage.scnative.dev"),
+    (TargetId::Images, "images.scnative.dev"),
 ];
 
 pub struct Target {
@@ -428,7 +428,7 @@ mod tests {
         Target {
             id: TargetId::Main,
             node: None,
-            host: "api.scnative.space".to_string(),
+            host: "api.scnative.dev".to_string(),
         }
     }
 
@@ -478,13 +478,13 @@ mod tests {
         let pro = list.last().unwrap();
         assert_eq!(pro.id, TargetId::Pro);
         assert_eq!(pro.node.as_deref(), Some("p1"));
-        assert_eq!(pro.host, "p1.pro.scnative.space");
+        assert_eq!(pro.host, "p1.pro.scnative.dev");
         let relay = list
             .iter()
             .find(|target| target.id == TargetId::Relay)
             .unwrap();
         let node = relay.node.as_deref().unwrap();
-        assert_eq!(relay.host, format!("api.{node}.relay.scnative.space"));
+        assert_eq!(relay.host, format!("api.{node}.relay.scnative.dev"));
     }
 
     #[test]
@@ -492,7 +492,7 @@ mod tests {
         let target = Target {
             id: TargetId::Main,
             node: None,
-            host: "api.scnative.space".to_string(),
+            host: "api.scnative.dev".to_string(),
         };
         assert_eq!(target.pending().cells, [Tone::Pending; 4]);
         assert_eq!(verdict::cells(&target.pending())[0], Tone::Skip);

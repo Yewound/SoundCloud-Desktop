@@ -6,8 +6,8 @@ use crate::network::dns;
 use crate::network::health::link::{self, Shape};
 use crate::network::pro;
 
-const STORAGE_PROBE: &str = "https://storage.scnative.space/probe";
-const HEALTH_PROBE: &str = "https://health.scnative.space/probe";
+const STORAGE_PROBE: &str = "https://storage.scnative.dev/probe";
+const HEALTH_PROBE: &str = "https://health.scnative.dev/probe";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub async fn of(target: &Target) -> Option<VolumeProbe> {

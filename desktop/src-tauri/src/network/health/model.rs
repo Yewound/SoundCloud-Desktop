@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::network::edge;
 
-const ORIGIN_ZONE: &str = "scnative.space";
+const ORIGIN_ZONE: &str = "scnative.dev";
 pub const PROBE_PATH: &str = "/probe";
 pub const HEALTH_PATH: &str = "/health";
 
@@ -209,7 +209,7 @@ mod tests {
     fn a_node_the_server_publishes_becomes_a_route_of_its_own() {
         let endpoint = Endpoint {
             id: "api".into(),
-            url: "https://api.scnative.space/health".into(),
+            url: "https://api.scnative.dev/health".into(),
             tiers: vec!["direct".into(), "relay".into()],
         };
         let routes = endpoint.routes(&["r1".to_string(), "r7".to_string()]);
@@ -217,14 +217,14 @@ mod tests {
             routes.iter().map(|r| r.via.as_str()).collect::<Vec<_>>(),
             ["direct", "relay:r1", "relay:r7"]
         );
-        assert_eq!(routes[2].url, "https://api.r7.relay.scnative.space/health");
+        assert_eq!(routes[2].url, "https://api.r7.relay.scnative.dev/health");
     }
 
     #[test]
     fn an_endpoint_outside_our_zone_stays_direct_only() {
         let endpoint = Endpoint {
             id: "status".into(),
-            url: "https://status.soundcloud-desktop.fun/api/health".into(),
+            url: "https://status.getsoundcloud.app/api/health".into(),
             tiers: vec!["direct".into(), "relay".into()],
         };
         let routes = endpoint.routes(&["r1".to_string()]);
@@ -236,7 +236,7 @@ mod tests {
     fn a_tier_this_build_does_not_know_is_ignored_not_fatal() {
         let endpoint = Endpoint {
             id: "call".into(),
-            url: "https://call-1.scnative.space/health".into(),
+            url: "https://call-1.scnative.dev/health".into(),
             tiers: vec!["direct".into(), "call".into()],
         };
         assert_eq!(endpoint.routes(&[]).len(), 1);

@@ -17,7 +17,7 @@ use tokio::runtime::Runtime;
 use tokio::task::AbortHandle;
 
 const FLAG_FILE: &str = "call_enabled.json";
-const DEFAULT_ENDPOINT: &str = "https://call.scnative.space:444";
+const DEFAULT_ENDPOINT: &str = "https://call.scnative.dev:444";
 const DEFAULT_POW_BITS: u32 = 22;
 
 #[derive(Clone, Debug)]

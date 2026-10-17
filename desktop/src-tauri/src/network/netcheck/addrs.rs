@@ -98,25 +98,25 @@ mod tests {
     fn our_addresses_come_from_doh_or_a_sane_system_answer() {
         let targets = [
             target(
-                "api.scnative.space",
+                "api.scnative.dev",
                 DnsState::Spoofed,
                 &["5.45.192.1"],
                 Some(&["188.165.221.195"]),
             ),
             target(
-                "api-star.scnative.space",
+                "api-star.scnative.dev",
                 DnsState::Sane,
                 &["192.95.29.82"],
                 None,
             ),
             target(
-                "storage.scnative.space",
+                "storage.scnative.dev",
                 DnsState::Sane,
                 &["188.165.221.195"],
                 Some(&["188.165.221.195"]),
             ),
             target(
-                "images.scnative.space",
+                "images.scnative.dev",
                 DnsState::Garbage,
                 &["10.10.34.35"],
                 Some(&[]),
@@ -133,13 +133,13 @@ mod tests {
     fn private_fake_and_spoofed_addresses_are_never_offered() {
         let targets = [
             target(
-                "api.scnative.space",
+                "api.scnative.dev",
                 DnsState::Spoofed,
                 &["5.45.192.1"],
                 Some(&["188.165.221.195"]),
             ),
             target(
-                "api-star.scnative.space",
+                "api-star.scnative.dev",
                 DnsState::Sane,
                 &["10.0.0.5", "192.95.29.82", "198.18.0.7"],
                 None,
@@ -161,13 +161,13 @@ mod tests {
     fn a_spoofed_answer_that_doh_confirms_elsewhere_stays() {
         let targets = [
             target(
-                "api.scnative.space",
+                "api.scnative.dev",
                 DnsState::Spoofed,
                 &["192.95.29.82"],
                 Some(&["188.165.221.195"]),
             ),
             target(
-                "api-star.scnative.space",
+                "api-star.scnative.dev",
                 DnsState::Sane,
                 &["192.95.29.82"],
                 Some(&["192.95.29.82"]),

@@ -20,7 +20,7 @@ use crate::shared::file_lru::{last_used, mark_used};
 pub mod maintenance;
 
 const SOURCE: &str = "image";
-const UPSTREAM: &str = "https://images.scnative.space";
+const UPSTREAM: &str = "https://images.scnative.dev";
 const HEDGE_DELAY: Duration = Duration::from_millis(300);
 
 /// Permanent on-disk image cache.
