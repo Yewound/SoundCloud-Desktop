@@ -64,6 +64,7 @@ export const PlaylistCard = React.memo(
 
     return (
       <div
+        data-ui="playlist-card"
         className="group relative flex flex-col gap-3 cursor-pointer select-none"
         onClick={() => navigate(`/playlist/${encodeURIComponent(playlist.urn)}`)}
       >

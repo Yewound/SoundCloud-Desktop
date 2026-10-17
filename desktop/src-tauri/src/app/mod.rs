@@ -9,6 +9,7 @@ pub mod popover_position;
 pub mod render_mode;
 pub mod restart;
 pub mod storage;
+pub mod themes;
 pub mod tray;
 pub mod tray_labels;
 pub mod updater;

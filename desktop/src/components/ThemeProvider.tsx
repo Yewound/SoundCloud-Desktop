@@ -3,8 +3,12 @@ import {applyAccentVars, applyBgVars, applyPerfMode} from '../lib/apply-theme';
 import {useCoverPalette} from '../lib/cover-palette';
 import {applyFontVars} from '../lib/interface-font';
 import {setupFocusGate, setupVisibilityGate} from '../lib/perf';
+import {effectiveLook} from '../lib/themes/look';
+import {activeLook} from '../lib/themes/records';
+import {useThemes} from '../lib/themes/use-themes';
 import {useCustomCss} from '../lib/use-custom-css';
 import { useSettingsStore } from '../stores/settings';
+import {useThemesStore} from '../stores/themes';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const accentColor = useSettingsStore((s) => s.accentColor);
@@ -14,9 +18,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const customFontName = useSettingsStore((s) => s.customFontName);
   const customFontFile = useSettingsStore((s) => s.customFontFile);
   const coverAccent = useSettingsStore((s) => s.coverAccent);
+  const look = useThemesStore(activeLook);
   const palette = useCoverPalette(coverAccent);
-  const effectiveAccent = (coverAccent && palette?.accent) || accentColor;
+  const { accent, bg, font } = effectiveLook(
+    { accentColor, bgPrimary, coverAccent, interfaceFont, customFontName, customFontFile },
+    look,
+    palette,
+  );
   useCustomCss();
+  useThemes();
 
   // One global gate that pauses every CSS animation while the window is hidden
   // (the WebView does not throttle timers/rAF). Install once.
@@ -31,17 +41,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [perfMode]);
 
   useEffect(() => {
-      applyAccentVars(effectiveAccent);
-  }, [effectiveAccent]);
+      applyAccentVars(accent);
+  }, [accent]);
 
   useEffect(() => {
-      void applyFontVars(interfaceFont, customFontName, customFontFile);
-  }, [interfaceFont, customFontName, customFontFile]);
+      void applyFontVars(font.id, font.name, font.file);
+  }, [font.id, font.name, font.file]);
 
   useEffect(() => {
-      applyBgVars(bgPrimary);
-      document.documentElement.style.backgroundColor = bgPrimary;
-  }, [bgPrimary]);
+      applyBgVars(bg);
+      document.documentElement.style.backgroundColor = bg;
+  }, [bg]);
 
   return <>{children}</>;
 }

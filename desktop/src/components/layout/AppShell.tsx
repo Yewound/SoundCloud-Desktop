@@ -28,6 +28,7 @@ import {GlobalBindingsGroup} from './GlobalBindingsGroup';
 import {NowPlayingBar} from './NowPlayingBar';
 import {ScrollReset} from './ScrollReset';
 import {Sidebar} from './Sidebar';
+import {ThemeTryBar} from './ThemeTryBar';
 import {Titlebar} from './Titlebar';
 
 const LyricsPanel = lazy(() =>
@@ -492,6 +493,7 @@ export const AppShell = React.memo(() => {
       <DropImportOverlay />
       <TrackContextMenu />
       <ContextMenuHost />
+      <ThemeTryBar />
     </div>
   );
 });

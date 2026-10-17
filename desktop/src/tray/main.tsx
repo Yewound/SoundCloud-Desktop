@@ -1,23 +1,40 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import {changeAppLanguage} from '../i18n';
-import {applyAccentVars, applyBgVars, applyPerfMode} from '../lib/apply-theme';
-import {applyCustomCss, effectiveCustomCss} from '../lib/custom-css';
-import {applyFontVars} from '../lib/interface-font';
+import {applyPerfMode} from '../lib/apply-theme';
+import {setServerPorts} from '../lib/constants';
+import {trackedInvoke as invoke} from '../lib/diagnostics';
 import {setupFocusGate, setupVisibilityGate} from '../lib/perf';
+import {applyThemeCss} from '../lib/themes/apply';
+import {applyLook} from '../lib/themes/look';
+import {probeTheme} from '../lib/themes/probe';
+import {activeLook} from '../lib/themes/records';
 import {useSettingsStore} from '../stores/settings';
+import {useThemesStore} from '../stores/themes';
 import '../index.css';
 import './tray.css';
 import {MiniPlayer} from './MiniPlayer';
 
-/** Mirror the main window's accent/perf theming into this separate webview context. */
-function applyTheme() {
-    const s = useSettingsStore.getState();
-    applyAccentVars(s.accentColor);
-    applyBgVars(s.bgPrimary);
-    applyPerfMode(s.perfMode);
-    void applyFontVars(s.interfaceFont, s.customFontName, s.customFontFile);
-    applyCustomCss(effectiveCustomCss(s));
+let brokenHash: string | null = null;
+
+async function applyTheme(safe = false) {
+    applyPerfMode(useSettingsStore.getState().perfMode);
+    const hash = activeLook(useThemesStore.getState())?.hash ?? null;
+    if (!(await applyLook(safe))) return;
+    if (hash === brokenHash) {
+        applyThemeCss('');
+        return;
+    }
+    void probeTheme('tray').then((failed) => {
+        if (!failed.length) return;
+        brokenHash = hash;
+        applyThemeCss('');
+    });
+}
+
+async function rehydrate() {
+    await useSettingsStore.persist.rehydrate();
+    await useThemesStore.persist.rehydrate();
 }
 
 /**
@@ -42,8 +59,11 @@ async function fixPopoverScale() {
 
 async function bootstrap() {
     await fixPopoverScale();
-    await useSettingsStore.persist.rehydrate();
-    applyTheme();
+    const [staticPort, proxyPort] = await invoke<[number, number]>('get_server_ports');
+    setServerPorts(staticPort, proxyPort);
+    await rehydrate();
+    const suppressed = await invoke<boolean>('custom_css_suppressed').catch(() => false);
+    await applyTheme(suppressed);
     await changeAppLanguage(useSettingsStore.getState().language);
 
     ReactDOM.createRoot(document.getElementById('tray-root')!).render(
@@ -59,7 +79,7 @@ async function bootstrap() {
     // (separate store instance — it only reads the shared on-disk state on demand).
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState !== 'visible') return;
-        void Promise.resolve(useSettingsStore.persist.rehydrate()).then(applyTheme);
+        void rehydrate().then(() => applyTheme());
     });
 }
 

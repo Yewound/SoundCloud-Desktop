@@ -1,45 +1,26 @@
+import { getStaticPort } from './constants';
 import { resolveCssAssets } from './css-assets';
 import { isMac } from './platform';
+import { stripRemoteCss } from './themes/css-guard.ts';
 
 const STYLE_ID = 'sc-custom-css';
-const IMPORT_RULE = /@import\b[^;]*;?/gi;
-const URL_TOKEN = /url\(\s*(['"]?)(.*?)\1\s*\)/gis;
-const IMAGE_SET = /(?:-webkit-)?image-set\((?:[^()]|\([^()]*\))*\)/gi;
-const LOCAL_SCHEME = /^(?:data:|blob:|asset:|https?:\/\/asset\.localhost\/)/i;
 
-export interface SanitizedCss {
-  css: string;
-  blocked: number;
-}
+export const sanitizeCustomCss = stripRemoteCss;
 
-function isLocalUrl(target: string): boolean {
-  const value = target.trim();
-  if (LOCAL_SCHEME.test(value)) return true;
-  return !value.includes(':') && !value.includes('\\') && !value.startsWith('//');
-}
-
-function hasRemoteString(chunk: string): boolean {
-  const strings = chunk.match(/(['"])(.*?)\1/g) ?? [];
-  return strings.some((quoted) => !isLocalUrl(quoted.slice(1, -1)));
-}
-
-export function sanitizeCustomCss(source: string): SanitizedCss {
-  let blocked = 0;
-  const block = (replacement: string) => {
-    blocked += 1;
-    return replacement;
-  };
-  const css = source
-    .replace(IMPORT_RULE, () => block(''))
-    .replace(URL_TOKEN, (match, _quote: string, target: string) =>
-      isLocalUrl(target) ? match : block('none'),
-    )
-    .replace(IMAGE_SET, (match) => (hasRemoteString(match) ? block('none') : match));
-  return { css, blocked };
-}
+let cached: { source: string; enabled: boolean; port: number | null; css: string } | null = null;
 
 export function effectiveCustomCss(state: { customCss: string; customCssEnabled: boolean }) {
-  return state.customCssEnabled ? resolveCssAssets(sanitizeCustomCss(state.customCss).css) : '';
+  const port = getStaticPort();
+  if (
+    cached?.source === state.customCss &&
+    cached.enabled === state.customCssEnabled &&
+    cached.port === port
+  ) {
+    return cached.css;
+  }
+  const css = state.customCssEnabled ? resolveCssAssets(stripRemoteCss(state.customCss).css) : '';
+  cached = { source: state.customCss, enabled: state.customCssEnabled, port, css };
+  return css;
 }
 
 export function applyCustomCss(css: string, doc: Document = document) {

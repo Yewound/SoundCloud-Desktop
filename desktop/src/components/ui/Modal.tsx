@@ -214,6 +214,7 @@ export function ModalContent({
                 className={`modal-content fixed ${zClass} left-1/2 top-1/2 w-full ${WIDTH[size]} max-w-[95vw] outline-none`}
             >
                 <div
+                    data-ui="modal"
                     className={`relative flex max-h-[85vh] flex-col overflow-hidden rounded-[1.75rem] ${className ?? ''}`}
                     style={{
                         border: '0.5px solid rgba(255,255,255,0.12)',

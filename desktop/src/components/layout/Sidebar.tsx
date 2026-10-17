@@ -45,6 +45,7 @@ function NavItem({
     <NavLink
       to={to}
       title={title}
+      data-ui="nav-item"
       className={({ isActive }) =>
         `${ROW} ${
           isActive
@@ -214,6 +215,7 @@ export const Sidebar = React.memo(() => {
           <NavLink
             to={`/user/${encodeURIComponent(user.urn)}`}
             title={collapsed ? user.username : undefined}
+            data-ui="nav-item"
             className={({ isActive }) => `${ROW} ${isActive ? '' : 'hover:bg-white/[0.05]'}`}
             style={({ isActive }) => (isActive ? ACTIVE : undefined)}
           >

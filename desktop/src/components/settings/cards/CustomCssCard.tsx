@@ -9,7 +9,23 @@ import { Card, Toggle } from '../primitives';
 import { CustomCssAssets } from './CustomCssAssets';
 import { CustomCssEditor } from './CustomCssEditor';
 
-const HOOKS = ['app', 'titlebar', 'sidebar', 'main', 'player', 'queue', 'lyrics', 'card', 'tray'];
+const HOOKS = [
+  'app',
+  'titlebar',
+  'sidebar',
+  'nav-item',
+  'search',
+  'main',
+  'player',
+  'queue',
+  'lyrics',
+  'card',
+  'track-card',
+  'track-row',
+  'playlist-card',
+  'modal',
+  'tray',
+];
 const VARIABLES = ['--color-accent', '--bg-primary', '--font-sans', '--glass-blur'];
 
 const EXAMPLE = `:root {

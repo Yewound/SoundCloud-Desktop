@@ -1,12 +1,12 @@
 import { appDataDir, join } from '@tauri-apps/api/path';
 import { exists, mkdir, readDir, remove, writeFile } from '@tauri-apps/plugin-fs';
 import { getStaticPort } from './constants';
+import { resolveCustomAssets } from './themes/custom-assets.ts';
 
 const ASSETS_DIR = 'css-assets';
 export const CSS_ASSET_PREFIX = 'sc-assets/';
 export const CSS_ASSET_MAX_BYTES = 10 * 1024 * 1024;
 export const CSS_ASSET_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.svg,.avif';
-const ASSET_URL = /url\(\s*(['"]?)sc-assets\/([^'")\s]+)\1\s*\)/gi;
 
 export type CssAssetResult = 'ok' | 'type' | 'size' | 'failed';
 
@@ -26,10 +26,8 @@ export function cssAssetHttpUrl(name: string): string | null {
 }
 
 export function resolveCssAssets(css: string): string {
-  return css.replace(ASSET_URL, (match, _quote: string, name: string) => {
-    const url = cssAssetHttpUrl(name);
-    return url ? `url("${url}")` : match;
-  });
+  const port = getStaticPort();
+  return port ? resolveCustomAssets(css, `http://127.0.0.1:${port}/${ASSETS_DIR}/`) : css;
 }
 
 export async function listCssAssets(): Promise<string[]> {

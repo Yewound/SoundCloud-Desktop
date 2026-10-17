@@ -30,10 +30,15 @@ pub async fn start_all(
     wallpapers_dir: PathBuf,
     local_covers_dir: PathBuf,
     css_assets_dir: PathBuf,
+    theme_files_dir: PathBuf,
 ) -> (u16, u16) {
-    let static_port =
-        crate::network::static_server::start(wallpapers_dir, local_covers_dir, css_assets_dir)
-            .await;
+    let static_port = crate::network::static_server::start(
+        wallpapers_dir,
+        local_covers_dir,
+        css_assets_dir,
+        theme_files_dir,
+    )
+    .await;
     let proxy_port = crate::network::proxy_server::start().await;
     (static_port, proxy_port)
 }
