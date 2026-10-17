@@ -5,6 +5,7 @@ import {useBlockedArtistsStore} from '../stores/blocked-artists';
 import type {Track} from '../stores/player';
 import {playbackAllowed, usePlayerStore} from '../stores/player';
 import {useSettingsStore} from '../stores/settings';
+import {findAltUpload, playAltUpload, wantsAltUpload} from './alt-upload';
 import {
   api,
   buildStorageUrls,
@@ -468,6 +469,19 @@ async function loadTrack(track: Track, resumeAt = 0) {
     if (local) {
       await playLocalFile(track, gen, resumeAt);
       return;
+    }
+
+    if (wantsAltUpload(track)) {
+      setDownloadProgress(0);
+      const alt = await findAltUpload(track);
+      if (gen !== loadGen) return;
+      setDownloadProgress(null);
+      if (alt) {
+        pendingCrossfadeMs = crossfadeMs;
+        if (resumeAt > 0) pendingStart = {urn: alt.urn, at: resumeAt};
+        playAltUpload(track, alt);
+        return;
+      }
     }
 
     const quality = requestedQuality();

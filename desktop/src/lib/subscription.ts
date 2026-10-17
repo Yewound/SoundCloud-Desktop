@@ -37,6 +37,10 @@ async function fetchSubscription(): Promise<SubscriptionResponse> {
   }
 }
 
+export function isKnownNonPremium(): boolean {
+  return queryClient.getQueryData<SubscriptionResponse>(QUERY_KEY)?.premium === false;
+}
+
 export function useSubscription(enabled: boolean) {
   return useQuery({
     queryKey: QUERY_KEY,

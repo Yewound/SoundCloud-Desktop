@@ -113,6 +113,7 @@ export interface SettingsState {
   roomCrossfade: RoomCrossfade;
   roomAccess: RoomAccess;
   autoplay: boolean;
+  playAltUploads: boolean;
   searchPlayback: SearchPlayback;
   sidebarCollapsed: boolean;
   floatingComments: boolean;
@@ -191,6 +192,7 @@ export interface SettingsState {
   setRoomCrossfade: (mode: RoomCrossfade) => void;
   setRoomAccess: (access: RoomAccess) => void;
   setAutoplay: (enabled: boolean) => void;
+  setPlayAltUploads: (enabled: boolean) => void;
   setSearchPlayback: (mode: SearchPlayback) => void;
   toggleSidebar: () => void;
   setFloatingComments: (v: boolean) => void;
@@ -282,6 +284,7 @@ const DEFAULTS = {
   roomCrossfade: 'room' as RoomCrossfade,
   roomAccess: 'private' as RoomAccess,
   autoplay: true,
+  playAltUploads: true,
   searchPlayback: 'similar' as SearchPlayback,
   sidebarCollapsed: false,
   floatingComments: true,
@@ -402,6 +405,7 @@ export const useSettingsStore = create<SettingsState>()(
       setRoomCrossfade: (roomCrossfade) => set({ roomCrossfade }),
       setRoomAccess: (roomAccess) => set({ roomAccess }),
       setAutoplay: (autoplay) => set({ autoplay }),
+      setPlayAltUploads: (playAltUploads) => set({ playAltUploads }),
       setSearchPlayback: (searchPlayback) => set({ searchPlayback }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setFloatingComments: (floatingComments) => set({ floatingComments }),
@@ -580,6 +584,7 @@ export const useSettingsStore = create<SettingsState>()(
         roomCrossfade: s.roomCrossfade,
         roomAccess: s.roomAccess,
         autoplay: s.autoplay,
+        playAltUploads: s.playAltUploads,
         searchPlayback: s.searchPlayback,
         sidebarCollapsed: s.sidebarCollapsed,
         floatingComments: s.floatingComments,

@@ -1,0 +1,118 @@
+import { type Track, usePlayerStore } from '../stores/player';
+import { useSettingsStore } from '../stores/settings';
+import { api } from './api';
+import { isTrackBlocked } from './blocked-artists';
+import { isUrnDisliked } from './dislikes';
+import { type PagedResponse, pagedUrl } from './hooks';
+import { isKnownNonPremium } from './subscription';
+import { isPreviewOnly } from './track-access';
+import { foldName, getTrackDisplay, stripNoiseTags } from './track-display';
+
+const PREVIEW_MS = 30_000;
+const DURATION_SLACK_MS = 3_000;
+const SEARCH_LIMIT = 20;
+const SEARCH_TIMEOUT_MS = 8_000;
+const JOINERS = ['feat', 'ft', 'x', 'and', 'with', 'vs'];
+
+const altByOriginal = new Map<string, Track | null>();
+const originalByAlt = new Map<string, Track>();
+
+function lengthOf(track: Track): number {
+  return track.full_duration ?? track.duration;
+}
+
+function isLocked(track: Track): boolean {
+  return isPreviewOnly(track) || track.access === 'blocked' || track.policy === 'BLOCK';
+}
+
+function isUsable(track: Track): boolean {
+  return !isLocked(track) && !isUrnDisliked(track.urn) && !isTrackBlocked(track);
+}
+
+export function wantsAltUpload(track: Track): boolean {
+  const known = altByOriginal.get(track.urn);
+  return (
+    useSettingsStore.getState().playAltUploads &&
+    isLocked(track) &&
+    track._scd_meta?.storage_state !== 'ok' &&
+    lengthOf(track) > PREVIEW_MS &&
+    known !== null &&
+    (known === undefined || isUsable(known)) &&
+    isKnownNonPremium()
+  );
+}
+
+function isSameSong(candidate: Track, title: string, credited: Set<string>, artist: string) {
+  const name = ` ${foldName(stripNoiseTags(candidate.title))} `;
+  const at = name.indexOf(` ${title} `);
+  if (at < 0) return false;
+  const rest = `${name.slice(0, at)} ${name.slice(at + title.length + 2)}`.split(' ');
+  if (!rest.every((word) => !word || credited.has(word))) return false;
+  const byline = foldName(
+    `${name} ${candidate.user?.username ?? ''} ${candidate.enrichment?.primary_artist?.name ?? ''}`,
+  );
+  return ` ${byline} `.includes(` ${artist} `);
+}
+
+export async function findAltUpload(track: Track): Promise<Track | null> {
+  const known = altByOriginal.get(track.urn);
+  if (known !== undefined) return known;
+
+  const display = getTrackDisplay(track);
+  const artistName = display.artistNames[0] ?? track.user?.username ?? '';
+  const title = foldName(display.title);
+  const artist = foldName(artistName);
+  if (!title || !artist) {
+    altByOriginal.set(track.urn, null);
+    return null;
+  }
+
+  const query = `q=${encodeURIComponent(`${artistName} ${display.title}`)}`;
+  let page: PagedResponse<Track>;
+  try {
+    page = await api<PagedResponse<Track>>(
+      pagedUrl('/tracks', 0, SEARCH_LIMIT, query),
+      { quiet: true },
+      SEARCH_TIMEOUT_MS,
+    );
+  } catch {
+    return null;
+  }
+
+  const credited = new Set([
+    ...JOINERS,
+    ...display.artistNames.flatMap((name) => foldName(name).split(' ')),
+  ]);
+  const gap = (candidate: Track) => Math.abs(lengthOf(candidate) - lengthOf(track));
+  const best =
+    (page.collection ?? [])
+      .filter(
+        (candidate) =>
+          candidate.urn !== track.urn &&
+          isUsable(candidate) &&
+          gap(candidate) <= DURATION_SLACK_MS &&
+          isSameSong(candidate, title, credited, artist),
+      )
+      .sort((a, b) => gap(a) - gap(b) || (b.playback_count ?? 0) - (a.playback_count ?? 0))[0] ??
+    null;
+  altByOriginal.set(track.urn, best);
+  return best;
+}
+
+export function playAltUpload(original: Track, alt: Track): void {
+  originalByAlt.set(alt.urn, original);
+  const swap = (item: Track) => (item.urn === original.urn ? alt : item);
+  usePlayerStore.setState((s) => ({
+    currentTrack: s.currentTrack && swap(s.currentTrack),
+    queue: s.queue.map(swap),
+    originalQueue: s.originalQueue?.map(swap) ?? null,
+  }));
+}
+
+export function originalOf(urn: string): Track | undefined {
+  return originalByAlt.get(urn);
+}
+
+export function playsTrack(current: Track | null, urn: string): boolean {
+  return !!current && (current.urn === urn || originalByAlt.get(current.urn)?.urn === urn);
+}

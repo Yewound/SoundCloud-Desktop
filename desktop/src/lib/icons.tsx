@@ -91,6 +91,7 @@ import {
   Repeat as _Repeat,
   Repeat1 as _Repeat1,
   Repeat2 as _Repeat2,
+  Replace as _Replace,
   Rewind as _Rewind,
   RotateCcw as _RotateCcw,
   Search as _Search,
@@ -240,6 +241,7 @@ export const Repeat1 = memo(_Repeat1);
 export const RefreshCw = memo(_RefreshCw);
 export const Rewind = memo(_Rewind);
 export const Repeat2 = memo(_Repeat2);
+export const Replace = memo(_Replace);
 export const Search = memo(_Search);
 export const Send = memo(_Send);
 export const Settings = memo(_Settings);

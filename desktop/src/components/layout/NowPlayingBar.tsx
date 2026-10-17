@@ -63,6 +63,7 @@ import {
 } from '../../stores/player';
 import {useSettingsStore} from '../../stores/settings';
 import {AlbumLinkButton} from '../music/AlbumLinkButton';
+import {AltUploadMark} from '../music/AltUploadMark';
 import {ArtistNameLinks} from '../music/ArtistNameLinks';
 import {PlayerBlockButton} from '../music/blocklist/PlayerBlockButton';
 import {EqualizerPanel} from '../music/EqualizerPanel';
@@ -951,6 +952,7 @@ const PillTrackBody = React.memo(function PillTrackBody({
           {displayTitle}
         </span>
         <span className={`npb-sub${hasArtistLink ? ' is-link' : ''}`}>
+          <AltUploadMark urn={track.urn} />
           <UploadKindDot kind={artistDisplay.uploadKind} />
           <span>
             <ArtistNameLinks items={artistLinks} />
