@@ -1856,6 +1856,7 @@
     "errors": {
       "failed": "Parça yüklenemedi, daha sonra tekrar dene",
       "network": "Yükleme sırasında bağlantı koptu, tekrar dene",
+      "networkAfterSend": "Dosya gönderildikten sonra bağlantı koptu. Parça yüklenmiş olabilir, profilini kontrol et",
       "fileUnreadable": "Ses dosyası okunamadı",
       "artwork": "Kapak JPEG veya PNG olmalı",
       "artworkTooLarge": "Kapak 8 MB'tan büyük",
@@ -1866,6 +1867,7 @@
       "invalid": "Başlığı ve diğer alanları kontrol et",
       "session": "Oturumun sona erdi, tekrar giriş yap",
       "signIn": "SoundCloud'a yeniden giriş yapman gerekiyor",
+      "signedIn": "Giriş yapıldı, dosyayı yeniden gönder",
       "soundcloudDown": "SoundCloud şu anda kullanılamıyor, daha sonra tekrar dene",
       "soundcloudDownFor": "SoundCloud şu anda kullanılamıyor, {{minutes}} dk sonra tekrar dene",
       "rejected": "SoundCloud yüklemeyi reddetti. Hesabın yükleme sınırına ulaşmış olabilir."

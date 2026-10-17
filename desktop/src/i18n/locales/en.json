@@ -2049,6 +2049,7 @@
     "errors": {
       "failed": "Couldn't upload the track, try again later",
       "network": "The connection dropped during the upload, try again",
+      "networkAfterSend": "The connection dropped after the file was sent. The track may already be uploaded, check your profile",
       "fileUnreadable": "Couldn't read the audio file",
       "artwork": "The cover must be a JPEG or PNG image",
       "artworkTooLarge": "The cover is larger than 8 MB",
@@ -2059,6 +2060,7 @@
       "invalid": "Check the title and the other fields",
       "session": "Your session expired, sign in again",
       "signIn": "Sign in to SoundCloud again",
+      "signedIn": "Signed in, send the file again",
       "soundcloudDown": "SoundCloud is unavailable right now, try again later",
       "soundcloudDownFor": "SoundCloud is unavailable right now, try again in {{minutes}} min",
       "rejected": "SoundCloud refused the upload. Your account may have reached its upload limit."

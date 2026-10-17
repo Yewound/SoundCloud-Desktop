@@ -1,10 +1,11 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { askRelogin } from '../../lib/auth-recovery';
 import { AlertCircle, CircleCheck, Loader2, Lock, RotateCcw } from '../../lib/icons';
 import type { UploadAction } from '../../lib/track-upload';
+import { useAuthRecoveryStore } from '../../stores/auth-recovery';
 import { useTrackUploadStore } from '../../stores/track-upload';
 
 const GHOST_BUTTON =
@@ -116,13 +117,21 @@ function Finished() {
 
 function Failed() {
   const { t } = useTranslation();
-  const { error, reason, action, retryAfter, reset, retry, setDialogOpen } = useTrackUploadStore();
+  const { error, reason, action, retryAfter, failedAt, reset, retry, setDialogOpen } =
+    useTrackUploadStore();
+  const recoveryPhase = useAuthRecoveryStore((s) => s.phase);
+  const signedIn = useAuthRecoveryStore((s) => action === 'signIn' && s.recoveredAt > failedAt);
+  const primary = signedIn ? 'retry' : action;
   const minutes = Math.max(1, Math.ceil((retryAfter ?? 0) / 60));
+
+  useEffect(() => {
+    if (primary === 'signIn' && recoveryPhase === 'modal') setDialogOpen(false);
+  }, [primary, recoveryPhase, setDialogOpen]);
+
   const runPrimary = () => {
-    if (action === 'signIn') {
-      setDialogOpen(false);
+    if (primary === 'signIn') {
       askRelogin('writes');
-    } else if (action === 'retry') {
+    } else if (primary === 'retry') {
       void retry();
     } else {
       reset();
@@ -134,19 +143,23 @@ function Failed() {
         <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
         <div className="space-y-1 min-w-0">
           <p className="text-[13px] text-white/80 leading-relaxed">
-            {t(error ?? 'upload.errors.failed', { minutes })}
+            {t(signedIn ? 'upload.errors.signedIn' : (error ?? 'upload.errors.failed'), {
+              minutes,
+            })}
           </p>
-          {reason && <p className="text-[11.5px] text-white/40 break-words">{reason}</p>}
+          {reason && !signedIn && (
+            <p className="text-[11.5px] text-white/40 break-words">{reason}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center justify-end gap-2.5">
         <Dialog.Close className={GHOST_BUTTON}>{t('common.close')}</Dialog.Close>
-        {action === 'retry' && (
+        {primary === 'retry' && (
           <button type="button" onClick={reset} className={GHOST_BUTTON}>
             {t('upload.otherFile')}
           </button>
         )}
-        {action === 'signIn' && (
+        {primary === 'signIn' && (
           <button type="button" onClick={() => void retry()} className={GHOST_BUTTON}>
             {t('common.retry')}
           </button>
@@ -156,9 +169,9 @@ function Failed() {
           onClick={runPrimary}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold bg-accent text-accent-contrast hover:bg-accent-hover transition-all cursor-pointer"
         >
-          {action === 'signIn' && <Lock size={13} />}
-          {action === 'retry' && <RotateCcw size={13} />}
-          {t(PRIMARY_LABEL[action])}
+          {primary === 'signIn' && <Lock size={13} />}
+          {primary === 'retry' && <RotateCcw size={13} />}
+          {t(PRIMARY_LABEL[primary])}
         </button>
       </div>
     </div>

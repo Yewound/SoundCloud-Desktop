@@ -34,6 +34,7 @@ interface TrackUploadState {
   reason: string | null;
   action: UploadAction;
   retryAfter: number | null;
+  failedAt: number;
   request: UploadRequest | null;
   trackUrn: string | null;
   dialogOpen: boolean;
@@ -73,6 +74,7 @@ const IDLE = {
   reason: null,
   action: 'restart' as UploadAction,
   retryAfter: null,
+  failedAt: 0,
   request: null,
   trackUrn: null,
 };
@@ -110,12 +112,14 @@ export const useTrackUploadStore = create<TrackUploadState>((set, get) => ({
         toast(i18n.t('upload.cancelled'));
         return;
       }
+      const sending = get().phase === 'sending';
       set({
         phase: 'failed',
-        error: failureText(error),
-        action: failureAction(error),
+        error: failureText(error, sending),
+        action: failureAction(error, sending),
         reason: failureReason(error),
         retryAfter: isUploadFailure(error) ? (error.retryAfter ?? null) : null,
+        failedAt: Date.now(),
       });
       if (!get().dialogOpen) toast.error(i18n.t('upload.failedToast'));
     }

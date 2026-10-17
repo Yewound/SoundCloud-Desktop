@@ -51,6 +51,8 @@ const SOUNDCLOUD_DOWN_CODES = new Set([
   'soundcloud_refresh_rate_limited',
 ]);
 
+const RETRY_CODES = new Set([...SOUNDCLOUD_DOWN_CODES, 'uploads_busy', 'upload_in_progress']);
+
 const FILE_CODES: Record<string, string> = {
   audio_unreadable: 'upload.errors.fileUnreadable',
   artwork_unreadable: 'upload.errors.artwork',
@@ -89,9 +91,11 @@ export function isUploadFailure(error: unknown): error is UploadFailure {
   return typeof error === 'object' && error !== null && 'kind' in error;
 }
 
-export function failureText(error: unknown): string {
+export function failureText(error: unknown, sending: boolean): string {
   if (!isUploadFailure(error)) return 'upload.errors.failed';
-  if (error.kind === 'network') return 'upload.errors.network';
+  if (error.kind === 'network') {
+    return sending ? 'upload.errors.network' : 'upload.errors.networkAfterSend';
+  }
   if (error.kind === 'file') return FILE_CODES[error.code ?? ''] ?? 'upload.errors.fileUnreadable';
   if (SOUNDCLOUD_DOWN_CODES.has(error.code ?? '')) {
     return error.retryAfter ? 'upload.errors.soundcloudDownFor' : 'upload.errors.soundcloudDown';
@@ -103,15 +107,13 @@ export function failureText(error: unknown): string {
   return 'upload.errors.failed';
 }
 
-export function failureAction(error: unknown): UploadAction {
+export function failureAction(error: unknown, sending: boolean): UploadAction {
   if (!isUploadFailure(error) || error.kind === 'file') return 'restart';
-  if (error.kind === 'network') return 'retry';
+  if (error.kind === 'network') return sending ? 'retry' : 'restart';
   if (error.code === 'soundcloud_reauthorization_required' || error.status === 401) {
     return 'signIn';
   }
-  const status = error.status ?? 0;
-  if (status >= 500 || status === 429 || error.code === 'upload_in_progress') return 'retry';
-  return 'restart';
+  return RETRY_CODES.has(error.code ?? '') ? 'retry' : 'restart';
 }
 
 export function failureReason(error: unknown): string | null {
