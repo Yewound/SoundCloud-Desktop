@@ -30,6 +30,10 @@
     "active": true,
     "targets": "all",
     "windows": {
+      "wix": {
+        "fragmentPaths": ["./windows/autostart.wxs"],
+        "componentGroupRefs": ["AutostartCleanup"]
+      },
       "webviewInstallMode": {
         "type": "offlineInstaller",
         "silent": true
