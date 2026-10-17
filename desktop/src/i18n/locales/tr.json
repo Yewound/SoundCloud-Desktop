@@ -2120,6 +2120,7 @@
     "copied": "Kopyalandı!",
     "logout": "Çıkış yap",
     "writesTitle": "Yeniden giriş yapın",
-    "writesText": "SoundCloud mevcut girişiniz üzerinden değişiklikleri kabul etmiyor. Yeniden giriş yapın, bir dakika sürer."
+    "writesText": "SoundCloud mevcut girişiniz üzerinden değişiklikleri kabul etmiyor. Yeniden giriş yapın, bir dakika sürer.",
+    "readsText": "SoundCloud bu listeyi mevcut girişiniz üzerinden vermiyor. Yeniden giriş yapın, bir dakika sürer."
   }
 }

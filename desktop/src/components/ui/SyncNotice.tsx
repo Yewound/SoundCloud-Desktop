@@ -58,13 +58,15 @@ export const SyncNotice = React.memo(function SyncNotice({
   const [now, setNow] = useState(Date.now);
   const queuedAt = info?.queuedSince ? Date.parse(info.queuedSince) : Number.NaN;
   const waiting = kind === 'syncing' && !Number.isNaN(queuedAt);
+  const unavailable = kind === 'refused' && info?.errorCode === 'unavailable';
+  const ticking = waiting || unavailable;
 
   useEffect(() => {
-    if (!waiting) return;
+    if (!ticking) return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), WAIT_TICK_MS);
     return () => clearInterval(timer);
-  }, [waiting]);
+  }, [ticking]);
 
   if (kind === 'syncing') {
     return (
@@ -98,15 +100,14 @@ export const SyncNotice = React.memo(function SyncNotice({
     const signIn = code === 'auth_required' && ownedByMe;
     const codeText = code === 'auth_required' && !ownedByMe ? undefined : REFUSED_TEXT[code];
     const message = text ?? t(codeText ?? DEFAULT_TEXT.refused);
-    const retryAfter = info?.retryAfterSeconds ?? 0;
-    const showRetry = code === 'unavailable' || retryAfter > 60;
+    const retryLeft = ((info?.retryAt ?? now) - now) / 1000;
     return (
       <div className="flex flex-col items-center gap-3 text-center text-[13px] text-white/30">
-        {showRetry
-          ? `${message} · ${t('sync.retryIn', { time: syncTimeText(t, retryAfter) })}`
+        {unavailable
+          ? `${message} · ${t('sync.retryIn', { time: syncTimeText(t, retryLeft) })}`
           : message}
         {signIn && (
-          <button type="button" onClick={() => askRelogin('session')} className={ACTION}>
+          <button type="button" onClick={() => askRelogin('reads')} className={ACTION}>
             <Lock size={12} />
             {t('sync.signIn')}
           </button>

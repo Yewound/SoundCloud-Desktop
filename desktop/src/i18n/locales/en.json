@@ -124,7 +124,8 @@
     "copied": "Copied!",
     "logout": "Log out",
     "writesTitle": "Sign in again",
-    "writesText": "SoundCloud does not accept changes through your current sign-in. Sign in again, it takes a minute."
+    "writesText": "SoundCloud does not accept changes through your current sign-in. Sign in again, it takes a minute.",
+    "readsText": "SoundCloud does not return this list through your current sign-in. Sign in again, it takes a minute."
   },
   "qrLink": {
     "pullTitle": "Sign in with another device",

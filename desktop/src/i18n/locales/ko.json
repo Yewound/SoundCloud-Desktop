@@ -124,7 +124,8 @@
     "copied": "복사했어요!",
     "logout": "로그아웃",
     "writesTitle": "다시 로그인하세요",
-    "writesText": "SoundCloud가 현재 로그인으로는 변경을 받지 않아요. 다시 로그인해 주세요. 1분이면 돼요."
+    "writesText": "SoundCloud가 현재 로그인으로는 변경을 받지 않아요. 다시 로그인해 주세요. 1분이면 돼요.",
+    "readsText": "SoundCloud가 현재 로그인으로는 이 목록을 주지 않아요. 다시 로그인해 주세요. 1분이면 돼요."
   },
   "qrLink": {
     "pullTitle": "다른 기기로 로그인",

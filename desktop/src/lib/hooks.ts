@@ -166,6 +166,7 @@ const INFINITE_GC_MS = 1000 * 60 * 3;
 const COLD_CACHE_MS = Number.POSITIVE_INFINITY;
 const PARTIAL_REFETCH_MS = 30_000;
 const PARTIAL_REFETCH_LIMIT = 20;
+const STALLED_REFETCH_MS = 5 * 60_000;
 const REFRESH_PENDING_RETRIES = 8;
 const QUEUED_CREATE_REFRESH_MS = [3_000, 10_000, 30_000];
 
@@ -634,9 +635,11 @@ export function useUserPopularTracks(userUrn: string | undefined) {
       return { tracks: all, partial, sync };
     },
     refetchInterval: (query) =>
-      query.state.data?.partial && query.state.dataUpdateCount < PARTIAL_REFETCH_LIMIT
-        ? PARTIAL_REFETCH_MS
-        : false,
+      !query.state.data?.partial
+        ? false
+        : query.state.dataUpdateCount < PARTIAL_REFETCH_LIMIT
+          ? PARTIAL_REFETCH_MS
+          : STALLED_REFETCH_MS,
     enabled: !!userUrn,
     staleTime: COLD_CACHE_MS,
     gcTime: INFINITE_GC_MS,
@@ -656,7 +659,7 @@ export function useUserPopularTracks(userUrn: string | undefined) {
     state: syncState,
     errorCode,
     queuedSince: sync?.queuedSince ?? null,
-    retryAfterSeconds: sync?.retryAfterSeconds ?? 0,
+    retryAt: query.dataUpdatedAt + (sync?.retryAfterSeconds ?? 0) * 1000,
   };
   return { ...query, tracks: query.data?.tracks ?? EMPTY_TRACKS, syncState, syncInfo };
 }

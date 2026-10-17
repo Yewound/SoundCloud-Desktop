@@ -17,7 +17,7 @@ export interface CollectionSyncInfo {
   state: CollectionSyncState;
   errorCode: string | null;
   queuedSince: string | null;
-  retryAfterSeconds: number;
+  retryAt: number;
 }
 
 interface SyncedPage {
@@ -28,6 +28,7 @@ interface SyncedPage {
 const MIN_PROBE_MS = 10_000;
 const MAX_PROBE_MS = 60_000;
 const PROBE_BUDGET_MS = 15 * 60_000;
+const STALLED_PROBE_MS = 5 * 60_000;
 const STALLED_QUEUE_MS = 15 * 60_000;
 const UNOBSERVED_PLAYLIST_STATUSES = ['unhydrated', 'legacy_review', 'retry_wait'];
 
@@ -72,11 +73,9 @@ export function useCollectionSync(
     const deadline = Date.now() + PROBE_BUDGET_MS;
 
     function schedule() {
-      if (Date.now() + delay > deadline) {
-        setStalledAt(updatedAt);
-        return;
-      }
-      timer = setTimeout(probe, delay);
+      const late = Date.now() + delay > deadline;
+      if (late) setStalledAt(updatedAt);
+      timer = setTimeout(probe, late ? STALLED_PROBE_MS : delay);
       delay = Math.min(delay * 1.5, MAX_PROBE_MS);
     }
 
@@ -124,6 +123,21 @@ export function useCollectionSync(
     return () => clearTimeout(timer);
   }, [waiting, stalledFrom, updatedAt]);
 
+  const retryAt = updatedAt + retryAfterSeconds * 1000;
+
+  useEffect(() => {
+    if (errorCode !== 'unavailable' || retryAfterSeconds <= 0) return;
+    const timer = setTimeout(
+      () =>
+        void qc.invalidateQueries(
+          { queryKey: queryKeyRef.current, exact: true },
+          { cancelRefetch: false },
+        ),
+      retryAt - Date.now() + MIN_PROBE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [qc, errorCode, retryAfterSeconds, retryAt]);
+
   const stalled = stalledAt === updatedAt || stalledFrom <= Date.now();
   const state: CollectionSyncState = errorCode
     ? 'refused'
@@ -133,7 +147,7 @@ export function useCollectionSync(
         ? 'stalled'
         : 'syncing';
   return useMemo(
-    () => ({ state, errorCode, queuedSince, retryAfterSeconds }),
-    [state, errorCode, queuedSince, retryAfterSeconds],
+    () => ({ state, errorCode, queuedSince, retryAt }),
+    [state, errorCode, queuedSince, retryAt],
   );
 }

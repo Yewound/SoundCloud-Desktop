@@ -8,10 +8,17 @@ import { useAuthRecoveryStore } from '../stores/auth-recovery';
 import { oauthErrorText } from './auth/oauth-error';
 import { Modal, ModalClose, ModalContent, ModalTitle } from './ui/Modal';
 
+const DESCRIPTION = {
+  session: 'recovery.description',
+  writes: 'recovery.writesText',
+  reads: 'recovery.readsText',
+} as const;
+
 export const SessionRecoveryModal = React.memo(() => {
   const { t } = useTranslation();
   const phase = useAuthRecoveryStore((s) => s.phase);
-  const writes = useAuthRecoveryStore((s) => s.reason === 'writes');
+  const reason = useAuthRecoveryStore((s) => s.reason);
+  const asked = reason !== 'session';
   const busy = useAuthRecoveryStore((s) => s.busy);
   const lastFailure = useAuthRecoveryStore((s) => s.lastFailure);
   const reset = useAuthRecoveryStore((s) => s.reset);
@@ -98,10 +105,10 @@ export const SessionRecoveryModal = React.memo(() => {
               <Lock size={24} className="text-white/60" />
             </div>
             <ModalTitle className="text-lg font-bold text-white/90 tracking-tight">
-              {t(writes ? 'recovery.writesTitle' : 'recovery.title')}
+              {t(asked ? 'recovery.writesTitle' : 'recovery.title')}
             </ModalTitle>
             <p className="text-[12.5px] text-white/35 mt-1.5 leading-relaxed max-w-[280px]">
-              {t(writes ? 'recovery.writesText' : 'recovery.description')}
+              {t(DESCRIPTION[reason])}
             </p>
           </div>
 
@@ -192,9 +199,9 @@ export const SessionRecoveryModal = React.memo(() => {
                   onClick={retry}
                   className="w-full py-3 rounded-xl bg-accent text-accent-contrast font-semibold text-[13px] hover:bg-accent-hover active:scale-[0.97] transition-all duration-200 cursor-pointer shadow-[0_0_30px_var(--color-accent-glow),0_2px_8px_rgba(0,0,0,0.3)]"
                 >
-                  {t(writes ? 'sync.signIn' : 'recovery.signIn')}
+                  {t(asked ? 'sync.signIn' : 'recovery.signIn')}
                 </button>
-                {writes ? (
+                {asked ? (
                   <button
                     type="button"
                     onClick={reset}

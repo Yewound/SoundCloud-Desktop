@@ -48,7 +48,7 @@ export function YMImportPending({ live }: { live: boolean }) {
   if (state === 'failed') {
     const failed = creates.filter((create) => create.state === 'failed');
     const retryFailed = () => {
-      for (const create of failed) if (create.targetUrn) retry(create.targetUrn);
+      for (const create of failed) if (create.targetUrn) void retry(create.targetUrn);
     };
     return (
       <div>

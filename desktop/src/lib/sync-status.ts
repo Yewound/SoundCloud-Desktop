@@ -66,15 +66,6 @@ export async function fetchSyncStatus(): Promise<SyncStatus | null> {
   return status;
 }
 
-export async function retrySync(targetUrn?: string): Promise<void> {
-  retriedAt = Date.now();
-  await api('/me/sync/retry', {
-    method: 'POST',
-    body: JSON.stringify(targetUrn ? { targetUrn } : {}),
-  }).catch(() => undefined);
-  await queryClient.invalidateQueries({ queryKey: SYNC_KEY });
-}
-
 export function useSyncRetry() {
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const until = retriedAt + RETRY_COOLDOWN_MS;
@@ -86,9 +77,18 @@ export function useSyncRetry() {
     return () => clearTimeout(timer);
   }, [until]);
 
-  const retry = useCallback((targetUrn?: string) => {
-    void retrySync(targetUrn);
+  const retry = useCallback(async (targetUrn?: string) => {
+    try {
+      await api('/me/sync/retry', {
+        method: 'POST',
+        body: JSON.stringify(targetUrn ? { targetUrn } : {}),
+      });
+    } catch {
+      return;
+    }
+    retriedAt = Date.now();
     rerender();
+    await queryClient.invalidateQueries({ queryKey: SYNC_KEY });
   }, []);
 
   return { retry, cooling: until > Date.now() };

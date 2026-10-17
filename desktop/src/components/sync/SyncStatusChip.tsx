@@ -77,5 +77,5 @@ export const SyncStatusChip = React.memo(function SyncStatusChip({
   const { data } = useSyncStatus({ enabled });
   if (!data) return null;
   if (quietWhenSynced && syncStateOf(data) === 'synced') return null;
-  return <SyncStatusBadge status={data} className={className} />;
+  return <SyncStatusBadge status={data} withAction={enabled} className={className} />;
 });

@@ -264,7 +264,8 @@ async function savePlaylists(runId: number, deleteStale: boolean) {
 
   for (const [index, urns] of chunks.entries()) {
     const title = getPlaylistName(index);
-    const server = serverCreates.get(title);
+    const existingPlaylist = existing.find((playlist) => playlist.title === title);
+    const server = existingPlaylist ? undefined : serverCreates.get(title);
     if (server) {
       waiting.push({ title, targetUrn: server.targetUrn, state: server.state });
       continue;
@@ -273,7 +274,6 @@ async function savePlaylists(runId: number, deleteStale: boolean) {
       waiting.push({ title, targetUrn: null, state: 'queued' });
       continue;
     }
-    const existingPlaylist = existing.find((playlist) => playlist.title === title);
     try {
       if (existingPlaylist) {
         await replacePlaylistTracks(existingPlaylist.urn, urns);

@@ -43,7 +43,7 @@ export function useSyncCopy(status: SyncStatus): SyncCopy {
         state,
         label: t('sync.chip.dead', { count: status.deadCount }),
         hint: t('sync.hint.dead'),
-        action: { label: t('common.retry'), run: () => retry(), disabled: cooling },
+        action: { label: t('common.retry'), run: () => void retry(), disabled: cooling },
       };
     case 'delayed':
       return {

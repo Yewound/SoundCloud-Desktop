@@ -15,7 +15,7 @@ import { create } from 'zustand';
  * Логика переходов живёт в `lib/auth-recovery.ts`, тут только стейт.
  */
 export type RecoveryPhase = 'idle' | 'silent' | 'modal';
-export type RecoveryReason = 'session' | 'writes';
+export type RecoveryReason = 'session' | 'writes' | 'reads';
 export type RenewFailure = 'dead' | 'transient';
 
 interface AuthRecoveryState {
