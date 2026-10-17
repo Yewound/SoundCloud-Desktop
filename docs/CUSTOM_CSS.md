@@ -11,7 +11,7 @@ Custom CSS sits on top of a theme from the catalog, so your rules win.
 - Press **Ctrl+Alt+Shift+C** (**Cmd+Option+Shift+C** on macOS). It turns off custom CSS and the catalog theme. The second press brings back what the first one turned off.
 - Or start the app with the `--no-custom-css` flag. It turns off custom CSS and the catalog theme before anything else loads:
   - Windows: add ` --no-custom-css` to the end of the shortcut's Target field, or run `soundcloud-desktop.exe --no-custom-css`.
-  - macOS: `open -a soundcloud-desktop --args --no-custom-css`
+  - macOS: `open -n -a soundcloud-desktop --args --no-custom-css`
   - Linux: `soundcloud-desktop --no-custom-css`
 
 If the app is already running, for example in the tray, the flag reaches that copy: it turns both off and shows the window.
