@@ -1,0 +1,97 @@
+import { join } from 'node:path';
+import { parseArgs } from 'node:util';
+import { git, previousIndex, repoRoot } from './git.mjs';
+import { kib, table, writeSummary } from './summary.mjs';
+import { listThemes, loadTheme, readRevoked } from './theme.mjs';
+
+const MAINTAINERS = ['zxcloli666', 'github-actions[bot]'];
+
+const { values, positionals } = parseArgs({
+  options: { previous: { type: 'string' }, 'pr-author': { type: 'string' } },
+  allowPositionals: true,
+});
+
+const root = repoRoot();
+const buildRev = git(root, ['rev-parse', 'HEAD']);
+const previous = previousIndex(root, values.previous);
+const before = new Map((previous?.themes ?? []).map((theme) => [theme.id, theme]));
+const present = listThemes(root);
+const ids = positionals.length > 0 ? positionals : [...new Set([...present, ...before.keys()])].sort();
+const prAuthor = values['pr-author']?.trim() || null;
+
+const fingerprint = (entry) =>
+  JSON.stringify([
+    entry.hash,
+    entry.version,
+    entry.name,
+    entry.description,
+    entry.author,
+    entry.license,
+    entry.minApp ?? null,
+    entry.preview?.sha256,
+  ]);
+
+function describeChange(entry, old) {
+  if (!old) return 'new';
+  if (old.hash !== entry.hash) return `${old.version} -> ${entry.version}`;
+  return fingerprint(old) === fingerprint(entry) ? 'same' : 'metadata';
+}
+
+function reviewWarnings(entry, old) {
+  const warnings = [];
+  const github = entry.author.github ?? null;
+  const owners = [github, ...MAINTAINERS].filter(Boolean).map((login) => login.toLowerCase());
+  const changed = !old || fingerprint(old) !== fingerprint(entry);
+  if (changed && prAuthor && !owners.includes(prAuthor.toLowerCase())) {
+    warnings.push(`themes/${entry.id}: changed by ${prAuthor}, the author is ${github ?? 'not on GitHub'}`);
+  }
+  const oldGithub = old?.author?.github ?? null;
+  if (old && oldGithub !== github) {
+    warnings.push(`themes/${entry.id}/theme.json: author.github changed from ${oldGithub} to ${github}`);
+  }
+  return warnings;
+}
+
+const rows = [];
+let failures = 0;
+
+if (!readRevoked(root)) {
+  failures++;
+  console.log('error: themes/revoked.json must be a list of {id, hash, reason}');
+  rows.push(['revoked.json', '-', 'invalid', '-', '-', '-', ['must be a list of {id, hash, reason}'], []]);
+}
+
+for (const id of ids) {
+  const old = before.get(id);
+  if (!present.includes(id)) {
+    if (old) {
+      console.log(`warning: themes/${id}: removed`);
+      rows.push([id, old.version, 'removed', '-', '-', '-', [], ['removed']]);
+    } else {
+      failures++;
+      console.log(`error: themes/${id}: no such theme`);
+      rows.push([id, '-', '-', '-', '-', '-', ['no such theme'], []]);
+    }
+    continue;
+  }
+  const { entry, errors, warnings } = loadTheme(join(root, 'themes', id), buildRev, old);
+  if (entry) warnings.push(...reviewWarnings(entry, old));
+  for (const line of errors) console.log(`error: ${line}`);
+  for (const line of warnings) console.log(`warning: ${line}`);
+  if (errors.length > 0) failures++;
+  rows.push([
+    id,
+    entry?.version ?? '-',
+    entry ? describeChange(entry, old) : 'failed',
+    entry ? kib(entry.css.size) : '-',
+    entry ? kib(entry.size - entry.css.size) : '-',
+    entry ? kib(entry.preview.size) : '-',
+    errors,
+    warnings,
+  ]);
+}
+
+const head = ['Theme', 'Version', 'Change', 'CSS', 'Assets', 'Preview', 'Errors', 'Warnings'];
+writeSummary(`### Themes check\n\n${table(head, rows)}`);
+console.log(`${ids.length} checked, ${failures} with errors`);
+process.exit(failures > 0 ? 1 : 0);
