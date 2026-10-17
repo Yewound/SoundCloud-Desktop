@@ -65,10 +65,6 @@ export function activeLook(state: LookState): InstalledVersion | null {
   return state.trial?.version ?? activeTheme(state);
 }
 
-export function lookId(state: LookState): string | null {
-  return state.trial?.id ?? (activeTheme(state) ? state.activeId : null);
-}
-
 export function versionOf(theme: InstalledVersion): InstalledVersion {
   const { version, hash, rev, name, accent, background, font, files } = theme;
   return { version, hash, rev, name, accent, background, font, files };
@@ -88,19 +84,16 @@ export function withVersion(
   };
 }
 
-export function rolledBack(theme: InstalledTheme, previous: InstalledVersion): InstalledTheme {
+export function rolledBack(
+  theme: InstalledTheme,
+  previous: InstalledVersion,
+  pinned: boolean,
+): InstalledTheme {
   return {
     ...versionOf(previous),
-    pinned: true,
+    pinned,
     installedAt: theme.installedAt,
     previous: versionOf(theme),
     brokenFor: theme.brokenFor,
   };
-}
-
-export function withMetadata(theme: InstalledTheme, entry: CatalogTheme): InstalledTheme {
-  if (theme.name === entry.name && theme.version === entry.version && theme.rev === entry.rev) {
-    return theme;
-  }
-  return { ...theme, name: entry.name, version: entry.version, rev: entry.rev };
 }

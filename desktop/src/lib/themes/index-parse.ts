@@ -201,12 +201,15 @@ function parseRevoked(raw: unknown): RevokedTheme[] {
 export function parseIndex(json: unknown, appVersion: string): Catalog | null {
   if (!isObject(json) || json.schema !== 1 || !matches(json.rev, GIT_REV)) return null;
   if (typeof json.generated !== 'string' || !Array.isArray(json.themes)) return null;
+  const revoked = parseRevoked(json.revoked);
   const themes: CatalogTheme[] = [];
   for (const raw of json.themes) {
     const theme = parseEntry(raw, appVersion);
-    if (theme && !themes.some((known) => known.id === theme.id)) themes.push(theme);
+    if (!theme || themes.some((known) => known.id === theme.id)) continue;
+    if (revoked.some((item) => item.id === theme.id && item.hash === theme.hash)) continue;
+    themes.push(theme);
   }
-  return { generated: json.generated, rev: json.rev, themes, revoked: parseRevoked(json.revoked) };
+  return { generated: json.generated, rev: json.rev, themes, revoked };
 }
 
 export function indexUrl(base: string): string {

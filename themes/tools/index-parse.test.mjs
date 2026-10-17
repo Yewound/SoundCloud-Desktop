@@ -95,6 +95,11 @@ test('bad entries are skipped, the rest stay', () => {
   assert.deepEqual(ids(catalog), ['midnight']);
 });
 
+test('an entry with a revoked hash is skipped', () => {
+  const catalog = parseIndex(index([entry(), entry({ id: 'old-theme', hash: sha('9') })]), '8.5.2');
+  assert.deepEqual(ids(catalog), ['midnight']);
+});
+
 test('minApp compares numerically', () => {
   const catalog = parseIndex(
     index([entry({ minApp: '8.6.0' }), entry({ id: 'future', minApp: '8.11.0' })]),

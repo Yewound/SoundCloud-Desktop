@@ -25,7 +25,6 @@ import {
   rollbackTarget,
   type ThemeTrial,
   versionOf,
-  withMetadata,
   withVersion,
 } from '../lib/themes/records';
 import { clearSentinel, sentinelHolds, writeSentinel } from '../lib/themes/sentinel';
@@ -66,7 +65,7 @@ interface ThemesState {
   remove: (id: string) => void;
   setPinned: (id: string, pinned: boolean) => void;
   update: (id: string) => Promise<void>;
-  rollback: (id: string) => void;
+  rollback: (id: string, pinned?: boolean) => void;
   setAutoUpdate: (autoUpdate: boolean) => void;
   setEnabled: (enabled: boolean) => Promise<void>;
   markBroken: (id: string, hash?: string) => void;
@@ -143,12 +142,6 @@ export const useThemesStore = create<ThemesState>()(
           .then((notices) => get().notify(notices.filter((n) => n.kind !== 'downloadFailed')));
       };
 
-      const deferUpdate = () => {
-        if (updateDeferred) return;
-        updateDeferred = true;
-        if (!isVisible()) void whenShown().then(runDeferred);
-      };
-
       const settle = (id: string, look: InstalledTheme, retry: boolean) => {
         clearTimeout(sentinelTimer);
         sentinelTimer = setTimeout(async () => {
@@ -167,7 +160,7 @@ export const useThemesStore = create<ThemesState>()(
         const theme = get().installed[id];
         const previous = retry && theme ? rollbackTarget(theme, get().catalog, id) : null;
         if (theme && previous) {
-          putTheme(id, rolledBack(theme, previous));
+          putTheme(id, rolledBack(theme, previous, true));
           const restored = activeTheme(get());
           if (restored) {
             await writeSentinel(id, restored.hash);
@@ -252,7 +245,7 @@ export const useThemesStore = create<ThemesState>()(
             enabled: true,
             installed: {
               ...installed,
-              [trial.id]: withVersion(trial.version, installed[trial.id]),
+              [trial.id]: installed[trial.id] ?? withVersion(trial.version, undefined),
             },
           });
           collect(get());
@@ -298,10 +291,10 @@ export const useThemesStore = create<ThemesState>()(
           if (notice) get().notify([notice]);
         },
 
-        rollback: (id) => {
+        rollback: (id, pinned = true) => {
           const theme = get().installed[id];
           if (!theme?.previous) return;
-          putTheme(id, rolledBack(theme, theme.previous));
+          putTheme(id, rolledBack(theme, theme.previous, pinned));
           collect(get());
           if (get().activeId === id) void get().verifyActive();
         },
@@ -336,20 +329,24 @@ export const useThemesStore = create<ThemesState>()(
             if (!theme) continue;
             if (isRevoked(catalog, id, theme.hash)) {
               notices.push({ kind: 'revoked', id, name: theme.name });
-              if (rollbackTarget(theme, catalog, id)) get().rollback(id);
+              if (rollbackTarget(theme, catalog, id)) get().rollback(id, theme.pinned);
               else get().remove(id);
               continue;
             }
             if (!entry) continue;
             if (entry.hash === theme.hash) {
-              const fresh = withMetadata(theme, entry);
-              if (fresh !== theme) putTheme(id, fresh);
+              const { name, version, rev } = entry;
+              if (theme.name !== name || theme.version !== version || theme.rev !== rev) {
+                putTheme(id, { ...theme, name, version, rev });
+              }
               continue;
             }
             if (!get().autoUpdate || theme.pinned || !hasUpdate(theme, entry)) continue;
-            const painted = id === get().activeId && get().enabled;
-            if (painted && (get().trial || !isVisible())) {
-              deferUpdate();
+            const { trial, activeId, enabled } = get();
+            const painted = id === activeId && enabled;
+            if (trial?.id === id || (painted && (trial || !isVisible()))) {
+              if (!updateDeferred && !isVisible()) void whenShown().then(runDeferred);
+              updateDeferred = true;
               continue;
             }
             const notice = await installUpdate(id, entry);
