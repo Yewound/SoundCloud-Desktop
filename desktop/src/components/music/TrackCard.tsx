@@ -93,7 +93,7 @@ export const TrackCard = React.memo(
 
           {/* Duration pill */}
           <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="text-[10px] font-medium bg-black/50 backdrop-blur-md text-white/80 px-2 py-0.5 rounded-full">
+            <div className="text-[10px] font-medium bg-black/50 group-hover:backdrop-blur-md transition-[backdrop-filter] duration-200 text-white/80 px-2 py-0.5 rounded-full">
               {dur(track.duration)}
             </div>
           </div>
@@ -112,7 +112,7 @@ export const TrackCard = React.memo(
               <button
                 type="button"
                 onClick={(e) => e.stopPropagation()}
-                className="cursor-pointer w-8 h-8 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all duration-200"
+                className="cursor-pointer w-8 h-8 rounded-full bg-black/50 group-hover:backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all duration-200"
                 title={t('playlist.addToPlaylist')}
               >
                 <ListPlus size={14} />
@@ -121,11 +121,11 @@ export const TrackCard = React.memo(
             <AlbumLinkButton
               track={track}
               iconSize={14}
-              className="cursor-pointer w-8 h-8 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all duration-200"
+              className="cursor-pointer w-8 h-8 rounded-full bg-black/50 group-hover:backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all duration-200"
             />
             <PlayNextButton
               track={track}
-              className="cursor-pointer w-8 h-8 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all duration-200"
+              className="cursor-pointer w-8 h-8 rounded-full bg-black/50 group-hover:backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all duration-200"
             />
           </div>
         </div>
