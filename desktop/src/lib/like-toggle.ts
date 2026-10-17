@@ -3,6 +3,7 @@ import type { Track } from '../stores/player';
 import { api } from './api';
 import { forgetOfflineLike } from './cache';
 import { clearDislike } from './dislike-actions';
+import { trackTasteWrite } from './events';
 import { invalidateAllLikesCache } from './hooks';
 import { optimisticToggleLike } from './likes';
 import { rememberLikedUrn } from './offline-index';
@@ -12,9 +13,11 @@ export async function setTrackLiked(qc: QueryClient, track: Track, liked: boolea
   invalidateAllLikesCache();
   if (liked) clearDislike(track.urn);
   try {
-    await api(`/likes/tracks/${encodeURIComponent(track.urn)}`, {
-      method: liked ? 'POST' : 'DELETE',
-    });
+    await trackTasteWrite(
+      api(`/likes/tracks/${encodeURIComponent(track.urn)}`, {
+        method: liked ? 'POST' : 'DELETE',
+      }),
+    );
     void (liked ? rememberLikedUrn(track.urn, track) : forgetOfflineLike(track.urn));
   } catch {
     optimisticToggleLike(qc, track, !liked);

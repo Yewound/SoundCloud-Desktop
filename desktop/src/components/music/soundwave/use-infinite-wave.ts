@@ -4,16 +4,6 @@ import { followWave, leaveWave, sendWaveFeedback } from '../../../lib/wave-feedb
 import type { Track } from '../../../stores/player';
 import { usePlayerStore } from '../../../stores/player';
 
-/**
- * Бесконечная SmartWave-волна на стороне клиента.
- *
- * 1. Хук владеет cursor'ом — серверным токеном, который помнит уже отданное
- *    и адаптивные веса arm'ов. После каждой подгрузки cursor обновляется.
- *    Если Redis грохнули — сервер начнёт новую сессию, для UX незаметно.
- * 2. Refill срабатывает только если играет наш трек и в очереди осталось
- *    меньше `minTail` хвоста. `ownedRef` — Set urn'ов, которые мы положили;
- *    чужие очереди (плейлисты, лайки) не триггерят refill.
- */
 export function useInfiniteWave(opts: {
   enabled: boolean;
   seedKind: SmartWaveSeedKind;

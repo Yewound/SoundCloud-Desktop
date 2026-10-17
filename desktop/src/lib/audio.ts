@@ -5,7 +5,13 @@ import {useBlockedArtistsStore} from '../stores/blocked-artists';
 import type {Track} from '../stores/player';
 import {playbackAllowed, usePlayerStore} from '../stores/player';
 import {useSettingsStore} from '../stores/settings';
-import {findAltUpload, playAltUpload, wantsAltUpload} from './alt-upload';
+import {
+  dropAltUpload,
+  findAltUpload,
+  knownAltUpload,
+  setPlayingCopy,
+  wantsAltUpload,
+} from './alt-upload';
 import {
   api,
   buildStorageUrls,
@@ -66,6 +72,7 @@ const healedUrns = new Set<string>();
 /* ── Audio engine state ──────────────────────────────────────── */
 
 let currentUrn: string | null = null;
+let fileUrn: string | null = null;
 let hasTrack = false;
 let fallbackDuration = 0;
 let cachedTime = 0;
@@ -435,8 +442,10 @@ async function loadTrack(track: Track, resumeAt = 0) {
     stopTrack();
   }
   currentUrn = track.urn;
+  fileUrn = track.urn;
   acceptedShortFile = false;
   const urn = track.urn;
+  let file = track;
 
   // A-B loop is per-track: drop it only when loading a genuinely different track —
   // NOT on same-track reloads (repeat-one, device/EQ reload, or the loop's own
@@ -471,35 +480,26 @@ async function loadTrack(track: Track, resumeAt = 0) {
       return;
     }
 
-    if (wantsAltUpload(track)) {
+    if (swapsToCopy(track)) {
       setDownloadProgress(0);
-      const alt = await findAltUpload(track);
+      file = (await findAltUpload(track)) ?? track;
       if (gen !== loadGen) return;
       setDownloadProgress(null);
-      if (alt) {
-        pendingCrossfadeMs = crossfadeMs;
-        if (resumeAt > 0) pendingStart = {urn: alt.urn, at: resumeAt};
-        playAltUpload(track, alt);
-        return;
-      }
     }
+    setPlayingCopy(urn, file === track ? null : file);
+    fileUrn = file.urn;
 
     const quality = requestedQuality();
-    const storageQuality = track._scd_meta?.storage_quality;
+    const storageQuality = file._scd_meta?.storage_quality;
 
     // The cached file can be swapped (raw А → clean Б) or evicted between resolve
     // and read; re-resolve through the cache to recover the current path.
     const reResolve = async (): Promise<string | null> => {
-      const info = await getCacheInfo(urn);
+      const info = await getCacheInfo(file.urn);
       if (info?.path) return info.path;
       try {
         return (
-          await ensureTrackCached(
-            urn,
-            quality,
-            expectedDurationMs(track),
-            storageQuality,
-          )
+          await ensureTrackCached(file.urn, quality, expectedDurationMs(file), storageQuality)
         ).path;
       } catch {
         return null;
@@ -507,17 +507,19 @@ async function loadTrack(track: Track, resumeAt = 0) {
     };
 
     // Strategy 1: Cache hit — instant
-    const cached = await getCacheInfo(urn);
+    const cached = await getCacheInfo(file.urn);
     if (cached?.path) {
       if (gen !== loadGen) return;
       acceptedShortFile = cached.acceptedShort;
       usePlayerStore.getState().setPlaybackTransport(cached.quality, cached.source);
-      console.log('[Audio] Playing from cache:', urn);
+      console.log('[Audio] Playing from cache:', file.urn);
       if (isBelow(cached.quality, quality) && !cached.acceptedShort && wantsUpgrade()) {
-        void upgradeCachedTrack(urn, expectedDurationMs(track), storageQuality).catch(console.error);
+        void upgradeCachedTrack(file.urn, expectedDurationMs(file), storageQuality).catch(
+          console.error,
+        );
       }
       const loadResult = await loadCachedFile(
-        urn,
+        file.urn,
         cached.path,
         resumeAt > 0 || !usePlayerStore.getState().isPlaying || startGate != null,
         reResolve,
@@ -538,7 +540,9 @@ async function loadTrack(track: Track, resumeAt = 0) {
     if (crossfadeMs > 0) invoke('audio_stop').catch(console.error);
     setDownloadProgress(0);
     watchLoad(() => {
-      if (gen === loadGen) skipUnloadable(track, true);
+      if (gen !== loadGen) return;
+      if (file === track) skipUnloadable(track, true);
+      else playOriginal(track, resumeAt);
     });
     setTimeout(() => {
       if (gen !== loadGen || downloadProgress !== 0) return;
@@ -550,9 +554,9 @@ async function loadTrack(track: Track, resumeAt = 0) {
     let cachedInfo: TrackCacheInfo;
     try {
       cachedInfo = await ensureTrackCached(
-        urn,
+        file.urn,
         quality,
-        expectedDurationMs(track),
+        expectedDurationMs(file),
         storageQuality,
       );
     } catch (error) {
@@ -561,7 +565,12 @@ async function loadTrack(track: Track, resumeAt = 0) {
       console.warn(`[Audio] ${quality} load failed, retrying in sq:`, error);
       setDownloadProgress(0);
       bumpLoadWatch();
-      cachedInfo = await ensureTrackCached(urn, 'sq', expectedDurationMs(track), storageQuality);
+      cachedInfo = await ensureTrackCached(
+        file.urn,
+        'sq',
+        expectedDurationMs(file),
+        storageQuality,
+      );
     }
 
     if (gen !== loadGen) return;
@@ -570,9 +579,9 @@ async function loadTrack(track: Track, resumeAt = 0) {
     acceptedShortFile = cachedInfo.acceptedShort;
     usePlayerStore.getState().setPlaybackTransport(cachedInfo.quality, cachedInfo.source);
 
-    console.log('[Audio] Playing downloaded track:', urn);
+    console.log('[Audio] Playing downloaded track:', file.urn);
     const loadResult = await loadCachedFile(
-      urn,
+      file.urn,
       cachedInfo.path,
       resumeAt > 0 || !usePlayerStore.getState().isPlaying || startGate != null,
       reResolve,
@@ -592,6 +601,10 @@ async function loadTrack(track: Track, resumeAt = 0) {
     stopLoadWatch();
     setDownloadProgress(null);
     usePlayerStore.getState().setPlaybackTransport(null, null);
+    if (file !== track) {
+      playOriginal(track, resumeAt);
+      return;
+    }
     const localMissing = local && isFileMissing(e);
     if (localMissing) markLocalMissing(urn);
     const errorText = localMissing ? i18n.t('local.fileMissing') : getLoadErrorText(e);
@@ -608,6 +621,15 @@ async function loadTrack(track: Track, resumeAt = 0) {
     }
     if (!skipUnloadable(track, false)) usePlayerStore.getState().pause();
   }
+}
+
+function swapsToCopy(track: Track): boolean {
+  return startGate == null && wantsAltUpload(track);
+}
+
+function playOriginal(track: Track, resumeAt: number) {
+  dropAltUpload(track);
+  void loadTrack(track, resumeAt);
 }
 
 function skipUnloadable(track: Track, stuck: boolean): boolean {
@@ -639,7 +661,7 @@ async function afterLoad(track: Track, gen: number, resumeAt: number) {
     notify();
   }
   hasTrack = true;
-  void markTrackPlayed(track.urn)
+  void markTrackPlayed(fileUrn ?? track.urn)
     .catch(console.error)
     .finally(() => enforceAudioCacheLimit().catch(console.error));
   resetSkipStreak();
@@ -789,7 +811,8 @@ function maybeStartCrossfade() {
   const next = upcomingTrack();
   if (!canCrossfade() || !next || isUrnDisliked(next.urn) || isTrackBlocked(next)) return;
   const gen = loadGen;
-  void getCacheInfo(next.urn).then((info) => {
+  const file = swapsToCopy(next) ? (knownAltUpload(next) ?? next) : next;
+  void getCacheInfo(file.urn).then((info) => {
     if (!info?.path || gen !== loadGen || !hasTrack || !currentUrn) return;
     if (!canCrossfade() || upcomingTrack()?.urn !== next.urn) return;
     recordFullPlay(currentUrn, true);
@@ -811,7 +834,7 @@ listen<number>('audio:tick', (event) => {
 
 listen<{ urn: string; progress: number }>('track:download-progress', (event) => {
   const { urn, progress } = event.payload;
-  if (urn === currentUrn && downloadProgress !== null) {
+  if (urn === fileUrn && downloadProgress !== null) {
     if (progress > downloadProgress) bumpLoadWatch();
     setDownloadProgress(Math.max(downloadProgress, progress));
   }
@@ -1068,12 +1091,12 @@ export function preloadUpcoming(track: Track) {
 export function preloadQueue() {
   if (isAudioCacheDisabled()) return;
   const { queue, queueIndex } = usePlayerStore.getState();
-  preloadNow(
-    queue
-      .slice(queueIndex + 1)
-      .filter(canPreload)
-      .slice(0, 3),
-  );
+  const upcoming = queue
+    .slice(queueIndex + 1)
+    .filter(canPreload)
+    .slice(0, 3)
+    .map(async (track) => (swapsToCopy(track) ? ((await findAltUpload(track)) ?? track) : track));
+  void Promise.all(upcoming).then(preloadNow);
 }
 
 usePlayerStore.subscribe((state, prev) => {

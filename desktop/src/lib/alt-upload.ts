@@ -1,4 +1,5 @@
-import { type Track, usePlayerStore } from '../stores/player';
+import { useSyncExternalStore } from 'react';
+import type { Track } from '../stores/player';
 import { useSettingsStore } from '../stores/settings';
 import { api } from './api';
 import { isTrackBlocked } from './blocked-artists';
@@ -12,10 +13,12 @@ const PREVIEW_MS = 30_000;
 const DURATION_SLACK_MS = 3_000;
 const SEARCH_LIMIT = 20;
 const SEARCH_TIMEOUT_MS = 8_000;
-const JOINERS = ['feat', 'ft', 'x', 'and', 'with', 'vs'];
+const JOINERS = ['feat', 'ft', 'x', 'and', 'with', 'vs', 'the'];
 
 const altByOriginal = new Map<string, Track | null>();
-const originalByAlt = new Map<string, Track>();
+const searches = new Map<string, Promise<Track | null>>();
+const listeners = new Set<() => void>();
+let playing: { original: string; copy: Track } | null = null;
 
 function lengthOf(track: Track): number {
   return track.full_duration ?? track.duration;
@@ -54,10 +57,16 @@ function isSameSong(candidate: Track, title: string, credited: Set<string>, arti
   return ` ${byline} `.includes(` ${artist} `);
 }
 
-export async function findAltUpload(track: Track): Promise<Track | null> {
+export function findAltUpload(track: Track): Promise<Track | null> {
   const known = altByOriginal.get(track.urn);
-  if (known !== undefined) return known;
+  if (known !== undefined) return Promise.resolve(known);
+  const running =
+    searches.get(track.urn) ?? searchAltUpload(track).finally(() => searches.delete(track.urn));
+  searches.set(track.urn, running);
+  return running;
+}
 
+async function searchAltUpload(track: Track): Promise<Track | null> {
   const display = getTrackDisplay(track);
   const artistName = display.artistNames[0] ?? track.user?.username ?? '';
   const title = foldName(display.title);
@@ -99,20 +108,29 @@ export async function findAltUpload(track: Track): Promise<Track | null> {
   return best;
 }
 
-export function playAltUpload(original: Track, alt: Track): void {
-  originalByAlt.set(alt.urn, original);
-  const swap = (item: Track) => (item.urn === original.urn ? alt : item);
-  usePlayerStore.setState((s) => ({
-    currentTrack: s.currentTrack && swap(s.currentTrack),
-    queue: s.queue.map(swap),
-    originalQueue: s.originalQueue?.map(swap) ?? null,
-  }));
+export function knownAltUpload(original: Track): Track | null {
+  return altByOriginal.get(original.urn) ?? null;
 }
 
-export function originalOf(urn: string): Track | undefined {
-  return originalByAlt.get(urn);
+export function dropAltUpload(original: Track): void {
+  altByOriginal.set(original.urn, null);
 }
 
-export function playsTrack(current: Track | null, urn: string): boolean {
-  return !!current && (current.urn === urn || originalByAlt.get(current.urn)?.urn === urn);
+export function setPlayingCopy(original: string, copy: Track | null): void {
+  playing = copy && { original, copy };
+  for (const listener of listeners) listener();
+}
+
+export function playingCopyOf(urn: string): Track | null {
+  return playing?.original === urn ? playing.copy : null;
+}
+
+export function usePlayingCopy(urn: string): Track | null {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => playingCopyOf(urn),
+  );
 }

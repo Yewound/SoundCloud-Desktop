@@ -62,7 +62,7 @@
     "abLoopClear": "A-B dongusunu temizle",
     "notPlaying": "Calmiyor",
     "noContinuation": "Benzer parça bulunamadı, çalma durduruldu",
-    "altUpload": "Başka bir yükleme çalıyor. Orijinali aç",
+    "altUpload": "{{name}} hesabından tam kopya çalıyor",
     "cancelLoad": "Yuklemeyi durdur",
     "volume": "Ses",
     "volumeReset": "Sesi %100'e sifirla",

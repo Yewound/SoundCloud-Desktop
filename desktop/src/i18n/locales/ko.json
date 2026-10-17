@@ -73,7 +73,7 @@
     "openApp": "SoundCloud 열기",
     "notPlaying": "재생 중이 아님",
     "noContinuation": "비슷한 트랙을 찾지 못해 재생을 멈췄어요",
-    "altUpload": "다른 업로드를 재생 중이에요. 원본 열기",
+    "altUpload": "{{name}}님의 전체 사본 재생 중",
     "cancelLoad": "로딩 중지",
     "volume": "볼륨",
     "volumeReset": "볼륨을 100%로 초기화",

@@ -18,6 +18,7 @@ import {
 import {forgetOfflineLike} from '../../lib/cache';
 import {clearDislike, dislikeTrack} from '../../lib/dislike-actions';
 import {useDislikeStatus} from '../../lib/dislikes';
+import {trackTasteWrite} from '../../lib/events';
 import {art, formatTime} from '../../lib/formatters';
 import {invalidateAllLikesCache} from '../../lib/hooks';
 import {
@@ -442,9 +443,11 @@ function LikeButton({
     if (next) clearDislike(trackUrn);
 
     try {
-      await api(`/likes/tracks/${encodeURIComponent(trackUrn)}`, {
-        method: next ? 'POST' : 'DELETE',
-      });
+      await trackTasteWrite(
+        api(`/likes/tracks/${encodeURIComponent(trackUrn)}`, {
+          method: next ? 'POST' : 'DELETE',
+        }),
+      );
       void (next ? rememberLikedUrn(trackUrn, trackData) : forgetOfflineLike(trackUrn));
       qc.invalidateQueries({ queryKey: ['track', trackUrn, 'favoriters'] });
     } catch {

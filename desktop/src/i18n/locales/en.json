@@ -73,7 +73,7 @@
     "openApp": "Open SoundCloud",
     "notPlaying": "Not playing",
     "noContinuation": "No similar tracks found, playback stopped",
-    "altUpload": "Another upload is playing. Open the original",
+    "altUpload": "Playing a full copy by {{name}}",
     "cancelLoad": "Stop loading",
     "volume": "Volume",
     "volumeReset": "Reset volume to 100%",

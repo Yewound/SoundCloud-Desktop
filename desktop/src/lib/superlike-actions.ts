@@ -2,6 +2,7 @@ import type { Track } from '../stores/player';
 import { type SuperlikeTarget, useSuperlikeLimit } from '../stores/superlike-limit';
 import { ApiError, api } from './api';
 import { clearDislike } from './dislike-actions';
+import { trackTasteWrite } from './events';
 import { invalidateAllLikesCache } from './hooks';
 import { applyLikeLocally, isUrnLiked, setLikedUrn } from './likes';
 import { rememberLikedUrn } from './offline-index';
@@ -50,10 +51,12 @@ async function superlike(target: SuperlikeTarget): Promise<boolean> {
     clearDislike(target.urn);
   }
   try {
-    const answer = await api<SuperlikeAnswer>(superlikePath(target.urn), {
-      method: 'POST',
-      silentStatuses: [402],
-    });
+    const answer = await trackTasteWrite(
+      api<SuperlikeAnswer>(superlikePath(target.urn), {
+        method: 'POST',
+        silentStatuses: [402],
+      }),
+    );
     rememberQuota(answer);
     noteWaveOutcome('superlike', target.urn);
     if (!wasLiked) void rememberLikedUrn(target.urn, isFullTrack(target) ? target : undefined);
@@ -76,7 +79,9 @@ export async function removeSuperlike(target: SuperlikeTarget): Promise<boolean>
   beginSuperlikeWrite(target.urn);
   setSuperlikedUrn(target.urn, false);
   try {
-    rememberQuota(await api<SuperlikeAnswer>(superlikePath(target.urn), { method: 'DELETE' }));
+    rememberQuota(
+      await trackTasteWrite(api<SuperlikeAnswer>(superlikePath(target.urn), { method: 'DELETE' })),
+    );
     void queryClient.invalidateQueries({ queryKey: SUPERLIKES_LIST_KEY });
     return true;
   } catch {

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Track } from '../stores/player';
 import { api } from './api';
-import { eventsLanded } from './events';
+import { tasteWritesLanded } from './events';
 import { withoutHidden } from './feed-filter';
 import { type PagedResponse, pagedUrl } from './hooks';
 import { trackUrn } from './ids';
@@ -98,7 +98,7 @@ export async function fetchSmartWave(opts: {
   // Бэк дефолтит hide_listened=ON; шлём явный флаг только когда он задан.
   if (opts.hideListened !== undefined) qs.set('hide_listened', opts.hideListened ? '1' : '0');
 
-  await eventsLanded();
+  await tasteWritesLanded();
   const payload = await api<SmartWavePayload>(smartWaveUrl(opts.seedKind, opts.seedId, qs)).catch(
     () => ({ tracks: [], cursor: '' }) as SmartWavePayload,
   );

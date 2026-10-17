@@ -4,6 +4,7 @@ import { type Track, usePlayerStore } from '../stores/player';
 import { api } from './api';
 import { forgetOfflineLike } from './cache';
 import { isUrnDisliked, toggleDislike } from './dislikes';
+import { trackTasteWrite } from './events';
 import { invalidateAllLikesCache } from './hooks';
 import { isUrnLiked, optimisticToggleLike } from './likes';
 import { rememberLikedUrn } from './offline-index';
@@ -15,9 +16,11 @@ import { getDisplayTitle } from './track-display';
 function setLike(track: Track, liked: boolean) {
   optimisticToggleLike(queryClient, track, liked);
   invalidateAllLikesCache();
-  api(`/likes/tracks/${encodeURIComponent(track.urn)}`, {
-    method: liked ? 'POST' : 'DELETE',
-  })
+  trackTasteWrite(
+    api(`/likes/tracks/${encodeURIComponent(track.urn)}`, {
+      method: liked ? 'POST' : 'DELETE',
+    }),
+  )
     .then(() => (liked ? rememberLikedUrn(track.urn, track) : forgetOfflineLike(track.urn)))
     .catch(() => optimisticToggleLike(queryClient, track, !liked));
 }

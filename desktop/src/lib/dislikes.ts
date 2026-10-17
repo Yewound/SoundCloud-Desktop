@@ -2,7 +2,7 @@ import { type QueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { Track } from '../stores/player';
 import { api } from './api';
-import { recordEvent } from './events';
+import { recordEvent, trackTasteWrite } from './events';
 
 const _dislikedUrns = new Map<string, boolean>();
 const _listeners = new Set<() => void>();
@@ -132,9 +132,11 @@ export async function toggleDislike(
   if (nowDisliked) recordEvent('dislike', track.urn);
 
   try {
-    await api(`/dislikes/${encodeURIComponent(track.urn)}`, {
-      method: nowDisliked ? 'POST' : 'DELETE',
-    });
+    await trackTasteWrite(
+      api(`/dislikes/${encodeURIComponent(track.urn)}`, {
+        method: nowDisliked ? 'POST' : 'DELETE',
+      }),
+    );
     qc.invalidateQueries({ queryKey: ['dislikes'] });
   } catch {
     setDislikedUrn(track.urn, !nowDisliked);

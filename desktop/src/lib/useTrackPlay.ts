@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { type Track, usePlayerStore } from '../stores/player';
-import { playsTrack } from './alt-upload';
 import { rememberTracks } from './offline-index';
 
 /**
@@ -16,8 +15,8 @@ import { rememberTracks } from './offline-index';
  * «лайки до конца». Pass a STABLE ref to keep memo'd tiles happy.
  */
 export function useTrackPlay(track: Track, queue?: Track[] | (() => Track[]), onPlay?: () => void) {
-  const isThis = usePlayerStore((s) => playsTrack(s.currentTrack, track.urn));
-  const isThisPlaying = usePlayerStore((s) => s.isPlaying && playsTrack(s.currentTrack, track.urn));
+  const isThis = usePlayerStore((s) => s.currentTrack?.urn === track.urn);
+  const isThisPlaying = usePlayerStore((s) => s.currentTrack?.urn === track.urn && s.isPlaying);
 
   const trackRef = useRef(track);
   const queueRef = useRef(queue);

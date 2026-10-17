@@ -12,13 +12,8 @@ export type SoundWaveEvent =
   | 'dislike';
 
 const LANDING_WAIT_MS = 2000;
-const inFlight = new Set<Promise<unknown>>();
+const inFlight = new Set<Promise<void>>();
 
-/**
- * Fire-and-forget event recorder for SoundWave taste model.
- * `positionPct` (0..1) only meaningful for `skip` and `full_play` — backend uses
- * it to split skips into early/mid/late buckets with different negative weight.
- */
 export function recordEvent(
   eventType: SoundWaveEvent,
   scTrackId: string,
@@ -36,15 +31,25 @@ export function recordEvent(
   if (position !== undefined) body.positionPct = position;
   noteWaveOutcome(eventType, scTrackId, position);
 
-  const request = api('/events', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  }).catch(() => {});
-  inFlight.add(request);
-  void request.finally(() => inFlight.delete(request));
+  trackTasteWrite(
+    api('/events', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  ).catch(() => {});
 }
 
-export async function eventsLanded(): Promise<void> {
+export function trackTasteWrite<T>(request: Promise<T>): Promise<T> {
+  const landed = request.then(
+    () => {},
+    () => {},
+  );
+  inFlight.add(landed);
+  void landed.then(() => inFlight.delete(landed));
+  return request;
+}
+
+export async function tasteWritesLanded(): Promise<void> {
   if (inFlight.size === 0) return;
   await Promise.race([
     Promise.all(inFlight),

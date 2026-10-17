@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import {useTranslation} from 'react-i18next';
+import {usePlayingCopy} from '../../lib/alt-upload';
 import {getCurrentTime, subscribe} from '../../lib/audio';
 import {durLong} from '../../lib/formatters';
 import type {Comment} from '../../lib/hooks';
@@ -28,6 +29,8 @@ export const RoomFloor = React.memo(function RoomFloor({
     const {t} = useTranslation();
     const elapsedRef = useRef<HTMLSpanElement>(null);
     const floatingComments = useSettingsStore((s) => s.floatingComments);
+    const playingCopy = usePlayingCopy(track.urn);
+    const copy = isCurrent ? playingCopy : null;
 
     useEffect(() => {
         if (!isCurrent) {
@@ -44,7 +47,7 @@ export const RoomFloor = React.memo(function RoomFloor({
 
     const durationMs = track.full_duration ?? track.duration;
     const playableFrac = durationMs > 0 ? Math.min(1, track.duration / durationMs) : 1;
-    const previewTail = isPreviewOnly(track) && playableFrac < 0.995 ? 1 - playableFrac : 0;
+    const previewTail = !copy && isPreviewOnly(track) && playableFrac < 0.995 ? 1 - playableFrac : 0;
 
     return (
         <div
@@ -85,7 +88,7 @@ export const RoomFloor = React.memo(function RoomFloor({
             {t('track.previewOnly')}
           </span>
                 )}
-                <span>{durLong(track.duration)}</span>
+                <span>{durLong((copy ?? track).duration)}</span>
             </div>
         </div>
     );
