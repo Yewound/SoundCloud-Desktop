@@ -556,7 +556,7 @@ async function loadTrack(track: Track, resumeAt = 0) {
     watchLoad(() => {
       if (gen !== loadGen) return;
       if (file === track) skipUnloadable(track, true);
-      else playOriginal(track, resumeAt);
+      else playOriginal(track);
     });
     setTimeout(() => {
       if (gen !== loadGen || downloadProgress !== 0) return;
@@ -616,7 +616,7 @@ async function loadTrack(track: Track, resumeAt = 0) {
     setDownloadProgress(null);
     usePlayerStore.getState().setPlaybackTransport(null, null);
     if (file !== track) {
-      playOriginal(track, resumeAt);
+      playOriginal(track);
       return;
     }
     const localMissing = local && isFileMissing(e);
@@ -641,9 +641,9 @@ function swapsToCopy(track: Track): boolean {
   return startGate == null && wantsAltUpload(track);
 }
 
-function playOriginal(track: Track, resumeAt: number) {
+function playOriginal(track: Track) {
   dropAltUpload(track);
-  void loadTrack(track, resumeAt);
+  void loadTrack(track);
 }
 
 function skipUnloadable(track: Track, stuck: boolean): boolean {
