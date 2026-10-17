@@ -1032,6 +1032,7 @@
     "softwareRenderingRestart": "Restart the app to apply the new rendering mode.",
     "softwareRenderingFailed": "Couldn't save the rendering mode",
     "softwareRenderingLightHint": "Without the GPU, blur and animations load the processor. Light mode keeps the interface smooth.",
+    "softwareRenderingAutoLight": "Without the GPU, effects load the processor, so Light mode is on. You can change it in Settings > Appearance.",
     "restartNow": "Restart now",
     "useLightMode": "Switch to Light",
     "startup": "Startup",

@@ -1001,6 +1001,7 @@
     "softwareRenderingRestart": "새 렌더링 모드를 적용하려면 앱을 다시 시작하세요.",
     "softwareRenderingFailed": "렌더링 모드를 저장하지 못했어요",
     "softwareRenderingLightHint": "GPU 없이는 흐림과 애니메이션이 프로세서에 부담을 줘요. ‘가볍게’ 모드를 쓰면 화면이 부드럽게 유지돼요.",
+    "softwareRenderingAutoLight": "GPU 없이는 효과가 프로세서에 부담을 줘서 ‘가볍게’ 모드를 켰어요. 설정 > 모양에서 바꿀 수 있어요.",
     "restartNow": "지금 다시 시작",
     "useLightMode": "‘가볍게’로 전환",
     "startup": "시작 화면",

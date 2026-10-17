@@ -3,14 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { trackedInvoke as invoke } from '../../../lib/diagnostics';
 import { Loader2, RefreshCw } from '../../../lib/icons';
+import { lightenForSoftwareRendering } from '../../../lib/perf-probe';
+import type { RenderMode } from '../../../lib/render-mode';
 import { useSettingsStore } from '../../../stores/settings';
 import { Row, Toggle } from '../primitives';
-
-interface RenderMode {
-  supported: boolean;
-  softwareRendering: boolean;
-  restartRequired: boolean;
-}
 
 export function SoftwareRenderingRow() {
   const { t } = useTranslation();
@@ -31,7 +27,10 @@ export function SoftwareRenderingRow() {
   const toggle = () => {
     setSaving(true);
     invoke<RenderMode>('render_mode_set', { softwareRendering: !mode.softwareRendering })
-      .then(setMode)
+      .then((next) => {
+        setMode(next);
+        if (next.softwareRendering) lightenForSoftwareRendering();
+      })
       .catch(() => toast.error(t('settings.softwareRenderingFailed')))
       .finally(() => setSaving(false));
   };
