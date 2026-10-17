@@ -3,18 +3,19 @@ import type { SoundWaveEvent } from './events';
 
 export const LATE_SKIP_SHARE = 0.7;
 
-let wave: Set<string> | null = null;
-let negatives = 0;
-let positives = 0;
-
-export function followWave(owned: Set<string>): void {
-  wave = owned;
-  negatives = 0;
-  positives = 0;
+export interface WaveTally {
+  owned: Set<string>;
+  negatives: number;
+  positives: number;
 }
 
-export function leaveWave(owned: Set<string>): void {
-  if (wave === owned) wave = null;
+const tallies = new Set<WaveTally>();
+
+export function followWave(tally: WaveTally): () => void {
+  tallies.add(tally);
+  return () => {
+    tallies.delete(tally);
+  };
 }
 
 export function noteWaveOutcome(
@@ -22,26 +23,23 @@ export function noteWaveOutcome(
   urn: string,
   positionPct?: number,
 ): void {
-  if (!wave?.has(urn)) return;
-  if (outcome === 'dislike' || (outcome === 'skip' && (positionPct ?? 0) < LATE_SKIP_SHARE)) {
-    negatives += 1;
-  } else if (outcome === 'full_play' || outcome === 'like' || outcome === 'superlike') {
-    positives += 1;
+  const negative =
+    outcome === 'dislike' || (outcome === 'skip' && (positionPct ?? 0) < LATE_SKIP_SHARE);
+  const positive = outcome === 'full_play' || outcome === 'like' || outcome === 'superlike';
+  if (!negative && !positive) return;
+  for (const tally of tallies) {
+    if (!tally.owned.has(urn)) continue;
+    if (negative) tally.negatives += 1;
+    else tally.positives += 1;
   }
 }
 
-export async function sendWaveFeedback(cursor: string): Promise<string | null> {
-  if (!cursor || (negatives === 0 && positives === 0)) return null;
-  const body = JSON.stringify({ cursor, negatives, positives });
-  negatives = 0;
-  positives = 0;
-  try {
-    const res = await api<{ ok: boolean; cursor?: string | null }>(
-      '/recommendations/wave/feedback',
-      { method: 'POST', body },
-    );
-    return res?.cursor ?? null;
-  } catch {
-    return null;
-  }
+export async function sendWaveFeedback(cursor: string, tally: WaveTally): Promise<void> {
+  if (!cursor) return;
+  const body = JSON.stringify({ cursor, negatives: tally.negatives, positives: tally.positives });
+  tally.negatives = 0;
+  tally.positives = 0;
+  await api('/recommendations/wave/feedback', { method: 'POST', body, quiet: true }).catch(
+    () => {},
+  );
 }

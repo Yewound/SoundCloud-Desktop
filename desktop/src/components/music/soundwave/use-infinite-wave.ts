@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { fetchSmartWave, type SmartWaveSeedKind } from '../../../lib/soundwave';
-import { followWave, leaveWave, sendWaveFeedback } from '../../../lib/wave-feedback';
+import { followWave, sendWaveFeedback, type WaveTally } from '../../../lib/wave-feedback';
 import type { Track } from '../../../stores/player';
 import { usePlayerStore } from '../../../stores/player';
 
@@ -25,12 +25,13 @@ export function useInfiniteWave(opts: {
     languages,
     filterTrack,
     hideListened,
-    minTail = 5,
-    batchLimit = 20,
+    minTail = 4,
+    batchLimit = 10,
   } = opts;
 
-  const ownedRef = useRef<Set<string>>(new Set());
-  const cursorRef = useRef<string>(initialCursor ?? '');
+  const tallyRef = useRef<WaveTally>({ owned: new Set(), negatives: 0, positives: 0 });
+  const cursorRef = useRef('');
+  const shelfCursorRef = useRef(initialCursor);
   const fetchingRef = useRef(false);
   const languagesRef = useRef(languages);
   const filterRef = useRef(filterTrack);
@@ -47,67 +48,73 @@ export function useInfiniteWave(opts: {
   }, [hideListened]);
 
   useEffect(() => {
-    if (initialCursor) cursorRef.current = initialCursor;
+    shelfCursorRef.current = initialCursor;
   }, [initialCursor]);
 
   useEffect(() => {
-    for (const t of initialTracks) ownedRef.current.add(t.urn);
+    for (const t of initialTracks) tallyRef.current.owned.add(t.urn);
   }, [initialTracks]);
 
   useEffect(() => {
-    if (!enabled || seedKind !== 'user') return;
-    const owned = ownedRef.current;
-    followWave(owned);
-    return () => leaveWave(owned);
-  }, [enabled, seedKind]);
+    if (!enabled) return;
+    return followWave(tallyRef.current);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;
+    let live = true;
+    cursorRef.current = '';
+    tallyRef.current.negatives = 0;
+    tallyRef.current.positives = 0;
 
-    return usePlayerStore.subscribe((state, prev) => {
+    const refill = async (cursor: string) => {
+      const batch = await fetchSmartWave({
+        seedKind,
+        seedId,
+        cursor: cursor || undefined,
+        limit: batchLimit,
+        languages: languagesRef.current,
+        hideListened: hideListenedRef.current,
+      });
+      if (live && batch.cursor) cursorRef.current = batch.cursor;
+      const filterFn = filterRef.current;
+      const existing = new Set(usePlayerStore.getState().queue.map((t) => t.urn));
+      const fresh = batch.tracks.filter((t) => !existing.has(t.urn) && (!filterFn || filterFn(t)));
+      if (fresh.length > 0) {
+        usePlayerStore.getState().addToQueue(fresh);
+        for (const t of fresh) tallyRef.current.owned.add(t.urn);
+      }
+    };
+
+    const unsubscribe = usePlayerStore.subscribe((state, prev) => {
       const { queue, queueIndex, currentTrack, isPlaying } = state;
-      // Narrowed: only react to refill-relevant fields.
+      const trackChanged = currentTrack?.urn !== prev.currentTrack?.urn;
       if (
+        !trackChanged &&
         queueIndex === prev.queueIndex &&
         queue.length === prev.queue.length &&
-        currentTrack?.urn === prev.currentTrack?.urn &&
         isPlaying === prev.isPlaying
       ) {
         return;
       }
-      if (!currentTrack) return;
-      if (!ownedRef.current.has(currentTrack.urn)) return;
-
-      const remaining = queue.length - queueIndex - 1;
-      if (remaining > minTail) return;
-      if (!isPlaying && remaining > 0) return;
       if (fetchingRef.current) return;
+
+      const owned = tallyRef.current.owned;
+      const onWave = !!currentTrack && owned.has(currentTrack.urn);
+      const leftWave = !!prev.currentTrack && owned.has(prev.currentTrack.urn);
+      const remaining = queue.length - queueIndex - 1;
+      const waveAhead = queue.slice(queueIndex + 1).filter((t) => owned.has(t.urn)).length;
+      const needsRefill = onWave && waveAhead <= minTail && (isPlaying || remaining <= 0);
+      const ping = trackChanged && (onWave || leftWave);
+      if (!needsRefill && !ping) return;
 
       fetchingRef.current = true;
       (async () => {
         try {
-          if (seedKind === 'user') {
-            const updated = await sendWaveFeedback(cursorRef.current);
-            if (updated) cursorRef.current = updated;
-          }
-          const batch = await fetchSmartWave({
-            seedKind,
-            seedId,
-            cursor: cursorRef.current || undefined,
-            limit: batchLimit,
-            languages: languagesRef.current,
-            hideListened: hideListenedRef.current,
-          });
-          if (batch.cursor) cursorRef.current = batch.cursor;
-          const filterFn = filterRef.current;
-          const existing = new Set(usePlayerStore.getState().queue.map((t) => t.urn));
-          const fresh = batch.tracks.filter(
-            (t) => !existing.has(t.urn) && (!filterFn || filterFn(t)),
-          );
-          if (fresh.length > 0) {
-            usePlayerStore.getState().addToQueue(fresh);
-            for (const t of fresh) ownedRef.current.add(t.urn);
-          }
+          const cursor = cursorRef.current || shelfCursorRef.current || '';
+          cursorRef.current = cursor;
+          await sendWaveFeedback(cursor, tallyRef.current);
+          if (needsRefill) await refill(cursor);
         } catch (e) {
           console.debug('[soundwave] infinite refill failed:', e);
         } finally {
@@ -115,5 +122,10 @@ export function useInfiniteWave(opts: {
         }
       })();
     });
+
+    return () => {
+      live = false;
+      unsubscribe();
+    };
   }, [enabled, seedKind, seedId, minTail, batchLimit]);
 }

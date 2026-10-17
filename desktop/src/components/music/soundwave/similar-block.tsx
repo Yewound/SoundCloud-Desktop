@@ -65,7 +65,7 @@ export const SoundWaveSimilarBlock = React.memo(function SoundWaveSimilarBlock({
     seedKind: 'track',
     seedId: trackUrn,
     initialTracks: waveCluster?.tracks ?? [],
-    initialCursor: null,
+    initialCursor: waveCluster?.cursor ?? null,
     hideListened,
   });
 

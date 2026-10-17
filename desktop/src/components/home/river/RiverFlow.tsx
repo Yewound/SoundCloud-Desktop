@@ -135,7 +135,7 @@ export const RiverFlow = React.memo(function RiverFlow({ tint }: { tint?: string
     enabled: isAuthenticated,
     seedKind: 'user',
     initialTracks: waveCluster?.tracks ?? [],
-    initialCursor: null,
+    initialCursor: waveCluster?.cursor ?? null,
     languages: stableLanguages,
     filterTrack: keepTrack,
     hideListened,
