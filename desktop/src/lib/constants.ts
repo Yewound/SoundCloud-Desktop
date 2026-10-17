@@ -22,6 +22,8 @@ export const DISCORD_URL = 'https://discord.gg/xQcGBP8fGG';
 export const BOOSTY_URL = 'https://boosty.to/lolinamide';
 export const ANDROID_CLIENT_URL = 'https://github.com/okeydw/SoundCloud-Android';
 export const ANDROID_CLIENT_RELEASES_URL = `${ANDROID_CLIENT_URL}/releases/latest`;
+export const IOS_CLIENT_URL = 'https://github.com/okeydw/SoundCloud-IOS';
+export const IOS_CLIENT_RELEASES_URL = `${IOS_CLIENT_URL}/releases/latest`;
 /** Prefilled GitHub issue for new-language requests. */
 export const REQUEST_LANGUAGE_URL =
   `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues/new` +
