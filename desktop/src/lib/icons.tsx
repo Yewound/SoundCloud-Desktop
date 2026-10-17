@@ -11,6 +11,7 @@ import {
   ArrowDownAZ as _ArrowDownAZ,
   ArrowDownToLine as _ArrowDownToLine,
   ArrowRight as _ArrowRight,
+  ArrowUp as _ArrowUp,
   ArrowUpDown as _ArrowUpDown,
   ArrowUpToLine as _ArrowUpToLine,
   AudioLines as _AudioLines,
@@ -79,6 +80,7 @@ import {
   Moon as _Moon,
   Music as _Music,
   Palette as _Palette,
+  Pin as _Pin,
   PanelLeftClose as _PanelLeftClose,
   PanelLeftOpen as _PanelLeftOpen,
   Pause as _Pause,
@@ -178,6 +180,7 @@ export const Download = memo(_Download);
 export const ChevronDown = memo(_ChevronDown);
 export const ChevronLeft = memo(_ChevronLeft);
 export const ArrowRight = memo(_ArrowRight);
+export const ArrowUp = memo(_ArrowUp);
 export const ArrowUpDown = memo(_ArrowUpDown);
 export const ArrowUpToLine = memo(_ArrowUpToLine);
 export const ChevronRight = memo(_ChevronRight);
@@ -228,6 +231,7 @@ export const MessageCircle = memo(_MessageCircle);
 export const Minus = memo(_Minus);
 export const Music = memo(_Music);
 export const Palette = memo(_Palette);
+export const Pin = memo(_Pin);
 export const PanelLeftClose = memo(_PanelLeftClose);
 export const PanelLeftOpen = memo(_PanelLeftOpen);
 export const Pause = memo(_Pause);

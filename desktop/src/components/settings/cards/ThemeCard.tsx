@@ -1,8 +1,11 @@
 import {useRef} from 'react';
 import {useTranslation} from 'react-i18next';
 import {Sparkles} from '../../../lib/icons';
+import {activeLook} from '../../../lib/themes/records';
 import {THEME_PRESETS, useSettingsStore} from '../../../stores/settings';
+import {useThemesStore} from '../../../stores/themes';
 import {Card} from '../primitives';
+import {ThemeOverrideRow} from './ThemeOverrideRow';
 
 const THEME_PRESET_KEYS = ['soundcloud', 'dark', 'neon', 'forest', 'crimson'] as const;
 
@@ -26,6 +29,7 @@ export function ThemeCard() {
     const setAccentColor = useSettingsStore((s) => s.setAccentColor);
     const setThemePreset = useSettingsStore((s) => s.setThemePreset);
     const resetTheme = useSettingsStore((s) => s.resetTheme);
+    const look = useThemesStore(activeLook);
     const colorInputRef = useRef<HTMLInputElement>(null);
 
     return (
@@ -35,7 +39,10 @@ export function ThemeCard() {
             action={
                 <button
                     type="button"
-                    onClick={resetTheme}
+                    onClick={() => {
+                        resetTheme();
+                        useThemesStore.getState().deactivate();
+                    }}
                     className="text-[12px] text-white/30 hover:text-white/60 transition-colors cursor-pointer"
                 >
                     {t('settings.resetDefaults')}
@@ -43,6 +50,9 @@ export function ThemeCard() {
             }
         >
             <div className="space-y-6">
+                {(look?.accent || look?.background) && (
+                    <ThemeOverrideRow label={t('settings.themesColorsFromTheme', {name: look.name})}/>
+                )}
                 <div className="space-y-3">
                     <label className="text-[13px] text-white/50 font-medium">
                         {t('settings.themePreset')}

@@ -29,6 +29,7 @@ import {StorageLocationCard} from './cards/StorageLocationCard';
 import {SupportCard} from './cards/SupportCard';
 import {ScrobbleCard} from './cards/scrobble/ScrobbleCard';
 import {ThemeCard} from './cards/ThemeCard';
+import {ThemesCard} from './cards/ThemesCard';
 import {UiScaleCard} from './cards/UiScaleCard';
 import {UpdatesCard} from './cards/UpdatesCard';
 import {WallpaperCard} from './cards/WallpaperCard';
@@ -79,6 +80,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
         Body: () => (
             <>
                 <ThemeCard/>
+                <ThemesCard/>
                 <UiScaleCard/>
                 <CoverColorsCard/>
                 <FontCard/>

@@ -12,8 +12,11 @@ import {
   removeUploadedFont,
   sanitizeFontName,
 } from '../../../lib/interface-font';
+import { activeLook } from '../../../lib/themes/records';
 import { useSettingsStore } from '../../../stores/settings';
+import { useThemesStore } from '../../../stores/themes';
 import { Card } from '../primitives';
+import { ThemeOverrideRow } from './ThemeOverrideRow';
 
 const SAMPLE = 'Aa Бб';
 
@@ -216,6 +219,7 @@ export function FontCard() {
   const interfaceFont = useSettingsStore((s) => s.interfaceFont);
   const customFontName = useSettingsStore((s) => s.customFontName);
   const setInterfaceFont = useSettingsStore((s) => s.setInterfaceFont);
+  const look = useThemesStore(activeLook);
 
   useEffect(() => {
     for (const font of FONT_OPTIONS) void loadBundledFont(font);
@@ -226,6 +230,9 @@ export function FontCard() {
   return (
     <Card title={t('settings.fontTitle')} desc={t('settings.fontDesc')} icon={<Type size={17} />}>
       <div className="space-y-4">
+        {look?.font && (
+          <ThemeOverrideRow label={t('settings.themesFontFromTheme', { name: look.name })} />
+        )}
         <div className="grid grid-cols-5 gap-2.5">
           {FONT_OPTIONS.map((font) => (
             <FontTile
