@@ -1,11 +1,12 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use biquad::{Biquad, Coefficients, DirectForm1, Hertz, ToHertz, Type, Q_BUTTERWORTH_F64};
+use biquad::{Biquad, DirectForm1};
 use rodio::source::SeekError;
 use rodio::Source;
 
-use crate::audio::types::{ChannelCount, EqParams, SampleRate, EQ_BANDS, EQ_FREQS, EQ_Q};
+use crate::audio::eq_curve::band_coefficients;
+use crate::audio::types::{ChannelCount, EqParams, SampleRate, EQ_BANDS};
 
 pub struct GainSource<S: Source<Item = f32>> {
     source: S,
@@ -59,6 +60,8 @@ pub struct EqSource<S: Source<Item = f32>> {
     sample_rate: SampleRate,
     current_channel: u16,
     cached_gains: [f64; EQ_BANDS],
+    cached_preamp: f64,
+    preamp_gain: f64,
     cached_enabled: bool,
 }
 
@@ -66,25 +69,9 @@ impl<S: Source<Item = f32>> EqSource<S> {
     pub fn new(source: S, params: Arc<RwLock<EqParams>>) -> Self {
         let sample_rate = source.sample_rate();
         let channels = source.channels();
-        let fs: Hertz<f64> = (sample_rate.get() as f64).hz();
-
         let make_filters = || {
-            std::array::from_fn(|i| {
-                let filter_type = if i == 0 {
-                    Type::LowShelf(0.0)
-                } else if i == EQ_BANDS - 1 {
-                    Type::HighShelf(0.0)
-                } else {
-                    Type::PeakingEQ(0.0)
-                };
-                let q = if i == 0 || i == EQ_BANDS - 1 {
-                    Q_BUTTERWORTH_F64
-                } else {
-                    EQ_Q
-                };
-                let coeffs =
-                    Coefficients::<f64>::from_params(filter_type, fs, EQ_FREQS[i].hz(), q).unwrap();
-                DirectForm1::<f64>::new(coeffs)
+            std::array::from_fn(|band| {
+                DirectForm1::<f64>::new(band_coefficients(band, 0.0, sample_rate.get() as f64))
             })
         };
 
@@ -97,39 +84,25 @@ impl<S: Source<Item = f32>> EqSource<S> {
             sample_rate,
             current_channel: 0,
             cached_gains: [0.0; EQ_BANDS],
+            cached_preamp: 0.0,
+            preamp_gain: 1.0,
             cached_enabled: false,
         }
     }
 
-    fn update_coefficients(&mut self, gains: &[f64; EQ_BANDS]) {
-        let fs: Hertz<f64> = (self.sample_rate.get() as f64).hz();
-        for i in 0..EQ_BANDS {
-            if (gains[i] - self.cached_gains[i]).abs() < 0.01 {
+    fn update_coefficients(&mut self, gains: &[f64; EQ_BANDS], preamp: f64) {
+        let sample_rate = self.sample_rate.get() as f64;
+        for band in 0..EQ_BANDS {
+            if (gains[band] - self.cached_gains[band]).abs() < 0.01 {
                 continue;
             }
-
-            let filter_type = if i == 0 {
-                Type::LowShelf(gains[i])
-            } else if i == EQ_BANDS - 1 {
-                Type::HighShelf(gains[i])
-            } else {
-                Type::PeakingEQ(gains[i])
-            };
-            let q = if i == 0 || i == EQ_BANDS - 1 {
-                Q_BUTTERWORTH_F64
-            } else {
-                EQ_Q
-            };
-
-            if let Ok(coeffs) =
-                Coefficients::<f64>::from_params(filter_type, fs, EQ_FREQS[i].hz(), q)
-            {
-                self.filters_l[i] = DirectForm1::<f64>::new(coeffs);
-                self.filters_r[i] = DirectForm1::<f64>::new(coeffs);
-            }
+            let coefficients = band_coefficients(band, gains[band], sample_rate);
+            self.filters_l[band].update_coefficients(coefficients);
+            self.filters_r[band].update_coefficients(coefficients);
         }
-
         self.cached_gains = *gains;
+        self.cached_preamp = preamp;
+        self.preamp_gain = 10f64.powf(preamp / 20.0);
     }
 }
 
@@ -141,20 +114,27 @@ impl<S: Source<Item = f32>> Iterator for EqSource<S> {
         let ch = self.current_channel;
         self.current_channel = (ch + 1) % self.channels.get();
 
-        let snapshot = self.params.try_read().ok().map(|p| (p.enabled, p.gains));
-        if let Some((enabled, gains)) = snapshot
-            && (enabled != self.cached_enabled || gains != self.cached_gains) {
-                if enabled {
-                    self.update_coefficients(&gains);
-                }
-                self.cached_enabled = enabled;
+        let snapshot = self
+            .params
+            .try_read()
+            .ok()
+            .map(|p| (p.enabled, p.gains, p.preamp));
+        if let Some((enabled, gains, preamp)) = snapshot
+            && (enabled != self.cached_enabled
+                || gains != self.cached_gains
+                || preamp != self.cached_preamp)
+        {
+            if enabled {
+                self.update_coefficients(&gains, preamp);
             }
+            self.cached_enabled = enabled;
+        }
 
         if !self.cached_enabled {
             return Some(sample);
         }
 
-        let mut out = sample as f64;
+        let mut out = sample as f64 * self.preamp_gain;
         let filters = if ch == 0 {
             &mut self.filters_l
         } else {

@@ -104,6 +104,7 @@ export interface SettingsState {
   eqEnabled: boolean;
   eqGains: number[];
   eqPreset: string;
+  eqPreamp: number | null;
   eqCustomPresets: EqCustomPreset[];
   normalizeVolume: boolean;
   skipSilence: boolean;
@@ -181,6 +182,7 @@ export interface SettingsState {
   setEqGains: (gains: number[]) => void;
   setEqPreset: (preset: string) => void;
   setEqBand: (index: number, gain: number) => void;
+  setEqPreamp: (preamp: number | null) => void;
   saveEqCustomPreset: (name: string) => void;
   deleteEqCustomPreset: (id: string) => void;
   setNormalizeVolume: (enabled: boolean) => void;
@@ -273,6 +275,7 @@ const DEFAULTS = {
   eqEnabled: false,
   eqGains: DEFAULT_EQ_GAINS,
   eqPreset: 'flat',
+  eqPreamp: null as number | null,
   eqCustomPresets: [] as EqCustomPreset[],
   normalizeVolume: true,
   skipSilence: false,
@@ -368,25 +371,30 @@ export const useSettingsStore = create<SettingsState>()(
           eqGains[index] = gain;
           return { eqGains, eqPreset: 'custom' };
         }),
+      setEqPreamp: (eqPreamp) => set({ eqPreamp }),
       saveEqCustomPreset: (rawName) =>
         set((s) => {
           const name = rawName.trim().slice(0, EQ_PRESET_NAME_MAX);
           if (!name) return {};
           const gains = [...s.eqGains];
+          const preamp = s.eqPreamp;
           const existing = s.eqCustomPresets.find(
             (p) => p.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
           );
           if (existing) {
             return {
               eqCustomPresets: s.eqCustomPresets.map((p) =>
-                p.id === existing.id ? { ...p, name, gains } : p,
+                p.id === existing.id ? { ...p, name, gains, preamp } : p,
               ),
               eqPreset: existing.id,
             };
           }
           if (s.eqCustomPresets.length >= EQ_CUSTOM_PRESET_LIMIT) return {};
           const id = `user-${Date.now().toString(36)}`;
-          return { eqCustomPresets: [...s.eqCustomPresets, { id, name, gains }], eqPreset: id };
+          return {
+            eqCustomPresets: [...s.eqCustomPresets, { id, name, gains, preamp }],
+            eqPreset: id,
+          };
         }),
       deleteEqCustomPreset: (id) =>
         set((s) => ({
@@ -571,6 +579,7 @@ export const useSettingsStore = create<SettingsState>()(
         eqEnabled: s.eqEnabled,
         eqGains: s.eqGains,
         eqPreset: s.eqPreset,
+        eqPreamp: s.eqPreamp,
         eqCustomPresets: s.eqCustomPresets,
         normalizeVolume: s.normalizeVolume,
         skipSilence: s.skipSilence,
