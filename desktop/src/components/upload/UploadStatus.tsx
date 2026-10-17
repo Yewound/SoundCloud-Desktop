@@ -2,8 +2,19 @@ import * as Dialog from '@radix-ui/react-dialog';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, CircleCheck, Loader2 } from '../../lib/icons';
+import { askRelogin } from '../../lib/auth-recovery';
+import { AlertCircle, CircleCheck, Loader2, Lock, RotateCcw } from '../../lib/icons';
+import type { UploadAction } from '../../lib/track-upload';
 import { useTrackUploadStore } from '../../stores/track-upload';
+
+const GHOST_BUTTON =
+  'px-4 py-2 rounded-xl text-[13px] font-medium text-white/50 hover:text-white/80 hover:bg-white/[0.06] transition-all cursor-pointer';
+
+const PRIMARY_LABEL: Record<UploadAction, string> = {
+  signIn: 'sync.signIn',
+  retry: 'common.retry',
+  restart: 'upload.tryAgain',
+};
 
 function megabytes(bytes: number) {
   return (bytes / (1024 * 1024)).toFixed(1);
@@ -105,28 +116,49 @@ function Finished() {
 
 function Failed() {
   const { t } = useTranslation();
-  const { error, reason, reset } = useTrackUploadStore();
+  const { error, reason, action, retryAfter, reset, retry, setDialogOpen } = useTrackUploadStore();
+  const minutes = Math.max(1, Math.ceil((retryAfter ?? 0) / 60));
+  const runPrimary = () => {
+    if (action === 'signIn') {
+      setDialogOpen(false);
+      askRelogin('writes');
+    } else if (action === 'retry') {
+      void retry();
+    } else {
+      reset();
+    }
+  };
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-red-500/[0.07] border border-red-500/15">
         <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
         <div className="space-y-1 min-w-0">
           <p className="text-[13px] text-white/80 leading-relaxed">
-            {t(error ?? 'upload.errors.failed')}
+            {t(error ?? 'upload.errors.failed', { minutes })}
           </p>
           {reason && <p className="text-[11.5px] text-white/40 break-words">{reason}</p>}
         </div>
       </div>
       <div className="flex items-center justify-end gap-2.5">
-        <Dialog.Close className="px-4 py-2 rounded-xl text-[13px] font-medium text-white/50 hover:text-white/80 hover:bg-white/[0.06] transition-all cursor-pointer">
-          {t('common.close')}
-        </Dialog.Close>
+        <Dialog.Close className={GHOST_BUTTON}>{t('common.close')}</Dialog.Close>
+        {action === 'retry' && (
+          <button type="button" onClick={reset} className={GHOST_BUTTON}>
+            {t('upload.otherFile')}
+          </button>
+        )}
+        {action === 'signIn' && (
+          <button type="button" onClick={() => void retry()} className={GHOST_BUTTON}>
+            {t('common.retry')}
+          </button>
+        )}
         <button
           type="button"
-          onClick={reset}
-          className="px-4 py-2 rounded-xl text-[13px] font-semibold bg-accent text-accent-contrast hover:bg-accent-hover transition-all cursor-pointer"
+          onClick={runPrimary}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold bg-accent text-accent-contrast hover:bg-accent-hover transition-all cursor-pointer"
         >
-          {t('upload.tryAgain')}
+          {action === 'signIn' && <Lock size={13} />}
+          {action === 'retry' && <RotateCcw size={13} />}
+          {t(PRIMARY_LABEL[action])}
         </button>
       </div>
     </div>

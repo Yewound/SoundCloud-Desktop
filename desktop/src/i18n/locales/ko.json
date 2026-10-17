@@ -2002,6 +2002,7 @@
     "another": "다른 트랙 업로드",
     "openTrack": "트랙 열기",
     "tryAgain": "다시 시도",
+    "otherFile": "다른 파일",
     "errors": {
       "failed": "트랙을 업로드하지 못했어요. 나중에 다시 시도해 주세요",
       "network": "업로드 중 연결이 끊겼어요. 다시 시도해 주세요",
@@ -2014,6 +2015,9 @@
       "busy": "지금은 업로드가 너무 많아요. 잠시 후 다시 시도해 주세요",
       "invalid": "제목과 다른 항목을 확인해 주세요",
       "session": "세션이 만료됐어요. 다시 로그인해 주세요",
+      "signIn": "SoundCloud에 다시 로그인해야 해요",
+      "soundcloudDown": "지금은 SoundCloud를 사용할 수 없어요. 나중에 다시 시도해 주세요",
+      "soundcloudDownFor": "지금은 SoundCloud를 사용할 수 없어요. {{minutes}}분 후에 다시 시도해 주세요",
       "rejected": "SoundCloud가 업로드를 거부했어요. 계정의 업로드 한도에 도달했을 수 있어요."
     }
   },

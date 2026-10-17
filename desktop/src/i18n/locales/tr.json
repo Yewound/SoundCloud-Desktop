@@ -1852,6 +1852,7 @@
     "another": "Başka bir tane yükle",
     "openTrack": "Parçayı aç",
     "tryAgain": "Tekrar dene",
+    "otherFile": "Başka dosya",
     "errors": {
       "failed": "Parça yüklenemedi, daha sonra tekrar dene",
       "network": "Yükleme sırasında bağlantı koptu, tekrar dene",
@@ -1864,6 +1865,9 @@
       "busy": "Şu anda çok fazla yükleme var, bir dakika sonra tekrar dene",
       "invalid": "Başlığı ve diğer alanları kontrol et",
       "session": "Oturumun sona erdi, tekrar giriş yap",
+      "signIn": "SoundCloud'a yeniden giriş yapman gerekiyor",
+      "soundcloudDown": "SoundCloud şu anda kullanılamıyor, daha sonra tekrar dene",
+      "soundcloudDownFor": "SoundCloud şu anda kullanılamıyor, {{minutes}} dk sonra tekrar dene",
       "rejected": "SoundCloud yüklemeyi reddetti. Hesabın yükleme sınırına ulaşmış olabilir."
     }
   },
