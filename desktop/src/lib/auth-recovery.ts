@@ -90,7 +90,7 @@ async function runRenew(manual: boolean): Promise<void> {
       silentAttempts = 0;
       clearRetryTimer();
       logInfo('[Recovery] renew удался → сессия жива');
-      useAuthRecoveryStore.getState().markRecovered();
+      useAuthRecoveryStore.getState().markRecovered(manual);
       queryClient.invalidateQueries();
     } catch (e) {
       // Само-восстановилось параллельным успешным запросом — модалку не лепим.
@@ -202,7 +202,7 @@ export function completeReauth(sessionId: string): void {
     const auth = useAuthStore.getState();
     await auth.setSession(sessionId);
     await auth.fetchUser().catch(() => {});
-    useAuthRecoveryStore.getState().markRecovered();
+    useAuthRecoveryStore.getState().markRecovered(true);
     queryClient.invalidateQueries();
     setTimeout(() => queryClient.invalidateQueries({ queryKey: SYNC_KEY }), SYNC_STATUS_CACHE_MS);
   })();

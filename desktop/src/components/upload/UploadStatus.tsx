@@ -120,7 +120,7 @@ function Failed() {
   const { error, reason, action, retryAfter, failedAt, reset, retry, setDialogOpen } =
     useTrackUploadStore();
   const recoveryPhase = useAuthRecoveryStore((s) => s.phase);
-  const signedIn = useAuthRecoveryStore((s) => action === 'signIn' && s.recoveredAt > failedAt);
+  const signedIn = useAuthRecoveryStore((s) => action === 'signIn' && s.signedInAt > failedAt);
   const primary = signedIn ? 'retry' : action;
   const minutes = Math.max(1, Math.ceil((retryAfter ?? 0) / 60));
 
@@ -157,11 +157,6 @@ function Failed() {
         {primary === 'retry' && (
           <button type="button" onClick={reset} className={GHOST_BUTTON}>
             {t('upload.otherFile')}
-          </button>
-        )}
-        {primary === 'signIn' && (
-          <button type="button" onClick={() => void retry()} className={GHOST_BUTTON}>
-            {t('common.retry')}
           </button>
         )}
         <button

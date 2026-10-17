@@ -1,7 +1,8 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Upload, X } from '../../lib/icons';
+import { useAuthRecoveryStore } from '../../stores/auth-recovery';
 import { useTrackUploadStore } from '../../stores/track-upload';
 import { UploadForm } from './UploadForm';
 import { UploadStatus } from './UploadStatus';
@@ -11,6 +12,14 @@ export const UploadTrackDialog = React.memo(function UploadTrackDialog() {
   const open = useTrackUploadStore((s) => s.dialogOpen);
   const setOpen = useTrackUploadStore((s) => s.setDialogOpen);
   const phase = useTrackUploadStore((s) => s.phase);
+  const signedInAt = useAuthRecoveryStore((s) => s.signedInAt);
+
+  useEffect(() => {
+    const upload = useTrackUploadStore.getState();
+    if (upload.phase === 'failed' && upload.action === 'signIn' && signedInAt > upload.failedAt) {
+      setOpen(true);
+    }
+  }, [signedInAt, setOpen]);
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
