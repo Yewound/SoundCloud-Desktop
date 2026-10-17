@@ -59,14 +59,6 @@ fn header(request: &Request<'_>, name: &str) -> Result<String, String> {
         .ok_or_else(|| format!("missing {name}"))
 }
 
-fn tmp_path(dir: &Path, name: &str) -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_nanos());
-    let counter = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-    dir.join(format!("{name}.{nanos}-{counter}.tmp"))
-}
-
 fn has_len(path: &Path, len: usize) -> bool {
     std::fs::metadata(path).is_ok_and(|meta| meta.len() == len as u64)
 }
@@ -92,7 +84,11 @@ fn store(dir: &Path, sha: &str, ext: &str, body: &[u8]) -> Result<String, String
         return Err("theme file hash mismatch".into());
     }
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let tmp = tmp_path(dir, &name);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let counter = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let tmp = dir.join(format!("{name}.{nanos}-{counter}.tmp"));
     std::fs::write(&tmp, body).map_err(|e| e.to_string())?;
     if let Err(error) = std::fs::rename(&tmp, &target) {
         let _ = std::fs::remove_file(&tmp);
@@ -101,12 +97,6 @@ fn store(dir: &Path, sha: &str, ext: &str, body: &[u8]) -> Result<String, String
         }
     }
     Ok(name)
-}
-
-fn is_old(path: &Path, now: SystemTime) -> bool {
-    std::fs::metadata(path)
-        .and_then(|meta| meta.modified())
-        .is_ok_and(|modified| now.duration_since(modified).unwrap_or_default() > TMP_MAX_AGE)
 }
 
 fn collect(dir: &Path, keep: &[String], now: SystemTime) -> u32 {
@@ -120,7 +110,12 @@ fn collect(dir: &Path, keep: &[String], now: SystemTime) -> u32 {
         let stale = if is_file_name(&name) {
             !keep.contains(&name)
         } else {
-            is_tmp_name(&name) && is_old(&path, now)
+            is_tmp_name(&name)
+                && std::fs::metadata(&path)
+                    .and_then(|meta| meta.modified())
+                    .is_ok_and(|modified| {
+                        now.duration_since(modified).unwrap_or_default() > TMP_MAX_AGE
+                    })
         };
         if stale && std::fs::remove_file(&path).is_ok() {
             removed += 1;
@@ -131,10 +126,12 @@ fn collect(dir: &Path, keep: &[String], now: SystemTime) -> u32 {
 
 #[tauri::command]
 pub async fn theme_file_store(app: AppHandle, request: Request<'_>) -> Result<String, String> {
-    let InvokeBody::Raw(body) = request.body() else {
-        return Err("expected raw body".into());
+    let body = match request.body() {
+        InvokeBody::Raw(body) => body.clone(),
+        InvokeBody::Json(value) => {
+            serde_json::from_value::<Vec<u8>>(value.clone()).map_err(|e| e.to_string())?
+        }
     };
-    let body = body.clone();
     let sha = header(&request, "x-theme-sha256")?;
     let ext = header(&request, "x-theme-ext")?;
     let dir = app_files_dir(&app)?;
@@ -148,6 +145,12 @@ pub async fn theme_files_gc(app: AppHandle, keep: Vec<String>) -> Result<u32, St
     }
     let dir = app_files_dir(&app)?;
     run_blocking(move || collect(&dir, &keep, SystemTime::now())).await
+}
+
+pub fn clear_applying(app: &AppHandle) {
+    if let Ok(dir) = app.path().app_data_dir() {
+        let _ = std::fs::remove_file(dir.join("themes").join("applying"));
+    }
 }
 
 #[cfg(test)]

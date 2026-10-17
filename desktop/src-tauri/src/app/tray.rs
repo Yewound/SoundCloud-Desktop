@@ -73,7 +73,10 @@ pub fn run_action(app: &AppHandle, id: &str) {
             // OnBeforeClose окон/вебвью не завершается) → жёсткий выход; Chromium-хелперы
             // сами умирают по смерти родителя. На wry — обычный graceful exit.
             #[cfg(feature = "cef")]
-            std::process::exit(0);
+            {
+                crate::app::themes::clear_applying(&h);
+                std::process::exit(0);
+            }
             #[cfg(not(feature = "cef"))]
             h.exit(0);
         }

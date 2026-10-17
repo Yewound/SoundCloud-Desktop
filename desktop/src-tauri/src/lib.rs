@@ -363,6 +363,11 @@ pub fn run() {
             network::netcheck::net_check_report_text,
             network::wallpapers::wallpaper_search,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                app::themes::clear_applying(app);
+            }
+        });
 }
