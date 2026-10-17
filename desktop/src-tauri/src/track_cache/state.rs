@@ -20,7 +20,7 @@ use crate::network::edge::{Hop, Tier};
 use crate::network::fail::Fail;
 use crate::network::system_proxy::{self, follow};
 use crate::shared::urn::{canonical_track_urn, track_urn_from_storage_name};
-use crate::track_cache::api_download::{StreamJob, download_api, is_refusal, tier_url};
+use crate::track_cache::api_download::{StreamJob, download_api, refused_for, tier_url};
 use crate::track_cache::direct_download::{Candidate, consume_at, fetch_candidates};
 use crate::track_cache::sc_anon::AnonClient;
 use crate::track_cache::transcode;
@@ -38,6 +38,7 @@ pub use bulk::{BulkCacheEntry, BulkCacheStatus};
 pub use export::ExportOutcome;
 use ladder::Ladder;
 use refusal::Refusal;
+pub(super) use refusal::REFUSAL_TTL;
 use storage::StorageCooldown;
 
 const MIN_AUDIO_SIZE: u64 = 8192;
@@ -1673,7 +1674,7 @@ impl TrackCacheState {
             .collect();
 
         let mut last_err = String::from("api: all URLs failed");
-        let mut refused = true;
+        let mut refused = Some(Duration::ZERO);
         while !futures.is_empty() {
             let ((idx, result), _select_idx, remaining) =
                 futures_util::future::select_all(futures).await;
@@ -1688,14 +1689,14 @@ impl TrackCacheState {
                 }
                 Err(err) => {
                     diagnostics::warn(format!("[TrackCache] {urn} URL #{} failed: {err}", idx + 1));
-                    refused &= is_refusal(&err);
+                    refused = refused.zip(refused_for(&err)).map(|(a, b)| a.max(b));
                     last_err = err;
                     futures = remaining;
                 }
             }
         }
-        if refused {
-            self.note_refused(job.quality, session_id);
+        if let Some(hold) = refused {
+            self.note_refused(job.quality, session_id, hold);
         }
         Err(last_err)
     }

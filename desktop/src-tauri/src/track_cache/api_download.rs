@@ -1,12 +1,13 @@
 use std::error::Error as _;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use url::Url;
 use wreq::Client;
 
 use super::state::{
-    DownloadError, DownloadResult, DownloadSource, PlaybackQuality, file_len,
+    DownloadError, DownloadResult, DownloadSource, PlaybackQuality, REFUSAL_TTL, file_len,
     write_response_to_cache,
 };
 use crate::app::diagnostics;
@@ -112,6 +113,7 @@ async fn open_stream(
 }
 
 async fn http_failure(status: wreq::StatusCode, response: wreq::Response) -> DownloadError {
+    let wait = retry_after(&response).filter(|_| status == wreq::StatusCode::TOO_MANY_REQUESTS);
     let body = match response.text().await {
         Ok(body) => normalize_error_body(&body),
         Err(err) => Some(format!(
@@ -119,20 +121,43 @@ async fn http_failure(status: wreq::StatusCode, response: wreq::Response) -> Dow
             format_reqwest_error(err)
         )),
     };
-    let message = if let Some(body) = body {
-        format!("HTTP {}: {}", status, body)
-    } else {
-        format!("HTTP {}", status)
+    let head = match wait {
+        Some(secs) => format!("HTTP {status}, retry after {secs} s"),
+        None => format!("HTTP {status}"),
     };
-    if status.is_client_error() && !matches!(status.as_u16(), 408 | 421 | 429) {
+    let message = match body {
+        Some(body) => format!("{head}: {body}"),
+        None => head,
+    };
+    let fatal = status.is_client_error() && !matches!(status.as_u16(), 408 | 421 | 429);
+    if fatal || wait.is_some() {
         DownloadError::Fatal(message)
     } else {
         DownloadError::Retryable(message)
     }
 }
 
-pub(super) fn is_refusal(err: &str) -> bool {
-    err.starts_with("HTTP 403 ")
+fn retry_after(response: &wreq::Response) -> Option<u64> {
+    response
+        .headers()
+        .get(wreq::header::RETRY_AFTER)?
+        .to_str()
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
+}
+
+pub(super) fn refused_for(err: &str) -> Option<Duration> {
+    if err.starts_with("HTTP 403 ") {
+        return Some(REFUSAL_TTL);
+    }
+    let wait = err
+        .strip_prefix("HTTP 429 ")?
+        .split_once(", retry after ")?
+        .1;
+    let secs = wait.split_once(' ')?.0.parse().ok()?;
+    Some(Duration::from_secs(secs))
 }
 
 fn quality_from_url(url: &str) -> PlaybackQuality {
@@ -274,14 +299,15 @@ fn format_reqwest_error(err: wreq::Error) -> String {
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::AtomicBool;
+    use std::time::Duration;
 
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
-    use warp::Filter;
+    use warp::{Filter, Reply};
 
     use super::{StreamJob, download_over};
     use crate::network::edge::{Hop, Tier};
-    use crate::track_cache::state::{DownloadError, PlaybackQuality};
+    use crate::track_cache::state::{DownloadError, PlaybackQuality, REFUSAL_TTL};
 
     const FULL: usize = 200 * 1024;
 
@@ -325,6 +351,20 @@ mod tests {
     fn forbidding() -> String {
         let route = warp::path("stream")
             .map(|| warp::reply::with_status("forbidden", warp::http::StatusCode::FORBIDDEN));
+        let (addr, server) = warp::serve(route).bind_ephemeral(([127, 0, 0, 1], 0));
+        tokio::spawn(server);
+        format!("http://{addr}/stream")
+    }
+
+    fn busy(retry_after: Option<&'static str>) -> String {
+        let route = warp::path("stream").map(move || {
+            let reply =
+                warp::reply::with_status("free hq busy", warp::http::StatusCode::TOO_MANY_REQUESTS);
+            match retry_after {
+                Some(secs) => warp::reply::with_header(reply, "retry-after", secs).into_response(),
+                None => reply.into_response(),
+            }
+        });
         let (addr, server) = warp::serve(route).bind_ephemeral(([127, 0, 0, 1], 0));
         tokio::spawn(server);
         format!("http://{addr}/stream")
@@ -384,7 +424,7 @@ mod tests {
             Err(DownloadError::Fatal(err)) => err,
             _ => panic!("a 403 must be fatal"),
         };
-        assert!(super::is_refusal(&refused), "{refused}");
+        assert_eq!(super::refused_for(&refused), Some(REFUSAL_TTL), "{refused}");
 
         let hops = [
             hop(cut_after(16 * 1024).await, Tier::Direct),
@@ -393,7 +433,27 @@ mod tests {
         let Err(DownloadError::Retryable(minted)) = fetch_over(&hops).await else {
             panic!("a ticket refused on the next route is retried");
         };
-        assert!(!super::is_refusal(&minted), "{minted}");
+        assert_eq!(super::refused_for(&minted), None, "{minted}");
+    }
+
+    #[tokio::test]
+    async fn a_busy_429_refuses_the_tier_for_its_retry_after() {
+        let busy_for = match fetch_over(&[hop(busy(Some("90")), Tier::Direct)]).await {
+            Err(DownloadError::Fatal(err)) => err,
+            _ => panic!("a 429 with retry-after is not retried at once"),
+        };
+        assert_eq!(
+            super::refused_for(&busy_for),
+            Some(Duration::from_secs(90)),
+            "{busy_for}"
+        );
+
+        let Err(DownloadError::Retryable(bare)) =
+            fetch_over(&[hop(busy(None), Tier::Direct)]).await
+        else {
+            panic!("a 429 without retry-after is retried");
+        };
+        assert_eq!(super::refused_for(&bare), None, "{bare}");
     }
 
     #[test]

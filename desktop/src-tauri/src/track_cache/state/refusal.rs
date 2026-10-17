@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use super::{PlaybackQuality, TrackCacheState};
 
-const REFUSAL_TTL: Duration = Duration::from_secs(600);
+pub(in crate::track_cache) const REFUSAL_TTL: Duration = Duration::from_secs(600);
 
 pub(super) struct Refusal {
     session: Option<String>,
@@ -45,10 +45,16 @@ impl TrackCacheState {
         })
     }
 
-    pub(super) fn note_refused(&self, tier: PlaybackQuality, session_id: Option<&str>) {
+    pub(super) fn note_refused(
+        &self,
+        tier: PlaybackQuality,
+        session_id: Option<&str>,
+        hold: Duration,
+    ) {
         if tier.rank() == PlaybackQuality::Sq.rank() {
             return;
         }
+        let hold = hold.min(REFUSAL_TTL);
         let Ok(mut refusal) = self.refusal.lock() else {
             return;
         };
@@ -61,18 +67,24 @@ impl TrackCacheState {
         *refusal = Some(Refusal {
             session: session_id.map(str::to_string),
             tier,
-            until: Instant::now() + REFUSAL_TTL,
+            until: Instant::now() + hold,
         });
         drop(refusal);
         self.diag(
             "WARN",
             format!(
-                "[TrackCache] server refused {} for this session, asking at most {} for {} min",
+                "[TrackCache] server refused {} for this session, asking at most {} for {} s",
                 tier.label(),
                 below(tier).label(),
-                REFUSAL_TTL.as_secs() / 60
+                hold.as_secs()
             ),
         );
+    }
+
+    pub fn forget_refusal(&self) {
+        if let Ok(mut refusal) = self.refusal.lock() {
+            *refusal = None;
+        }
     }
 }
 
@@ -116,13 +128,35 @@ mod tests {
     #[test]
     fn the_lowest_refusal_wins_and_sq_is_never_refused() {
         let (root, state) = test_state("refusal");
-        state.note_refused(Sq, Some("s1"));
+        state.note_refused(Sq, Some("s1"), REFUSAL_TTL);
         assert_eq!(state.allowed_quality(Hq, Some("s1")).label(), "hq");
 
-        state.note_refused(Hq, Some("s1"));
-        state.note_refused(Uq, Some("s1"));
+        state.note_refused(Hq, Some("s1"), REFUSAL_TTL);
+        state.note_refused(Uq, Some("s1"), REFUSAL_TTL);
         assert_eq!(state.allowed_quality(Uq, Some("s1")).label(), "sq");
         assert_eq!(state.allowed_quality(Hq, Some("s2")).label(), "hq");
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn a_refusal_holds_as_long_as_the_server_asked_but_never_past_the_cap() {
+        let (root, state) = test_state("refusal-hold");
+        state.note_refused(Hq, Some("s1"), Duration::ZERO);
+        assert_eq!(state.allowed_quality(Hq, Some("s1")).label(), "hq");
+
+        state.note_refused(Hq, Some("s1"), Duration::from_secs(86_400));
+        let until = state.refusal.lock().unwrap().as_ref().map(|r| r.until);
+        assert!(until.is_some_and(|until| until <= Instant::now() + REFUSAL_TTL));
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn a_premium_change_forgets_the_refusal() {
+        let (root, state) = test_state("refusal-premium");
+        state.note_refused(Hq, Some("s1"), REFUSAL_TTL);
+        assert_eq!(state.allowed_quality(Uq, Some("s1")).label(), "sq");
+        state.forget_refusal();
+        assert_eq!(state.allowed_quality(Uq, Some("s1")).label(), "uq");
         std::fs::remove_dir_all(root).ok();
     }
 }

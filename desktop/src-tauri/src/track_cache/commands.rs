@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::app::diagnostics;
 use crate::shared::blocking::run_blocking;
@@ -220,6 +220,12 @@ pub fn track_pinned_urns(urns: Vec<String>, state: State<'_, TrackCacheState>) -
     urns.into_iter()
         .filter(|urn| canonical_track_urn(urn).is_some_and(|urn| state.is_pinned(&urn)))
         .collect()
+}
+
+pub fn premium_changed(app: &crate::rt::AppHandle) {
+    if let Some(state) = app.try_state::<TrackCacheState>() {
+        state.forget_refusal();
+    }
 }
 
 #[tauri::command]

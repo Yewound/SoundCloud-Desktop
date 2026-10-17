@@ -161,6 +161,7 @@ pub async fn auth_set_premium(
         log_native(&app, "ERROR", format!("[auth] premium persist failed: {e}"));
     }
     app.emit(EVENT, guard.clone()).ok();
+    crate::track_cache::premium_changed(&app);
     Ok(())
 }
 
