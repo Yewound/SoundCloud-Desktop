@@ -1,16 +1,13 @@
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
-import { DISCORD_URL, DOCS_URL } from '../../../lib/constants';
+import { DISCORD_URL } from '../../../lib/constants';
 import { trackedInvoke } from '../../../lib/diagnostics';
+import { helpUrl } from '../../../lib/help-url';
 import { Activity, BookOpen, FolderOpen, LifeBuoy, MessageCircle } from '../../../lib/icons';
 import { useNetCheckStore } from '../../../lib/net/check';
 import { notifyError } from '../../../lib/notify';
 import { ActionButton } from '../ActionButton';
 import { Card, Divider, Row } from '../primitives';
-
-function errorGuideUrl(language: string): string {
-  return `${DOCS_URL}/${language.startsWith('ru') ? 'ERRORS.ru.md' : 'ERRORS.md'}`;
-}
 
 export function HelpCard() {
   const { t, i18n } = useTranslation();
@@ -25,7 +22,7 @@ export function HelpCard() {
         <ActionButton
           icon={<BookOpen size={12} />}
           label={t('settings.helpErrorsOpen')}
-          onClick={() => openUrl(errorGuideUrl(i18n.language))}
+          onClick={() => openUrl(helpUrl('errors', i18n.language))}
         />
       </Row>
       <Divider />

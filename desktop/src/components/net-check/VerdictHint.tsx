@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { ZAPRET_GUIDE_URL } from '../../lib/constants';
+import { helpUrl } from '../../lib/help-url';
 import { ExternalLink } from '../../lib/icons';
 import type { EnvInfo, Hint, Verdict } from '../../lib/net/check';
 import { type DpiAdvice, type DpiKind, dpiAdvice } from '../../lib/net/dpi';
@@ -45,9 +45,9 @@ function hintText(
 }
 
 const Exclusions = React.memo(({ advice }: { advice: DpiAdvice }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const openGuide = () => {
-    openUrl(ZAPRET_GUIDE_URL).catch(() => toast.error(t('common.error')));
+    openUrl(helpUrl('zapret', i18n.language)).catch(() => toast.error(t('common.error')));
   };
   return (
     <div className="w-full mt-3 text-left space-y-2">
